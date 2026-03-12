@@ -1,0 +1,150 @@
+name: quantum_possibilities_flutter
+version: 1.2.8+29
+#version: 1.1.2+12
+publish_to: none
+description: A modern social media application built with Flutter, featuring story, posts, reels, page, marketplace and so on..
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dio: ^5.4.1 # HTTP client - Network
+  http_parser: ^4.0.2 # HTTP parser - Network
+  connectivity_plus: ^6.1.3 # Check network connectivity - Network
+  get: ^4.7.2 # State management - State
+  image_picker: ^1.0.7 # Image picker - Picker
+  file_picker: ^8.0.7 # File picker - Picker
+  get_storage: ^2.1.1 # Local storage - Service
+  image_cropper: ^8.0.1 # Image cropper - Service
+  audioplayers: ^6.1.0 # Play audio from URL - Service
+  chewie: 1.8.1 # Video player with controls - Service
+  camera: ^0.10.1 # Camera plugin - Service
+  socket_io_client: ^3.0.2 # Socket IO client - Service
+  url_launcher: ^6.2.6 # URL launcher - Service
+  video_player: ^2.9.2 # Video player - Service
+  flutter_stripe: ^12.0.1 # Stripe payment - Service
+  rtmp_broadcaster: ^2.3.4 # RTMP - Service
+  screenshot: ^3.0.0 # Screenshot capture - Service
+  permission_handler: ^11.3.1 # Permission handler - Service
+  cupertino_icons: ^1.0.2 # Cupertino icons - View
+  cached_network_image: ^3.4.0 # Cache network image - View
+  cached_network_svg_image: ^1.2.0 # Cache network svg image - View
+  carousel_slider: ^5.0.0 # Carousel slider - View
+  dotted_border: ^3.1.0 # Dotted border - View
+  dropdown_search: ^5.0.6 # Dropdown search - View
+  flutter_html: ^3.0.0-beta.2 # HTML rendering - View
+  expandable_text: ^2.3.0 # Expandable text - View
+  flutter_holo_date_picker: ^1.1.3 # Date picker - View
+  flutter_easyloading: ^3.0.5 # Loading indicator - View
+  flutter_otp_text_field: ^1.2.0  # OTP text field - View
+  flutter_rating_bar: ^4.0.1 # Rating bar - View
+  flutter_svg: ^2.0.17 # SVG rendering - View
+  gif: ^2.3.0 # GIF rendering - View
+  reown_appkit: ^1.6.1
+  loading_animation_widget: ^1.3.0
+  intl: ^0.20.1 # Date and number formatting - View
+  intl_phone_number_input: ^0.7.4 # Phone number input - View
+  path_provider: ^2.1.3 # File path provider - View
+  reaction_button: ^0.0.7 # Reaction button - View
+  readmore: ^3.0.0 # Read more text - View
+  shimmer: ^3.0.0 # Shimmer effect - View
+  story: ^1.1.0 # Story view - View
+  app_links: ^6.4.0 # Wallet
+#  web3dart: ^3.0.0 # Wallet
+  web3dart: ^2.7.3 # Wallet
+  wallet: any # Wallet
+  convert: ^3.1.2 # Wallet
+  pretty_dio_logger: ^1.4.0 # Pretty logger for Dio - Debug
+  visibility_detector: ^0.4.0+2 #? Visibility detector - View - Can be removed
+  percent_indicator: ^4.2.4 #! Progress indicator - Need to remove
+  flutter_reaction_button: ^3.0.0+3 #! Need to remove
+  flutter_widget_from_html: ^0.16.0 #! Need to remove
+  share_plus: ^11.0.0 #? Share content - Need to remove
+  flutter_xlider: ^3.5.0 #? Can be removed - View
+  lottie: ^3.2.0 #? Animation - Can be removed - View
+  logger: ^2.6.2
+  firebase_core: ^3.5.0 # Firebase Initialization
+  firebase_messaging: ^15.2.5 # Push Notification
+  flutter_local_notifications: ^18.0.1 # Local Notifications
+  device_info_plus: ^11.1.1 # Device Info
+  crypto: ^3.0.6
+  webview_flutter: ^4.9.0
+  new_version_plus: ^0.1.1
+  package_info_plus: ^8.0.0
+  dropdown_button2: ^2.3.9
+  get_cli: ^1.9.1
+  video_thumbnail: ^0.5.0
+  timeago: ^3.7.1
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  fonts:
+    - family: SfProDisplay
+      fonts:
+        - asset: fonts/SfProDisplay-Regular.otf
+          weight: 500
+        - asset: fonts/SfProDisplay-Medium.otf
+          weight: 600
+        - asset: fonts/SfProDisplay-Bold.otf
+          weight: 700
+    - family: CedarvilleCursive
+      fonts:
+        - asset: fonts/CedarvilleCursive-Regular.ttf
+    - family: CourierPrime
+      fonts:
+        - asset: fonts/CourierPrime-Regular.ttf
+    - family: Oswald
+      fonts:
+        - asset: fonts/Oswald-VariableFont_wght.ttf
+    - family: Poppins
+      fonts:
+        - asset: fonts/Poppins-Medium.ttf
+    - family: Roboto
+      fonts:
+        - asset: fonts/Roboto-Regular.ttf
+    - family: WorkSans
+      fonts:
+        - asset: fonts/WorkSans-VariableFont_wght.ttf
+
+    - family: qp_icons
+      fonts:
+        - asset: assets/icon_collection/qp_icons.ttf
+
+  assets:
+    - assets/json/
+    - assets/json/en.json
+    - assets/json/bn.json
+    - assets/logo/
+    - assets/image/
+    - assets/icon/
+    - assets/icon/story/
+    - assets/icon/appbar/
+    - assets/icon/navbar/
+    - assets/icon/reaction/
+    - assets/icon/create_post/
+    - assets/icon/user_profile/
+    - assets/icon/user_menu/
+    - assets/icon/post_action/
+    - assets/icon/comment/
+    - assets/icon/group_profile/
+    - assets/other/
+    - assets/icon/live_event/
+    - assets/icon/other_profile/
+    - assets/image/story_bg/
+    - assets/icon/group_file_icons/
+    - assets/icon/notification/
+    - assets/icon/wallet/
+    - assets/icon/seller_panel/
+    - assets/icon/buyer_panel/
+    - assets/icon/marketplace/
+    - assets/icon/settings/
+    - assets/icon/post_media_layout/
+    - assets/animation/
+    - assets/icon_collection/

@@ -1,0 +1,96 @@
+class GroupProfileAlbumModel {
+  String? id;
+  String? caption;
+  String? video_thumbnail;
+  String? media;
+  String? postId;
+  String? albumId;
+  String? status;
+  int? ipAddress;
+  String? createdBy;
+  String? updateBy;
+  int? v;
+  String? createdAt;
+  String? updatedAt;
+  GroupProfileAlbumModel({
+    this.id,
+    this.caption,
+    this.video_thumbnail,
+    this.media,
+    this.postId,
+    this.albumId,
+    this.status,
+    this.ipAddress,
+    this.createdBy,
+    this.updateBy,
+    this.v,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  GroupProfileAlbumModel copyWith({
+    String? id,
+    String? caption,
+    String? video_thumbnail,
+    String? media,
+    String? postId,
+    String? albumId,
+    String? status,
+    int? ipAddress,
+    String? createdBy,
+    String? updateBy,
+    int? v,
+    String? createdAt,
+    String? updatedAt,
+  }) {
+    return GroupProfileAlbumModel(
+      id: id ?? this.id,
+      caption: caption ?? this.caption,
+      video_thumbnail: video_thumbnail ?? this.video_thumbnail,
+      media: media ?? this.media,
+      postId: postId ?? this.postId,
+      albumId: albumId ?? this.albumId,
+      status: status ?? this.status,
+      ipAddress: ipAddress ?? this.ipAddress,
+      createdBy: createdBy ?? this.createdBy,
+      updateBy: updateBy ?? this.updateBy,
+      v: v ?? this.v,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  factory GroupProfileAlbumModel.fromMap(Map<String, dynamic> map) {
+    return GroupProfileAlbumModel(
+      id: map['_id'],
+      caption: map['caption'],
+      video_thumbnail: map['video_thumbnail'],
+      media: map['media'],
+      postId: map['post_id'],
+      albumId: map['album_id'],
+      status: map['status'],
+      ipAddress: map['ip_address'],
+      createdBy: map['created_by'],
+      updateBy: map['update_by'],
+      v: map['__v'],
+      createdAt: map['createdAt'] != null ? map['createdAt'] as String : null,
+      updatedAt: map['updatedAt'] != null ? map['updatedAt'] as String : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        '_id': id,
+        'caption': caption,
+        'video_thumbnail': video_thumbnail,
+        'media': media,
+        'post_id': postId,
+        'album_id': albumId,
+        'status': status,
+        'ip_address': ipAddress,
+        'created_by': createdBy,
+        'update_by': updateBy,
+        '__v': v,
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
+      };
+}
