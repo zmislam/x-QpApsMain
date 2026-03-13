@@ -15,7 +15,6 @@ import '../../../utils/post_utlis.dart';
 import '../../../repository/page_repository.dart';
 import '../../image.dart';
 import '../../post_tag_list.dart';
-import '../post_icons/post_type_icons.dart';
 import '../post_icons/connection_status_icons.dart';
 import '../report_post_modal.dart';
 
@@ -99,9 +98,6 @@ class PagePostHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(width: 10),
-            // ─── Page Post Type Icon ───
-            const PagePostIcon(size: 20),
-            const SizedBox(width: 8),
             (model.post_type == 'Shared' &&
                 model.share_post_id?.post_type == 'campaign' &&
                 model.share_post_id?.adProduct?.pageInfo != null)

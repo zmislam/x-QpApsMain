@@ -15,7 +15,6 @@ import '../../../routes/profile_navigator.dart';
 import '../../../utils/post_utlis.dart';
 import '../../../services/api_communication.dart';
 import '../../image.dart';
-import '../post_icons/post_type_icons.dart';
 import '../post_icons/connection_status_icons.dart';
 import '../report_post_modal.dart';
 
@@ -100,12 +99,6 @@ class GroupPostHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // ─── Group Post Type Icon ───
-              const Padding(
-                padding: EdgeInsets.only(top: 2),
-                child: GroupPostIcon(size: 20),
-              ),
-              const SizedBox(width: 8),
               InkWell(
                 onTap: () {
                   String sharedGroupId = model.share_post_id?.groupId?.id ?? '';

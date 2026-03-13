@@ -195,6 +195,7 @@ abstract class Routes {
       _Paths.CHANGE_LANGUAGE;
   static const FEED_PREFERENCES = _Paths.FEED_PREFERENCES;
   static const SUGGESTED_REELS = _Paths.SUGGESTED_REELS;
+  static const FEEDS = _Paths.FEEDS;
 }
 
 abstract class _Paths {
@@ -373,4 +374,5 @@ abstract class _Paths {
   static const CHANGE_LANGUAGE = '/change-language';
   static const FEED_PREFERENCES = '/feed-preferences';
   static const SUGGESTED_REELS = '/suggested-reels';
+  static const FEEDS = '/feeds';
 }

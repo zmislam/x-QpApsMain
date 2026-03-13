@@ -101,7 +101,7 @@ class PostCard extends StatelessWidget {
               children: [
                 // ─── WhyShown badge (EdgeRank context) ───
                 if (model.whyShown != null && model.whyShown!.isNotEmpty)
-                  WhyShownWidget(text: model.whyShown!),
+                  WhyShownWidget(text: model.whyShown!, model: model),
 
                 // ─── Header (varies by post type) ───
                 _buildHeader(context),

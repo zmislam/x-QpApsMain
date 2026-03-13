@@ -16,7 +16,6 @@ import '../../../routes/profile_navigator.dart';
 import '../../../utils/post_utlis.dart';
 import '../../image.dart';
 import '../../post_tag_list.dart';
-import '../post_icons/post_type_icons.dart';
 import '../post_icons/connection_status_icons.dart';
 import '../../../repository/user_relationships_repository.dart';
 
@@ -290,7 +289,6 @@ class PostHeader extends StatelessWidget {
   Widget _buildNormalHeader(
       BuildContext context, UserIdModel? userModel, UserModel currentUserModel) {
     final bool isOwner = model.user_id?.id == currentUserModel.id;
-    final postTypeIcon = getPostTypeIcon(model, size: 20);
     final connectionStatus = getUserPostConnectionStatus(model, currentUserModel.id ?? '');
     final connectionIcon = getConnectionStatusIcon(
       connectionStatus,
@@ -314,12 +312,6 @@ class PostHeader extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // ─── Post Type Icon ───
-            if (postTypeIcon != null) ...[
-              postTypeIcon,
-              const SizedBox(width: 8),
-            ],
-
             // ─── Avatar ───
             ClipRRect(
               borderRadius: BorderRadius.circular(FeedDesignTokens.avatarSize / 2),

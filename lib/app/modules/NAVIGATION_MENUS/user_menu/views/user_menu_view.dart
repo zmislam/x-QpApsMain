@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../config/constants/qp_icons_icons.dart';
 import '../../../../data/login_creadential.dart';
-import '../../../../extension/num.dart';
 import '../../../../extension/string/string_image_path.dart';
-import '../../../tab_view/controllers/tab_view_controller.dart';
 
 import '../../../../components/image.dart';
-import '../../../../config/constants/app_assets.dart';
 import '../../../../routes/app_pages.dart';
 import '../../settings_privacy/views/settings_privacy_view.dart';
-import '../components/user_property_card.dart';
-import '../components/user_setting_card.dart';
 import '../controllers/user_menu_controller.dart';
 import '../sub_menus/all_pages/pages/controllers/pages_controller.dart';
 import '../widget/change_to_original_profile.dart';
 import '../widget/user_profile_change_button.dart';
+import '../../../tab_view/controllers/tab_view_controller.dart';
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  User Menu — Facebook-inspired hamburger menu redesign
+//  Backup: _backup_user_menu/user_menu_view.dart.bak
+// ═════════════════════════════════════════════════════════════════════════════
 
 class UserMenuView extends GetView<UserMenuController> {
   const UserMenuView({super.key});
@@ -23,355 +23,773 @@ class UserMenuView extends GetView<UserMenuController> {
   @override
   Widget build(BuildContext context) {
     final profile = LoginCredential().getUserInfoData().isProfileVerified;
-    return Scaffold(
-        // =========================== body section ==============================
-        body: SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            //====================================================== Menu & Search Section ======================================================//
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isPageProfile = controller.loginCredential.getProfileSwitch();
 
-             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF18191A) : const Color(0xFFF0F2F5),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Shortcuts'.tr,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
+                const SizedBox(height: 8),
+
+                // ════════════════════════════════════════════════════════════
+                //  1. PROFILE CARD — Avatar + Name + Page switcher
+                // ════════════════════════════════════════════════════════════
+                _buildProfileCard(context, profile, isDark),
+
+                const SizedBox(height: 20),
+
+                // ════════════════════════════════════════════════════════════
+                //  2. YOUR SHORTCUTS — Horizontal scrollable
+                // ════════════════════════════════════════════════════════════
+                if (!isPageProfile) ...[
+                  Text(
+                    'Your shortcuts'.tr,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF1C1E21),
+                    ),
                   ),
-                ),
-                Icon(
-                  Icons.search,
-                  size: 30,
-                )
+                  const SizedBox(height: 12),
+                  _buildShortcutsRow(context, isDark),
+                  const SizedBox(height: 20),
+                ],
+
+                // ════════════════════════════════════════════════════════════
+                //  3. MENU GRID — 2-column cards
+                // ════════════════════════════════════════════════════════════
+                _buildMenuGrid(context, isDark, isPageProfile),
+
+                const SizedBox(height: 8),
+
+                // ════════════════════════════════════════════════════════════
+                //  4. SEE MORE BUTTON
+                // ════════════════════════════════════════════════════════════
+                _buildSeeMoreButton(context, isDark, isPageProfile),
+
+                const SizedBox(height: 16),
+
+                // ════════════════════════════════════════════════════════════
+                //  5. BOTTOM SECTIONS — Help, Settings, Sign Out
+                // ════════════════════════════════════════════════════════════
+                _buildBottomActions(context, isDark),
+
+                const SizedBox(height: 32),
               ],
             ),
-            const SizedBox(height: 10),
-            //====================================================== Profile Card ======================================================//
-            InkWell(
-              onTap: () async {
-                if (controller.loginCredential.getProfileSwitch()) {
-                  await Get.toNamed(Routes.ADMIN_PAGE,
-                      arguments: controller.loginCredential
-                          .getUserData()
-                          .pageUserName);
-                } else {
-                  await Get.toNamed(Routes.PROFILE, preventDuplicates: false);
-                  controller.userModel.value =
-                      controller.loginCredential.getUserData();
-                }
-              },
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Row(
-                    children: [
-                      Obx(
-                            () => NetworkCircleAvatar(
-                          imageUrl: (controller.profileImage.value).formatedProfileUrl,
-                          radius: 30,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
+          ),
+        ),
+      ),
+    );
+  }
 
-                      Expanded(
-                        child: Obx(
-                              () {
-                            final name = controller.profileName.value;
-                            return RichText(
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              text: TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  if (profile == true)
-                                    const WidgetSpan(
-                                      alignment: PlaceholderAlignment.middle,
-                                      child: Padding(
-                                        padding: EdgeInsets.only(left: 4),
-                                        child: Icon(
-                                          Icons.verified,
-                                          color: Color(0xFF0D7377),
-                                          size: 16,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      if (controller.loginCredential.getProfileSwitch())
-                        const ChangeToOriginalProfile(),
-
-                      const UserProfileChangeButton(),
-                    ],
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  1. PROFILE CARD
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildProfileCard(BuildContext context, bool? profile, bool isDark) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () async {
+        if (controller.loginCredential.getProfileSwitch()) {
+          await Get.toNamed(Routes.ADMIN_PAGE,
+              arguments: controller.loginCredential.getUserData().pageUserName);
+        } else {
+          await Get.toNamed(Routes.PROFILE, preventDuplicates: false);
+          controller.userModel.value = controller.loginCredential.getUserData();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF242526) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // ── Avatar ────────────────────────────────────────────────
+            Obx(
+              () => ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: NetworkCircleAvatar(
+                    imageUrl: (controller.profileImage.value).formatedProfileUrl,
+                    radius: 24,
                   ),
                 ),
               ),
-
             ),
-            const SizedBox(height: 10),
-            //====================================================== User Properties Section ======================================================//
+            const SizedBox(width: 12),
 
-            GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 5.0,
-                  mainAxisSpacing: 5.0,
-                  childAspectRatio: 2.5,
+            // ── Name + verified ──────────────────────────────────────
+            Expanded(
+              child: Obx(() {
+                final name = controller.profileName.value;
+                return RichText(
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: name,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : const Color(0xFF1C1E21),
+                        ),
+                      ),
+                      if (profile == true)
+                        const WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: EdgeInsets.only(left: 5),
+                            child: Icon(
+                              Icons.verified,
+                              color: Color(0xFF0D7377),
+                              size: 17,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(width: 8),
+
+            // ── Profile switch buttons ────────────────────────────────
+            if (controller.loginCredential.getProfileSwitch())
+              const ChangeToOriginalProfile(),
+            const UserProfileChangeButton(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  2. YOUR SHORTCUTS — Horizontal scrollable row
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildShortcutsRow(BuildContext context, bool isDark) {
+    // Shortcut items from user's recent pages/groups
+    // For now showing the explore/groups/pages as shortcuts
+    final shortcuts = <_ShortcutItem>[
+      _ShortcutItem(
+        label: 'Explore',
+        icon: Icons.explore_outlined,
+        onTap: () => Get.toNamed(Routes.EXPLORE),
+      ),
+      _ShortcutItem(
+        label: 'Groups',
+        icon: Icons.group_outlined,
+        onTap: () => Get.toNamed(Routes.GROUPS),
+      ),
+      _ShortcutItem(
+        label: 'Pages',
+        icon: Icons.flag_outlined,
+        onTap: () {
+          PagesController pagesController = Get.find<PagesController>();
+          pagesController.getAllPages();
+          Get.toNamed(Routes.PAGES);
+        },
+      ),
+      _ShortcutItem(
+        label: 'Reels',
+        icon: Icons.play_circle_outline_rounded,
+        onTap: () {
+          try {
+            TabViewController tabViewController = Get.find<TabViewController>();
+            tabViewController.tabController.animateTo(1);
+          } catch (_) {}
+        },
+      ),
+      _ShortcutItem(
+        label: 'Marketplace',
+        icon: Icons.storefront_outlined,
+        onTap: () {
+          try {
+            TabViewController tabViewController = Get.find<TabViewController>();
+            LoginCredential loginCredential = LoginCredential();
+            if (loginCredential.getProfileSwitch()) {
+              tabViewController.tabController.animateTo(3);
+            } else {
+              tabViewController.tabController.animateTo(4);
+            }
+          } catch (_) {}
+        },
+      ),
+    ];
+
+    return SizedBox(
+      height: 80,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: shortcuts.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final item = shortcuts[index];
+          return GestureDetector(
+            onTap: item.onTap,
+            child: SizedBox(
+              width: 80,
+              child: Column(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF3A3B3C)
+                          : const Color(0xFFE4E6EB),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      item.icon,
+                      size: 26,
+                      color: isDark
+                          ? const Color(0xFFB0B3B8)
+                          : const Color(0xFF65676B),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? const Color(0xFFB0B3B8) : const Color(0xFF65676B),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  3. MENU GRID — 2-column cards with Facebook-style icons
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Number of items initially visible (can expand with "See more")
+  static const int _initialVisibleCount = 8;
+
+  List<_MenuGridItem> _getMenuItems(bool isPageProfile) {
+    if (isPageProfile) {
+      return [
+        _MenuGridItem(
+          icon: Icons.dynamic_feed_rounded,
+          iconColor: const Color(0xFF1877F2),
+          label: 'Feeds',
+          onTap: () => Get.toNamed(Routes.FEEDS),
+        ),
+        _MenuGridItem(
+          icon: Icons.flag_rounded,
+          iconColor: const Color(0xFFFF6D00),
+          label: 'Pages',
+          onTap: () {
+            PagesController pagesController = Get.find<PagesController>();
+            pagesController.getAllPages();
+            Get.toNamed(Routes.PAGES);
+          },
+        ),
+        _MenuGridItem(
+          icon: Icons.bookmark_rounded,
+          iconColor: const Color(0xFF9C27B0),
+          label: 'Bookmarks',
+          onTap: () => Get.toNamed(Routes.BOOKMARKS),
+        ),
+        _MenuGridItem(
+          icon: Icons.storefront_rounded,
+          iconColor: const Color(0xFF1877F2),
+          label: 'Marketplace',
+          onTap: () {
+            try {
+              TabViewController tabViewController = Get.find<TabViewController>();
+              tabViewController.tabController.animateTo(3);
+            } catch (_) {}
+          },
+        ),
+        _MenuGridItem(
+          icon: Icons.shopping_bag_rounded,
+          iconColor: const Color(0xFF43A047),
+          label: 'Buyer Panel',
+          onTap: () => Get.toNamed(Routes.BUYER_DASHBOARD),
+        ),
+        _MenuGridItem(
+          icon: Icons.sell_rounded,
+          iconColor: const Color(0xFFE65100),
+          label: 'Seller Panel',
+          onTap: () => Get.toNamed(Routes.SELLER_DASHBOARD),
+        ),
+        _MenuGridItem(
+          icon: Icons.account_balance_wallet_rounded,
+          iconColor: const Color(0xFF6A1B9A),
+          label: 'Wallet',
+          onTap: () => Get.toNamed(Routes.QP_WALLET_DASHBOARD),
+        ),
+      ];
+    }
+
+    return [
+      _MenuGridItem(
+        icon: Icons.dynamic_feed_rounded,
+        iconColor: const Color(0xFF1877F2),
+        label: 'Feeds',
+        onTap: () => Get.toNamed(Routes.FEEDS),
+      ),
+      _MenuGridItem(
+        icon: Icons.people_rounded,
+        iconColor: const Color(0xFF1EBEA5),
+        label: 'Friends',
+        onTap: () => Get.toNamed(
+          Routes.MY_PROFILE_FRIENDS,
+          arguments: controller.userModel.value?.id ?? '',
+        ),
+      ),
+      _MenuGridItem(
+        icon: Icons.event_rounded,
+        iconColor: const Color(0xFFD32F2F),
+        label: 'Events',
+        onTap: () => Get.toNamed(Routes.EVENT),
+      ),
+      _MenuGridItem(
+        icon: Icons.card_giftcard_rounded,
+        iconColor: const Color(0xFF1EBEA5),
+        label: 'Birthdays',
+        onTap: () => Get.toNamed(Routes.BIRTHDAY),
+      ),
+      _MenuGridItem(
+        icon: Icons.bookmark_rounded,
+        iconColor: const Color(0xFF9C27B0),
+        label: 'Saved',
+        onTap: () => Get.toNamed(Routes.BOOKMARKS),
+      ),
+      _MenuGridItem(
+        icon: Icons.groups_rounded,
+        iconColor: const Color(0xFF1877F2),
+        label: 'Groups',
+        onTap: () => Get.toNamed(Routes.GROUPS),
+      ),
+      _MenuGridItem(
+        icon: Icons.play_circle_filled_rounded,
+        iconColor: const Color(0xFFFF4444),
+        label: 'Reels',
+        onTap: () {
+          try {
+            TabViewController tabViewController = Get.find<TabViewController>();
+            tabViewController.tabController.animateTo(1);
+          } catch (_) {}
+        },
+      ),
+      _MenuGridItem(
+        icon: Icons.flag_rounded,
+        iconColor: const Color(0xFFFF6D00),
+        label: 'Pages',
+        onTap: () {
+          PagesController pagesController = Get.find<PagesController>();
+          pagesController.getAllPages();
+          Get.toNamed(Routes.PAGES);
+        },
+      ),
+      // ── Below items shown after "See more" ────────────────────────
+      _MenuGridItem(
+        icon: Icons.explore_rounded,
+        iconColor: const Color(0xFF00897B),
+        label: 'Explore',
+        onTap: () => Get.toNamed(Routes.EXPLORE),
+      ),
+      _MenuGridItem(
+        icon: Icons.storefront_rounded,
+        iconColor: const Color(0xFF1877F2),
+        label: 'Marketplace',
+        onTap: () {
+          try {
+            TabViewController tabViewController = Get.find<TabViewController>();
+            tabViewController.tabController.animateTo(4);
+          } catch (_) {}
+        },
+      ),
+      _MenuGridItem(
+        icon: Icons.shopping_bag_rounded,
+        iconColor: const Color(0xFF43A047),
+        label: 'Buyer Panel',
+        onTap: () => Get.toNamed(Routes.BUYER_DASHBOARD),
+      ),
+      _MenuGridItem(
+        icon: Icons.sell_rounded,
+        iconColor: const Color(0xFFE65100),
+        label: 'Seller Panel',
+        onTap: () => Get.toNamed(Routes.SELLER_DASHBOARD),
+      ),
+      _MenuGridItem(
+        icon: Icons.account_balance_wallet_rounded,
+        iconColor: const Color(0xFF6A1B9A),
+        label: 'Wallet',
+        onTap: () => Get.toNamed(Routes.QP_WALLET_DASHBOARD),
+      ),
+      _MenuGridItem(
+        icon: Icons.campaign_rounded,
+        iconColor: const Color(0xFF00897B),
+        label: 'Ad Manager',
+        onTap: () => Get.toNamed(Routes.ADS_CAMPAIGN_HOME),
+      ),
+    ];
+  }
+
+  Widget _buildMenuGrid(BuildContext context, bool isDark, bool isPageProfile) {
+    final items = _getMenuItems(isPageProfile);
+    final visibleCount = items.length <= _initialVisibleCount
+        ? items.length
+        : _initialVisibleCount;
+    final visibleItems = items.sublist(0, visibleCount);
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 2.0,
+      ),
+      itemCount: visibleItems.length,
+      itemBuilder: (context, index) {
+        final item = visibleItems[index];
+        return _MenuCard(item: item, isDark: isDark);
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  4. SEE MORE BUTTON
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildSeeMoreButton(BuildContext context, bool isDark, bool isPageProfile) {
+    final items = _getMenuItems(isPageProfile);
+    if (items.length <= _initialVisibleCount) return const SizedBox.shrink();
+
+    return _SeeMoreSection(
+      isDark: isDark,
+      hiddenItems: items.sublist(_initialVisibleCount),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  5. BOTTOM ACTIONS — Help, Settings, Sign Out
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildBottomActions(BuildContext context, bool isDark) {
+    return Column(
+      children: [
+        // ── Help & Support ───────────────────────────────────────────
+        _ExpandableSettingRow(
+          icon: Icons.help_outline_rounded,
+          title: 'Help & support'.tr,
+          isDark: isDark,
+          onTap: () => Get.toNamed(Routes.HELP_SUPPORT),
+        ),
+        Divider(
+          height: 1,
+          color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
+        ),
+
+        // ── Settings & Privacy ──────────────────────────────────────
+        _ExpandableSettingRow(
+          icon: Icons.settings_outlined,
+          title: 'Settings & privacy'.tr,
+          isDark: isDark,
+          onTap: () async {
+            await Get.to(() => const SettingsPrivacyView());
+            controller.userModel.value = controller.loginCredential.getUserData();
+          },
+        ),
+        Divider(
+          height: 1,
+          color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
+        ),
+
+        // ── Give Feedback ───────────────────────────────────────────
+        _ExpandableSettingRow(
+          icon: Icons.feedback_outlined,
+          title: 'Give us Feedback'.tr,
+          isDark: isDark,
+          onTap: () {},
+        ),
+        Divider(
+          height: 1,
+          color: isDark ? const Color(0xFF3A3B3C) : const Color(0xFFE4E6EB),
+        ),
+
+        // ── Sign Out ────────────────────────────────────────────────
+        _ExpandableSettingRow(
+          icon: Icons.logout_rounded,
+          title: 'Sign Out'.tr,
+          isDark: isDark,
+          onTap: controller.onTapSignOut,
+          isDestructive: true,
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+//  DATA CLASSES
+// =============================================================================
+
+class _ShortcutItem {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ShortcutItem({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+}
+
+class _MenuGridItem {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final VoidCallback onTap;
+
+  const _MenuGridItem({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+  });
+}
+
+// =============================================================================
+//  MENU CARD — Individual grid item with Facebook-style colored icon
+// =============================================================================
+
+class _MenuCard extends StatelessWidget {
+  final _MenuGridItem item;
+  final bool isDark;
+
+  const _MenuCard({required this.item, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isDark ? const Color(0xFF242526) : Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: item.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDark
+                  ? const Color(0xFF3A3B3C)
+                  : const Color(0xFFE4E6EB),
+              width: 0.5,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                item.icon,
+                size: 26,
+                color: item.iconColor,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                item.label,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : const Color(0xFF1C1E21),
                 ),
-                itemCount:
-                    (controller.loginCredential.getProfileSwitch() == true)
-                        ? 7
-                        : 10,
-                itemBuilder: (context, index) {
-                  if (controller.loginCredential.getProfileSwitch() == true) {
-                    switch (index) {
-                      case 0:
-                        return UserPropertyCard(
-                          asset: AppAssets.EXPLORE_ICON,
-                          title: 'Explore'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.EXPLORE);
-                          },
-                        );
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-                      case 1:
-                        return UserPropertyCard(
-                          asset: AppAssets.PAGE_ICON,
-                          title: 'Pages'.tr,
-                          onTap: () {
-                            PagesController pagesController =
-                                Get.find<PagesController>();
-                            pagesController.getAllPages();
-                            Get.toNamed(Routes.PAGES);
-                          },
-                        );
-                      case 2:
-                        return UserPropertyCard(
-                          asset: AppAssets.BOOKMARKS_ICON,
-                          title: 'Bookmarks'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.BOOKMARKS);
-                          },
-                        );
-                      case 3:
-                        return UserPropertyCard(
-                          asset: AppAssets.MARKET_PLACE_ICON,
-                          title: 'Marketplace'.tr,
-                          onTap: () {
-                            debugPrint('MArket Place  Tapped:::::3');
-                            DefaultTabController.of(context).animateTo(3);
-                          },
-                        );
-                      case 4:
-                        return UserPropertyCard(
-                          asset: AppAssets.BUYER_PANEL_ICON,
-                          title: 'Buyer Panel'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.BUYER_DASHBOARD);
-                          },
-                        );
-                      case 5:
-                        return UserPropertyCard(
-                          asset: AppAssets.SELLER_PANEL_ICON,
-                          title: 'Seller Panel'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.SELLER_DASHBOARD);
-                          },
-                        );
-                      case 6:
-                        return UserPropertyCard(
-                          asset: AppAssets.SELLER_PANEL_ICON,
-                          title: 'Wallet'.tr,
-                          onTap: () {
-                            // Get.toNamed(Routes.WALLET);
-                            Get.toNamed(Routes.QP_WALLET_DASHBOARD);
-                          },
-                        );
-                      default:
-                        return const SizedBox
-                            .shrink(); // Return an empty widget for safety
-                    }
-                  } else {
-                    switch (index) {
-                      case 0:
-                        return UserPropertyCard(
-                          icon: QpIcon.explore,
-                          asset: AppAssets.EXPLORE_ICON,
-                          title: 'Explore'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.EXPLORE);
-                          },
-                        );
-                      case 1:
-                        return UserPropertyCard(
-                          icon: QpIcon.friendTwo,
-                          asset: AppAssets.FRIENDS_ICON,
-                          title: 'Friends'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.MY_PROFILE_FRIENDS,
-                                arguments:
-                                    controller.userModel.value?.id ?? '');
-                          },
-                        );
-                      case 2:
-                        return UserPropertyCard(
-                          icon: QpIcon.group,
-                          asset: AppAssets.GROUPS_ICON,
-                          title: 'Groups'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.GROUPS);
-                          },
-                        );
-                      case 3:
-                        return UserPropertyCard(
-                          icon: QpIcon.page,
-                          asset: AppAssets.PAGE_ICON,
-                          title: 'Pages'.tr,
-                          onTap: () {
-                            PagesController pageController =
-                                Get.find<PagesController>();
-                            pageController.getAllPages();
-                            Get.toNamed(Routes.PAGES);
-                          },
-                        );
-                      case 4:
-                        return UserPropertyCard(
-                          icon: QpIcon.bookmark,
-                          asset: AppAssets.BOOKMARKS_ICON,
-                          title: 'Bookmarks'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.BOOKMARKS);
-                          },
-                        );
-                      case 5:
-                        return UserPropertyCard(
-                          icon: QpIcon.marketplace,
-                          asset: AppAssets.MARKET_PLACE_ICON,
-                          title: 'Marketplace'.tr,
-                          onTap: () {
-                            TabViewController tabViewController =
-                                Get.find<TabViewController>();
-                            LoginCredential loginCredential = LoginCredential();
+// =============================================================================
+//  SEE MORE SECTION — Expandable grid for hidden items
+// =============================================================================
 
-                            if (loginCredential.getProfileSwitch()) {
-                              // * GO TO MARKETPLACE WHEN ON PAGE PROFILE
-                              tabViewController.tabController.animateTo(3);
-                            } else {
-                              // * GO TO MARKETPLACE WHEN ON GENERAL PROFILE
-                              tabViewController.tabController.animateTo(4);
-                            }
-                          },
-                        );
-                      case 6:
-                        return UserPropertyCard(
-                          icon: QpIcon.buyer,
-                          asset: AppAssets.BUYER_PANEL_ICON,
-                          title: 'Buyer Panel'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.BUYER_DASHBOARD);
-                          },
-                        );
-                      case 7:
-                        return UserPropertyCard(
-                          icon: QpIcon.seller,
-                          asset: AppAssets.SELLER_PANEL_ICON,
-                          title: 'Seller Panel'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.SELLER_DASHBOARD);
-                          },
-                        );
-                      case 8:
-                        return UserPropertyCard(
-                          icon: QpIcon.wallet,
-                          asset: AppAssets.SELLER_PANEL_ICON,
-                          title: 'Wallet'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.QP_WALLET_DASHBOARD);
-                          },
-                        );
-                      case 9:
-                        return UserPropertyCard(
-                          icon: QpIcon.marketplace,
-                          asset: '',
-                          title: 'Ad Manager'.tr,
-                          onTap: () {
-                            Get.toNamed(Routes.ADS_CAMPAIGN_HOME);
-                          },
-                        );
-                      default:
-                        return const SizedBox
-                            .shrink(); // Return an empty widget for safety
-                    }
-                  }
-                }),
+class _SeeMoreSection extends StatefulWidget {
+  final bool isDark;
+  final List<_MenuGridItem> hiddenItems;
 
-            // const SizedBox(height: 10),
+  const _SeeMoreSection({
+    required this.isDark,
+    required this.hiddenItems,
+  });
 
-            //====================================================== Setting Section ======================================================//
+  @override
+  State<_SeeMoreSection> createState() => _SeeMoreSectionState();
+}
 
-            Card(
-              // color: Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    UserSettingCard(
-                        icon: QpIcon.setting,
-                        imagePath: AppAssets.SETTINGS_ICON,
-                        title: 'Settings & privacy'.tr,
-                        onTap: () async {
-                          await Get.to(() => const SettingsPrivacyView());
-                          controller.userModel.value =
-                              controller.loginCredential.getUserData();
-                        }),
-                    const SizedBox(height: 20),
-                    UserSettingCard(
-                        icon: QpIcon.help,
-                        imagePath: AppAssets.HELP_CENTER_ICON,
-                        title: 'Help and Support Center'.tr,
-                        onTap: () {
-                          Get.toNamed(Routes.HELP_SUPPORT);
-                        }),
-                    const SizedBox(height: 20),
-                    UserSettingCard(
-                      // icon: QpIcon.setting,  //TODO: Change to QpIcon.feedback when added to the font
-                      imagePath: AppAssets.GIVE_US_FEEDBACK_ICON,
-                      title: 'Give us Feedback'.tr,
-                      onTap: () {},
-                    ),
-                    const SizedBox(height: 20),
-                    UserSettingCard(
-                      icon: QpIcon.signOut,
-                      imagePath: AppAssets.SIGN_OUT_ICON,
-                      title: 'Sign Out'.tr,
-                      onTap: controller.onTapSignOut,
-                    ),
-                    MediaQuery.of(context).padding.bottom > 0 ? 30.h : 0.h,
-                  ],
+class _SeeMoreSectionState extends State<_SeeMoreSection>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // ── Expanded items ──────────────────────────────────────────
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 2.0,
+              ),
+              itemCount: widget.hiddenItems.length,
+              itemBuilder: (context, index) {
+                final item = widget.hiddenItems[index];
+                return _MenuCard(item: item, isDark: widget.isDark);
+              },
+            ),
+          ),
+          crossFadeState:
+              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 300),
+        ),
+
+        // ── See more / See less button ──────────────────────────────
+        GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: widget.isDark
+                  ? const Color(0xFF3A3B3C)
+                  : const Color(0xFFE4E6EB),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _expanded ? 'See less' : 'See more',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: widget.isDark ? Colors.white : const Color(0xFF1C1E21),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+//  EXPANDABLE SETTING ROW — Bottom section items
+// =============================================================================
+
+class _ExpandableSettingRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final bool isDark;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  const _ExpandableSettingRow({
+    required this.icon,
+    required this.title,
+    required this.isDark,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = isDestructive
+        ? Colors.red
+        : (isDark ? Colors.white : const Color(0xFF1C1E21));
+    final iconBgColor = isDark
+        ? const Color(0xFF3A3B3C)
+        : const Color(0xFFE4E6EB);
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconBgColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isDestructive
+                    ? Colors.red
+                    : (isDark ? const Color(0xFFB0B3B8) : const Color(0xFF65676B)),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: textColor,
                 ),
               ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 22,
+              color: isDark ? const Color(0xFF65676B) : const Color(0xFF8A8D91),
             ),
           ],
         ),
       ),
-    ));
+    );
   }
 }
+

@@ -2,6 +2,8 @@ import 'package:get/get.dart';
 
 import '../modules/NAVIGATION_MENUS/account_switch_page/bindings/account_switch_page_binding.dart';
 import '../modules/NAVIGATION_MENUS/account_switch_page/views/account_switch_page_view.dart';
+import '../modules/NAVIGATION_MENUS/feeds/bindings/feeds_binding.dart';
+import '../modules/NAVIGATION_MENUS/feeds/views/feeds_view.dart';
 import '../modules/NAVIGATION_MENUS/reels/sub_menu/suggested_reels/bindings/suggested_reels_binding.dart';
 import '../modules/NAVIGATION_MENUS/reels/sub_menu/suggested_reels/views/suggested_reels_view.dart';
 import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_dashboard/bindings/buyer_panel_dashboard_binding.dart';
@@ -502,6 +504,10 @@ class AppPages {
       name: _Paths.REACTIONS,
       page: () => const ReactionsView(),
       binding: ReactionsBinding(),
+      opaque: false,
+      showCupertinoParallax: false,
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 200),
     ),
     GetPage(
       name: _Paths.CREATE_STORY,
@@ -1065,6 +1071,11 @@ class AppPages {
       name: _Paths.SUGGESTED_REELS,
       page: () => const SuggestedReelsView(),
       binding: SuggestedReelsBinding(),
+    ),
+    GetPage(
+      name: _Paths.FEEDS,
+      page: () => const FeedsView(),
+      binding: FeedsBinding(),
     ),
   ];
 }

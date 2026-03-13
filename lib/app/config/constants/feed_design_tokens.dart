@@ -99,11 +99,11 @@ class FeedDesignTokens {
   static const double threeDotButtonSize = 36.0;
 
   // ─── Story Card Dimensions ───────────────────────────────
-  static const double storyCardHeight = 200.0;
-  static const double storyCardWidth = 112.0;
+  static const double storyCardHeight = 165.0;
+  static const double storyCardWidth = 105.0;
   static const double storyCardRadius = 12.0;
-  static const double storyAvatarSize = 36.0;
-  static const double storyCreatePlusSize = 32.0;
+  static const double storyAvatarSize = 32.0;
+  static const double storyCreatePlusSize = 30.0;
   static const double storyGap = 8.0;
 
   // ─── Action Bar ─────────────────────────────────────────
