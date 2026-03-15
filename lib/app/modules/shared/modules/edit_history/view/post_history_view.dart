@@ -1,683 +1,366 @@
-import 'package:expandable_text/expandable_text.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../../extension/string/string_image_path.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
+
 import '../../../../../components/image.dart';
-import '../../../../../components/media/media_grid/media_grid.dart';
-import '../../../../../components/post/post_body/post_body.dart';
-import '../../../../../components/post_tag_list.dart';
-import '../../../../../components/video_player/video_player.dart';
-import '../../../../../extension/date_time_extension.dart';
-import '../../../../../models/media.dart';
-import '../../../../../models/post.dart';
-import '../../../../../routes/app_pages.dart';
+import '../../../../../config/constants/feed_design_tokens.dart';
+import '../../../../../data/post_background.dart';
+import '../../../../../extension/string/string_image_path.dart';
 import '../../../../../utils/image_utils.dart';
-import '../../../../../utils/post_utlis.dart';
 import '../controller/post_history_controller.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Post Edit History — Facebook-style timeline view
+// ─────────────────────────────────────────────────────────────────────────────
 class PostHistoryView extends GetView<PostHistoryController> {
-  const PostHistoryView(
-      {super.key,
-      this.onTapBodyViewMoreMedia,
-      this.onTapViewMoreMedia,
-      this.onTapViewOtherProfile});
-
-  final VoidCallback? onTapBodyViewMoreMedia;
-  final VoidCallback? onTapViewMoreMedia;
-  final VoidCallback? onTapViewOtherProfile;
+  const PostHistoryView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    controller.postId.value = Get.arguments;
-    controller.getPostHistory();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-        // backgroundColor: Colors.white,
-        appBar: AppBar(
-          iconTheme: const IconThemeData(
-            color: Colors.black, //change your color here
+      backgroundColor: FeedDesignTokens.surfaceBg(context),
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        backgroundColor: FeedDesignTokens.cardBg(context),
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back,
+              color: FeedDesignTokens.textPrimary(context)),
+          onPressed: () => Get.back(),
+        ),
+        title: Text(
+          'Edit History'.tr,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: FeedDesignTokens.textPrimary(context),
           ),
-          title: Text('Post Edit History'.tr,
-            style: TextStyle(
-              color: Colors.black,
+        ),
+        centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Divider(
+              height: 0.5, thickness: 0.5, color: FeedDesignTokens.divider(context)),
+        ),
+      ),
+      body: Obx(() {
+        // ── Loading ──
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        }
+
+        // ── Error ──
+        if (controller.hasError.value) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline,
+                      size: 48, color: FeedDesignTokens.textSecondary(context)),
+                  const SizedBox(height: 12),
+                  Text(
+                    controller.errorMessage.value,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: FeedDesignTokens.textSecondary(context),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: controller.refreshHistory,
+                    child: Text('Retry'.tr,
+                        style: TextStyle(
+                            color: FeedDesignTokens.brand(context),
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // ── Empty ──
+        if (controller.entries.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.history,
+                    size: 48, color: FeedDesignTokens.textSecondary(context)),
+                const SizedBox(height: 12),
+                Text(
+                  'No edit history found'.tr,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: FeedDesignTokens.textSecondary(context),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // ── List ──
+        final entries = controller.entries;
+        return RefreshIndicator(
+          onRefresh: controller.refreshHistory,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: entries.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final entry = entries[index];
+              final isOriginal = index == entries.length - 1;
+              return _HistoryCard(
+                entry: entry,
+                isOriginal: isOriginal,
+                isDark: isDark,
+              );
+            },
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Single history entry card
+// ─────────────────────────────────────────────────────────────────────────────
+class _HistoryCard extends StatelessWidget {
+  const _HistoryCard({
+    required this.entry,
+    required this.isOriginal,
+    required this.isDark,
+  });
+
+  final EditHistoryEntry entry;
+  final bool isOriginal;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final dateStr = DateFormat('MMM d, yyyy · h:mm a').format(entry.createdAt.toLocal());
+    final hasMedia = entry.postMedia.isNotEmpty;
+    final hasBgColor = entry.postBackgroundColor != null &&
+        entry.postBackgroundColor!.isNotEmpty;
+    final hasDescription = entry.description != null &&
+        entry.description!.trim().isNotEmpty;
+    final hasFeeling = entry.feelingName != null;
+    final hasActivity = entry.activityName != null;
+    final hasLocation = entry.locationName != null &&
+        entry.locationName!.isNotEmpty;
+
+    return Container(
+      color: FeedDesignTokens.cardBg(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header: label + timestamp ──
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: FeedDesignTokens.cardPaddingH, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                    color: FeedDesignTokens.divider(context), width: 0.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isOriginal
+                        ? FeedDesignTokens.brand(context).withValues(alpha: 0.1)
+                        : FeedDesignTokens.inputBg(context),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    isOriginal ? 'Original'.tr : 'Edited'.tr,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isOriginal
+                          ? FeedDesignTokens.brand(context)
+                          : FeedDesignTokens.textSecondary(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    dateStr,
+                    style: TextStyle(
+                      fontSize: FeedDesignTokens.timeSize,
+                      color: FeedDesignTokens.textSecondary(context),
+                    ),
+                  ),
+                ),
+                // Privacy icon
+                if (entry.postPrivacy != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Icon(
+                      _privacyIcon(entry.postPrivacy!),
+                      size: 14,
+                      color: FeedDesignTokens.textSecondary(context),
+                    ),
+                  ),
+              ],
             ),
           ),
-          centerTitle: true,
-          // backgroundColor: Colors.white,
-        ),
-        body: Obx(() => Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: controller.postList.value.length,
-                itemBuilder: (BuildContext context, int index) {
-                  PostModel postModel = controller.postList.value[index];
-                  List<String> imageUrls = [];
 
-                  for (MediaModel media in postModel.media ?? []) {
-                    imageUrls.add((media.media ?? '').formatedPostUrl);
-                  }
-
-                  return Column(children: [
-                    Container(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: InkWell(
-                        onTap: () {
-                          Get.toNamed(Routes.PROFILE);
-                        },
-                        child: Column(
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(width: 10),
-                                RoundCornerNetworkImage(
-                                  height: 40,
-                                  width: 40,
-                                  imageUrl: (
-                                    controller.userModel.profile_pic ?? ''
-                                  ).formatedProfileUrl,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      RichText(
-                                          text: TextSpan(children: [
-                                        TextSpan(
-                                          text: '${controller.userModel.first_name} ${controller.userModel.last_name}'.tr,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                        TextSpan(children: [
-                                          postModel.feeling_id != null
-                                              ? TextSpan(children: [
-                                                  TextSpan(
-                                                      children: [
-                                                        TextSpan(
-                                                            text: ' is feeling'.tr,
-                                                            style: TextStyle(
-                                                                color: Colors
-                                                                    .black,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                                fontSize: 16)),
-                                                        WidgetSpan(
-                                                            child: Padding(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  left: 3.0),
-                                                          child: ReactionIcon(
-                                                              postModel
-                                                                  .feeling_id!
-                                                                  .logo
-                                                                  .toString()),
-                                                        )),
-                                                        TextSpan(
-                                                            text: ' ${postModel.feeling_id!.feelingName}'.tr,
-                                                            style:
-                                                                TextStyle(
-                                                              color:
-                                                                  Colors.black,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              fontSize: 16,
-                                                            )),
-                                                      ],
-                                                      style: TextStyle(
-                                                          color: Colors.black,
-                                                          fontSize: 16)),
-                                                ])
-                                              : TextSpan(
-                                                  text: '',
-                                                  style: TextStyle(
-                                                      color:
-                                                          Colors.grey.shade700,
-                                                      fontSize: 16)),
-                                          TextSpan(
-                                              text: getLocationText(postModel),
-                                              style: TextStyle(
-                                                  color: Colors.black,
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: 16)),
-                                          TextSpan(
-                                              text: getTagText(postModel),
-                                              recognizer: TapGestureRecognizer()
-                                                ..onTap = () {
-                                                  Get.to(() => PostTagList(
-                                                        postModel: postModel,
-                                                      ));
-                                                },
-                                              style: TextStyle(
-                                                  color: Colors.black,
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: 16))
-                                        ]),
-                                      ])),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                              '${getDynamicFormatedTime(postModel.createdAt ?? '')} '),
-                                          Icon(
-                                            getIconAsPrivacy(
-                                                postModel.post_privacy ?? ''),
-                                            size: 17,
-                                          )
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    (postModel.event_type?.isNotEmpty ?? false)
-                        ?
-                        //======================================================== Showing Event Post ========================================================//
-                        Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [getEventIcon(postModel)],
-                              ),
-                              postModel.event_type == 'travel'
-                                  ? Padding(
-                                      padding: const EdgeInsets.only(
-                                          top: 5.0, left: 8.0, right: 8.0),
-                                      child: ExpandableText(
-                                        postModel.lifeEventId?.title ?? '',
-                                        expandText: 'See more',
-                                        maxLines: 5,
-                                        collapseText: 'see less',
-                                        style: TextStyle(
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.bold),
-                                      ))
-                                  : Container(),
-                              postModel.event_type == 'customevent'
-                                  ? Padding(
-                                      padding: const EdgeInsets.only(top: 5.0),
-                                      child: Text(
-                                        textAlign: TextAlign.center,
-                                        getCustomEventText(postModel),
-                                        style: TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                    )
-                                  : postModel.event_type ==
-                                          'milestonesandachievements'
-                                      ? Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 5.0),
-                                          child: Text(
-                                            textAlign: TextAlign.center,
-                                            getMilestonEventText(postModel),
-                                            style: TextStyle(
-                                                fontSize: 17,
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                        )
-                                      : postModel.event_type == 'travel'
-                                          ? Padding(
-                                              padding: const EdgeInsets.only(
-                                                  top: 5.0),
-                                              child: Text(
-                                                textAlign: TextAlign.center,
-                                                getTravelEventText(postModel),
-                                                style: TextStyle(
-                                                    fontSize: 17,
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            )
-                                          : postModel.event_type ==
-                                                  'relationship'
-                                              ? Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          top: 5.0),
-                                                  child: InkWell(
-                                                    onTap:
-                                                        onTapViewOtherProfile,
-                                                    child: Text(
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      getRelationEventText(
-                                                          postModel),
-                                                      style: TextStyle(
-                                                          fontSize: 17,
-                                                          fontWeight:
-                                                              FontWeight.bold),
-                                                    ),
-                                                  ),
-                                                )
-                                              : postModel.event_type ==
-                                                      'education'
-                                                  ? Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              top: 5.0),
-                                                      child: Text(
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        getEducationEventText(
-                                                            postModel),
-                                                        style: TextStyle(
-                                                            fontSize: 17,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .bold),
-                                                      ),
-                                                    )
-                                                  : Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              top: 5.0),
-                                                      child: Text(
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          getWorkEventText(
-                                                              postModel),
-                                                          style: TextStyle(
-                                                              fontSize: 17,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold)),
-                                                    ),
-                              const SizedBox(
-                                height: 3,
-                              ),
-                              postModel.event_type == 'customevent'
-                                  ? Text(
-                                      getDynamicFormatedTime(postModel
-                                              .lifeEventId?.date
-                                              .toString() ??
-                                          ''),
-                                      style: TextStyle(
-                                        fontSize: Get.height * 0.015,
-                                      ),
-                                    )
-                                  : postModel.event_type ==
-                                          'milestonesandachievements'
-                                      ? Text(
-                                          getDynamicFormatedTime(postModel
-                                                  .lifeEventId?.date
-                                                  .toString() ??
-                                              ''),
-                                          style: TextStyle(
-                                            fontSize: Get.height * 0.015,
-                                          ),
-                                        )
-                                      : postModel.event_type == 'travel'
-                                          ? Text(
-                                              getDynamicFormatedTime(postModel
-                                                      .lifeEventId?.date
-                                                      .toString() ??
-                                                  ''),
-                                              style: TextStyle(
-                                                fontSize: Get.height * 0.015,
-                                              ),
-                                            )
-                                          : postModel.event_type ==
-                                                  'relationship'
-                                              ? Text(
-                                                  getDynamicFormatedTime(
-                                                      postModel
-                                                              .lifeEventId?.date
-                                                              .toString() ??
-                                                          ''),
-                                                  style: TextStyle(
-                                                    fontSize:
-                                                        Get.height * 0.015,
-                                                  ),
-                                                )
-                                              : postModel.event_type ==
-                                                      'education'
-                                                  ? Text(
-                                                      postModel.event_sub_type!
-                                                              .contains(
-                                                                  'New School')
-                                                          ? getDynamicFormatedTime(
-                                                              postModel
-                                                                      .institute_id
-                                                                      ?.startDate ??
-                                                                  '')
-                                                          : postModel
-                                                                  .event_sub_type!
-                                                                  .contains(
-                                                                      'Graduate')
-                                                              ? getDynamicFormatedTime(
-                                                                  postModel
-                                                                          .institute_id
-                                                                          ?.endDate ??
-                                                                      '')
-                                                              : getDynamicFormatedTime(
-                                                                  postModel
-                                                                          .institute_id
-                                                                          ?.endDate ??
-                                                                      ''),
-                                                      style: TextStyle(
-                                                        fontSize:
-                                                            Get.height * 0.015,
-                                                      ),
-                                                    )
-                                                  : Text(
-                                                      postModel.event_sub_type!
-                                                              .contains(
-                                                                  'New Job')
-                                                          ? getDynamicFormatedTime(
-                                                              postModel
-                                                                      .workplace_id
-                                                                      ?.fromDate ??
-                                                                  '')
-                                                          : postModel
-                                                                  .event_sub_type!
-                                                                  .contains(
-                                                                      'Promotion')
-                                                              ? getDynamicFormatedTime(postModel
-                                                                      .workplace_id
-                                                                      ?.fromDate ??
-                                                                  '')
-                                                              : postModel
-                                                                      .event_sub_type!
-                                                                      .contains(
-                                                                          'Left Job')
-                                                                  ? getDynamicFormatedTime(
-                                                                      postModel.workplace_id?.toDate ??
-                                                                          '')
-                                                                  : getDynamicFormatedTime(
-                                                                      postModel.workplace_id?.toDate ??
-                                                                          ''),
-                                                      style: TextStyle(
-                                                        fontSize:
-                                                            Get.height * 0.015,
-                                                      )),
-                              postModel.event_type == 'relationship' ||
-                                      postModel.event_type == 'travel' ||
-                                      postModel.event_type ==
-                                          'milestonesandachievements' ||
-                                      postModel.event_type == 'customevent'
-                                  ? Padding(
-                                      padding: const EdgeInsets.only(top: 5.0),
-                                      child: Stack(
-                                        children: [
-                                          const Divider(
-                                            height: 50,
-                                            color: Colors.grey,
-                                          ),
-                                          Positioned(
-                                            left: 0,
-                                            right: 0,
-                                            top: 0,
-                                            bottom: 0,
-                                            child: Align(
-                                                alignment: Alignment.center,
-                                                child: getEventIcon(postModel,
-                                                    height: 32, width: 32)),
-                                          )
-                                        ],
-                                      ),
-                                    )
-                                  : Padding(
-                                      padding: const EdgeInsets.only(top: 5.0),
-                                      child: Stack(
-                                        children: [
-                                          const Divider(
-                                            height: 50,
-                                            color: Colors.grey,
-                                          ),
-                                          Positioned(
-                                            left: 0,
-                                            right: 0,
-                                            top: 0,
-                                            bottom: 0,
-                                            child: Align(
-                                                alignment: Alignment.center,
-                                                child: getEventIcon(postModel,
-                                                    height: 32, width: 32)),
-                                          )
-                                        ],
-                                      ),
-                                    ),
-                              postModel.event_type == 'relationship' ||
-                                      postModel.event_type == 'travel' ||
-                                      postModel.event_type ==
-                                          'milestonesandachievements' ||
-                                      postModel.event_type == 'customevent'
-                                  ? Padding(
-                                      padding: const EdgeInsets.only(
-                                          left: 8.0, right: 8.0),
-                                      child: ExpandableText('${postModel.lifeEventId?.description}'.tr,
-                                        expandText: 'See more',
-                                        maxLines: 5,
-                                        collapseText: 'see less',
-                                        style: TextStyle(
-                                            color: Colors.black),
-                                      ),
-                                    )
-                                  : Padding(
-                                      padding: const EdgeInsets.only(
-                                          left: 8.0, right: 8.0),
-                                      child: ExpandableText('${postModel.description}'.tr,
-                                        expandText: 'See more',
-                                        maxLines: 5,
-                                        collapseText: 'see less',
-                                        style: TextStyle(
-                                            color: Colors.black),
-                                      ),
-                                    )
-                            ],
-                          )
-                        : postModel.link_image == null ||
-                                postModel.link_image == ''
-                            //======================================================== Showing Image with Description Post ========================================================//
-
-                            ? ((postModel.media?.length ?? 0) > 0)
-                                ? Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      (postModel.description?.isNotEmpty ??
-                                              true)
-                                          ? Padding(
-                                              padding: const EdgeInsets.only(
-                                                  left: 5, bottom: 10),
-                                              child: Text(
-                                                  postModel.description ?? ''),
-                                            )
-                                          : const SizedBox(),
-                                      ((postModel.media?.length ?? 0) > 1)
-                                          ? SizedBox(
-                                              height: 500,
-                                              child: MediaGridView(
-                                                  mediaUrls: imageUrls,
-                                                  onTapViewMoreMedia:
-                                                      onTapViewMoreMedia ??
-                                                          () {}),
-                                            )
-                                          : InkWell(
-                                              onTap: onTapViewMoreMedia,
-                                              child: isImageUrl(imageUrls[0])
-                                                  ? PrimaryNetworkImage(
-                                                      imageUrl: imageUrls[0])
-                                                  : SizedBox(
-                                                      height: 250,
-                                                      child: VideoPlay(
-                                                          videoLink:
-                                                              imageUrls[0]),
-                                                    )),
-                                    ],
-                                  )
-                                : ((postModel.media?.length ?? 0) == 0)
-                                    ? Container(
-                                        // =================================================== No Meida Post ===================================================
-                                        height: (postModel
-                                                        .post_background_color !=
-                                                    null &&
-                                                postModel.post_background_color!
-                                                    .isNotEmpty &&
-                                                postModel
-                                                        .post_background_color! !=
-                                                    '')
-                                            ? 256
-                                            : null, // not having background color will make height dynamic
-                                        width: double.maxFinite,
-                                        decoration: BoxDecoration(
-                                            color: (postModel
-                                                            .post_background_color !=
-                                                        null &&
-                                                    postModel
-                                                        .post_background_color!
-                                                        .isNotEmpty)
-                                                ? Color(int.parse(
-                                                    '0xff${postModel.post_background_color}'))
-                                                : null),
-                                        padding: const EdgeInsets.all(10),
-                                        child: (postModel
-                                                        .post_background_color !=
-                                                    null &&
-                                                postModel
-                                                        .post_background_color !=
-                                                    '')
-                                            ? Center(
-                                                child: Text('${postModel.description}'.tr,
-                                                  textAlign: TextAlign.center,
-                                                  style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 16),
-                                                ),
-                                              )
-                                            : ExpandableText('${postModel.description}'.tr,
-                                                expandText: 'See more',
-                                                maxLines: 5,
-                                                collapseText: 'see less',
-                                                style: TextStyle(
-                                                    color: Colors.black),
-                                              ),
-                                      )
-                                    : Column(
-                                        //======================================================== Showing Link Post ========================================================//
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          Padding(
-                                            padding: const EdgeInsets.all(10),
-                                            child: RichText(
-                                                text: TextSpan(
-                                                    children: getTextWithLink(
-                                                        postModel.description ??
-                                                            ''))),
-                                          ),
-                                          GestureDetector(
-                                              onTap: () async {
-                                                String url =
-                                                    postModel.link.toString();
-                                                await launchUrl(Uri.parse(url));
-                                              },
-                                              child: PrimaryNetworkImage(
-                                                  imageUrl:
-                                                      postModel.link_image!)),
-                                          Container(
-                                            padding: const EdgeInsets.all(10),
-                                            decoration: BoxDecoration(
-                                                color: Colors.grey.shade300),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.stretch,
-                                              children: [
-                                                Text(
-                                                  postModel.link_title ?? '',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                Text(postModel
-                                                        .link_description ??
-                                                    ''),
-                                              ],
-                                            ),
-                                          )
-                                        ],
-                                      )
-                            : Column(
-                                //======================================================== Showing Link Post ========================================================//
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Padding(
-                                      padding: const EdgeInsets.all(10),
-                                      child: LinkText(
-                                          text: postModel.description ?? '')),
-                                  GestureDetector(
-                                      onTap: () async {
-                                        String url = postModel.link.toString();
-                                        await launchUrl(Uri.parse(url),
-                                            mode:
-                                                LaunchMode.externalApplication);
-                                      },
-                                      child: PrimaryNetworkImage(
-                                          imageUrl: postModel.link_image!)),
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                        color: Colors.grey.shade300),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        Text(
-                                          postModel.link_title ?? '',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(postModel.link_description ?? ''),
-                                      ],
-                                    ),
-                                  )
-                                ],
-                              )
-                  ]);
-                },
+          // ── Feeling / Activity / Location metadata ──
+          if (hasFeeling || hasActivity || hasLocation)
+            Padding(
+              padding: const EdgeInsets.only(
+                left: FeedDesignTokens.cardPaddingH,
+                right: FeedDesignTokens.cardPaddingH,
+                top: 10,
               ),
-            )));
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  if (hasFeeling)
+                    _MetaChip(
+                      icon: Icons.emoji_emotions_outlined,
+                      label: entry.feelingName!,
+                      context: context,
+                    ),
+                  if (hasActivity)
+                    _MetaChip(
+                      icon: Icons.local_activity_outlined,
+                      label: entry.activityName!,
+                      context: context,
+                    ),
+                  if (hasLocation)
+                    _MetaChip(
+                      icon: Icons.location_on_outlined,
+                      label: entry.locationName!,
+                      context: context,
+                    ),
+                ],
+              ),
+            ),
+
+          // ── Description ──
+          if (hasDescription && !hasBgColor)
+            Padding(
+              padding: EdgeInsets.only(
+                left: FeedDesignTokens.cardPaddingH,
+                right: FeedDesignTokens.cardPaddingH,
+                top: 10,
+                bottom: hasMedia ? 10 : 14,
+              ),
+              child: Text(
+                entry.description!,
+                style: TextStyle(
+                  fontSize: FeedDesignTokens.bodyTextSize,
+                  color: FeedDesignTokens.textPrimary(context),
+                  height: 1.35,
+                ),
+              ),
+            ),
+
+          // ── Background-color description ──
+          if (hasDescription && hasBgColor)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+              decoration: PostBackground.decorationFromStoredValue(entry.postBackgroundColor),
+              child: Text(
+                entry.description!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: PostBackground.textColorFromStoredValue(entry.postBackgroundColor),
+                  height: 1.4,
+                ),
+              ),
+            ),
+
+          // ── Media thumbnails ──
+          if (hasMedia)
+            Padding(
+              padding: EdgeInsets.only(
+                left: FeedDesignTokens.cardPaddingH,
+                right: FeedDesignTokens.cardPaddingH,
+                top: hasDescription && !hasBgColor ? 0 : 10,
+                bottom: 14,
+              ),
+              child: SizedBox(
+                height: 72,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: entry.postMedia.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  itemBuilder: (context, i) {
+                    final mediaFilename =
+                        entry.postMedia[i]['media']?.toString() ?? '';
+                    if (mediaFilename.isEmpty) return const SizedBox.shrink();
+
+                    final url = mediaFilename.formatedPostUrl;
+                    final isImage = isImageUrl(url);
+
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        color: FeedDesignTokens.inputBg(context),
+                        child: isImage
+                            ? RoundCornerNetworkImage(
+                                height: 72,
+                                width: 72,
+                                imageUrl: url,
+                              )
+                            : Center(
+                                child: Icon(
+                                  Icons.videocam_rounded,
+                                  size: 28,
+                                  color:
+                                      FeedDesignTokens.textSecondary(context),
+                                ),
+                              ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+          // ── No description and no media = empty edit (e.g. privacy only) ──
+          if (!hasDescription && !hasMedia && !hasBgColor)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: FeedDesignTokens.cardPaddingH, vertical: 14),
+              child: Text(
+                'No text content'.tr,
+                style: TextStyle(
+                  fontSize: FeedDesignTokens.bodyTextSize,
+                  color: FeedDesignTokens.textSecondary(context),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
-  String getDynamicFormatedTime(String time) {
-    // print("time of date ........."+time);
-
-    DateTime postDateTime;
-    if (time.toString() == 'null' || time.isEmpty || time.toString() == '') {
-      postDateTime = DateTime.now().toLocal();
-    } else {
-      postDateTime = DateTime.parse(time).toLocal();
-    }
-    return productDateTimeFormat.format(postDateTime);
-  }
-
-  getIconAsPrivacy(String postPrivacy) {
-    switch (postPrivacy) {
+  IconData _privacyIcon(String privacy) {
+    switch (privacy) {
       case 'public':
         return Icons.public;
       case 'only_me':
@@ -688,96 +371,45 @@ class PostHistoryView extends GetView<PostHistoryController> {
         return Icons.public;
     }
   }
+}
 
-  String getTextAsPostType(String postType) {
-    switch (postType) {
-      case 'campaign':
-        return 'Sponsored ';
-      default:
-        return '';
-    }
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+//  Small metadata chip (feeling / activity / location)
+// ─────────────────────────────────────────────────────────────────────────────
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({
+    required this.icon,
+    required this.label,
+    required this.context,
+  });
 
-  String getHeaderTextAsPostType(PostModel postModel) {
-    switch (postModel.post_type) {
-      case 'timeline_post':
-        return '';
-      case 'page_post':
-        return '';
-      case 'profile_picture':
-        return 'updated his profile picture';
-      case 'cover_picture':
-        return 'updated his cover photo';
-      case 'event':
-        return '';
-      case 'shared_reels':
-        return '';
-      case 'birthday':
-        return '';
-      case 'campaign':
-        return '';
-      default:
-        return '';
-    }
-  }
+  final IconData icon;
+  final String label;
+  final BuildContext context;
 
-  String getFeelingText(PostModel model) {
-    return (model.feeling_id?.feelingName != null)
-        ? ' is feeling ${model.feeling_id?.feelingName}'
-        : '';
-  }
-
-  String getLocationText(PostModel postModel) {
-    return (postModel.locationName.toString().contains('null'))
-        ? ''
-        : ' at ${postModel.locationName}';
-  }
-
-  String geSharedLocationText(PostModel postModel) {
-    return (postModel.share_post_id!.locationName.toString().contains('null'))
-        ? ''
-        : ' at ${postModel.share_post_id?.locationName}';
-  }
-
-  String getTagText(PostModel postModel) {
-    if (postModel.taggedUserList != null) {
-      if (postModel.taggedUserList!.length == 1) {
-        return ' with ${postModel.taggedUserList![0].user?.firstName ?? ''}';
-      } else if (postModel.taggedUserList!.length > 1) {
-        return ' with ${postModel.taggedUserList![0].user?.firstName ?? ''} and ${postModel.taggedUserList!.length - 1} others';
-      } else {
-        return '';
-      }
-    } else {
-      return '';
-    }
-  }
-
-  String getSharedHeaderTextAsPostType(PostModel postModel) {
-    switch (postModel.share_post_id!.post_type) {
-      case 'timeline_post':
-        return '';
-      case 'page_post':
-        return '';
-      case 'profile_picture':
-        return 'updated his profile picture';
-      case 'cover_picture':
-        return 'updated his cover photo';
-      case 'event':
-        return '';
-      case 'shared_reels':
-        return '';
-      case 'birthday':
-        return '';
-      case 'campaign':
-        return '';
-      default:
-        return '';
-    }
-  }
-
-  Widget ReactionIcon(String reactionPath) {
-    return Image(
-        height: 17, image: NetworkImage((reactionPath).formatedFeelingUrl));
+  @override
+  Widget build(BuildContext _) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: FeedDesignTokens.inputBg(context),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: FeedDesignTokens.textSecondary(context)),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: FeedDesignTokens.textSecondary(context),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
+

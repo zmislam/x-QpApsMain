@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../config/constants/api_constant.dart';
 import '../../../config/constants/feed_design_tokens.dart';
+import '../../../data/login_creadential.dart';
 import '../../../models/post.dart';
+import '../../../utils/copy_to_clipboard_utils.dart';
 import '../../../utils/post_utlis.dart';
-import 'bottom_action.dart';
-import 'package:get/get.dart';
+import '../../reaction_button/post_reaction_button.dart';
 
 class PostFooter extends StatelessWidget {
   const PostFooter({
@@ -26,86 +29,129 @@ class PostFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     if (model.user_id == null) return const SizedBox.shrink();
 
+    final loginCredential = LoginCredential();
     final int reactionCount = model.reactionCount ?? 0;
     final int commentCount = model.totalComments ?? 0;
     final int shareCount = model.postShareCount ?? 0;
-    final bool hasAnyCounts = reactionCount > 0 || commentCount > 0 || shareCount > 0;
+    final bool isFriendsOnly = model.post_privacy == 'friends' &&
+        (loginCredential.getUserData().id != model.user_id?.id);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ─── Count Row (Facebook-style) ───
-        if (hasAnyCounts)
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: FeedDesignTokens.cardPaddingH,
-              vertical: 10,
-            ),
-            child: Row(
-              children: [
-                // Reaction icons + count (left side)
-                if (reactionCount > 0)
-                  Expanded(
-                    child: InkWell(
-                      onTap: onTapViewReactions,
-                      child: Row(
-                        children: [
-                          _buildReactionIcons(),
-                          const SizedBox(width: 6),
-                          Text(
-                            _formatCount(reactionCount),
-                            style: FeedDesignTokens.countStyle(context),
-                          ),
-                        ],
-                      ),
+        // ─── Single-row footer (Facebook-style) ───
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: FeedDesignTokens.cardPaddingH,
+            vertical: 8,
+          ),
+          child: Row(
+            children: [
+              // ─── Like button with count ───
+              PostReactionButton(
+                selectedReaction: getSelectedPostReaction(
+                    model, loginCredential.getUserData().id ?? ''),
+                onChangedReaction: (reaction) {
+                  HapticFeedback.lightImpact();
+                  onSelectReaction(reaction.value);
+                },
+                isShowLikeText: false,
+              ),
+              if (reactionCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(left: 2),
+                  child: Text(
+                    _formatCount(reactionCount),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: FeedDesignTokens.textSecondary(context),
                     ),
-                  )
-                else
-                  const Spacer(),
+                  ),
+                ),
 
-                // Comments + Shares count (right side)
-                Row(
+              const SizedBox(width: 16),
+
+              // ─── Comment button with count ───
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onPressedComment();
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Row(
                   children: [
-                    if (commentCount > 0) ...[
-                      InkWell(
-                        onTap: onPressedComment,
-                        child: Text(
-                          '$commentCount ${'comment'.tr}${commentCount > 1 ? 's' : ''}',
-                          style: FeedDesignTokens.countStyle(context),
-                        ),
-                      ),
-                    ],
-                    if (commentCount > 0 && shareCount > 0)
+                    Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 20,
+                      color: FeedDesignTokens.textSecondary(context),
+                    ),
+                    if (commentCount > 0)
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('·',
-                            style: FeedDesignTokens.countStyle(context)
-                                .copyWith(fontWeight: FontWeight.bold)),
-                      ),
-                    if (shareCount > 0)
-                      Text(
-                        '$shareCount ${'share'.tr}${shareCount > 1 ? 's' : ''}',
-                        style: FeedDesignTokens.countStyle(context),
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Text(
+                          _formatCount(commentCount),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: FeedDesignTokens.textSecondary(context),
+                          ),
+                        ),
                       ),
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(width: 16),
+
+              // ─── Share / Copy Link button with count ───
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  if (isFriendsOnly) {
+                    CopyToClipboardUtils.copyToClipboard(
+                      '${ApiConstant.SERVER_IP}/notification/${model.id}',
+                      'Link',
+                    );
+                  } else {
+                    onPressedShare();
+                  }
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.reply_rounded,
+                      size: 22,
+                      color: FeedDesignTokens.textSecondary(context),
+                      textDirection: TextDirection.rtl,
+                    ),
+                    if (shareCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Text(
+                          _formatCount(shareCount),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: FeedDesignTokens.textSecondary(context),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              const Spacer(),
+
+              // ─── Reaction emoji stack (right side) ───
+              if (reactionCount > 0)
+                GestureDetector(
+                  onTap: onTapViewReactions,
+                  child: _buildReactionIcons(context),
+                ),
+            ],
           ),
-
-        // ─── Divider ───
-        Divider(
-          height: 1,
-          thickness: 0.5,
-          color: FeedDesignTokens.divider(context),
-        ),
-
-        // ─── Action Buttons (Like, Comment, Share) ───
-        BottomAction(
-          onSelectReaction: onSelectReaction,
-          onPressedComment: onPressedComment,
-          onPressedShare: onPressedShare,
-          model: model,
         ),
 
         // ─── Post separator ───
@@ -118,9 +164,7 @@ class PostFooter extends StatelessWidget {
   }
 
   /// Build stacked reaction icons (like Facebook's overlapping circles)
-  Widget _buildReactionIcons() {
-    // Use shared utility that checks both reactionTypeCountsByPost and
-    // reactionSummary.breakdown (list may be empty from API optimization)
+  Widget _buildReactionIcons(BuildContext context) {
     final reactionAssets = getReactionAssets(model, maxCount: 3);
 
     if (reactionAssets.isEmpty) return const SizedBox.shrink();
@@ -138,7 +182,10 @@ class PostFooter extends StatelessWidget {
                 height: FeedDesignTokens.reactionIconSizeLarge,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
+                  border: Border.all(
+                    color: FeedDesignTokens.cardBg(context),
+                    width: 1.5,
+                  ),
                 ),
                 child: Image.asset(
                   reactionAssets[i],

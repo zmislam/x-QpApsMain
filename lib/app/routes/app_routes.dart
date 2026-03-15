@@ -196,6 +196,11 @@ abstract class Routes {
   static const FEED_PREFERENCES = _Paths.FEED_PREFERENCES;
   static const SUGGESTED_REELS = _Paths.SUGGESTED_REELS;
   static const FEEDS = _Paths.FEEDS;
+  static const ADVANCE_SEARCH = _Paths.ADVANCE_SEARCH;
+  static const BIRTHDAYS = _Paths.BIRTHDAYS;
+  static const YOUR_FRIENDS = _Paths.YOUR_FRIENDS;
+  static const EVENTS = _Paths.EVENTS;
+  static const CREATE_EVENT = _Paths.CREATE_EVENT;
 }
 
 abstract class _Paths {
@@ -375,4 +380,9 @@ abstract class _Paths {
   static const FEED_PREFERENCES = '/feed-preferences';
   static const SUGGESTED_REELS = '/suggested-reels';
   static const FEEDS = '/feeds';
+  static const ADVANCE_SEARCH = '/advance-search';
+  static const BIRTHDAYS = '/birthdays-page';
+  static const YOUR_FRIENDS = '/your-friends';
+  static const EVENTS = '/events';
+  static const CREATE_EVENT = '/create-event';
 }

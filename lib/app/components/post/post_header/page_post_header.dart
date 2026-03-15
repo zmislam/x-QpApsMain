@@ -29,6 +29,7 @@ class PagePostHeader extends StatelessWidget {
   final VoidCallback? onTapPinPost;
   final VoidCallback? onTapHidePost;
   final String? viewType;
+  final bool hideActionIcons;
 
   PagePostHeader(
       {super.key,
@@ -40,7 +41,8 @@ class PagePostHeader extends StatelessWidget {
         this.viewType = 'PagePost',
         this.onTapPinPost,
         this.onTapHidePost,
-        this.onTapRemoveBookMarkPost});
+        this.onTapRemoveBookMarkPost,
+        this.hideActionIcons = false});
 
   HomeController homeController = Get.find();
 
@@ -382,10 +384,11 @@ class PagePostHeader extends StatelessWidget {
               ),
 
             // ─── Three-dot menu ───
-            _buildThreeDotMenu(context, currentUserModel),
+            if (!hideActionIcons)
+              _buildThreeDotMenu(context, currentUserModel),
 
             // ─── Close / Hide button ───
-            if (onTapHidePost != null)
+            if (!hideActionIcons && onTapHidePost != null)
               SizedBox(
                 width: 36,
                 height: 36,

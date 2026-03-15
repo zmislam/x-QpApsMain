@@ -342,52 +342,56 @@ class _GroupCard extends StatelessWidget {
 
             const Spacer(),
 
-            // ─── Join Button ───
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-              child: SizedBox(
-                height: 32,
-                child: ElevatedButton(
-                  onPressed: joinStatus == null ? onJoin : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: joinStatus == null
-                        ? FeedDesignTokens.brand(context)
-                        : FeedDesignTokens.inputBg(context),
-                    foregroundColor:
-                        joinStatus == null ? Colors.white : FeedDesignTokens.textSecondary(context),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    padding: EdgeInsets.zero,
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    joinStatus ?? 'Join Group'.tr,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // ─── Remove Button ───
+            // ─── Action Icons Row (Join + Remove) ───
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-              child: SizedBox(
-                height: 28,
-                child: TextButton(
-                  onPressed: onDismiss,
-                  style: TextButton.styleFrom(
-                    foregroundColor: FeedDesignTokens.textSecondary(context),
-                    padding: EdgeInsets.zero,
+              child: Row(
+                children: [
+                  // Join icon button
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: joinStatus == null ? onJoin : null,
+                      child: Container(
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: joinStatus == null
+                              ? FeedDesignTokens.brand(context)
+                              : FeedDesignTokens.inputBg(context),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          joinStatus == null
+                              ? Icons.group_add_rounded
+                              : joinStatus == 'Joined'
+                                  ? Icons.check_rounded
+                                  : Icons.hourglass_top_rounded,
+                          size: 20,
+                          color: joinStatus == null
+                              ? Colors.white
+                              : FeedDesignTokens.textSecondary(context),
+                        ),
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    'Remove'.tr,
-                    style: const TextStyle(fontSize: 12),
+                  const SizedBox(width: 6),
+                  // Remove icon button
+                  GestureDetector(
+                    onTap: onDismiss,
+                    child: Container(
+                      height: 32,
+                      width: 32,
+                      decoration: BoxDecoration(
+                        color: FeedDesignTokens.inputBg(context),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: FeedDesignTokens.textSecondary(context),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ],

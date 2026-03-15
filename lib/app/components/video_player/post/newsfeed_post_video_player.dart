@@ -43,7 +43,7 @@ class NewsFeedPostVideoPlayer extends StatefulWidget {
 }
 
 class _NewsfeedPostVideoPlayerState extends State<NewsFeedPostVideoPlayer> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isHidePlayButton = false;
   bool _isBuffering = false;
   bool _isVideoSrcError = false;
@@ -65,73 +65,89 @@ class _NewsfeedPostVideoPlayerState extends State<NewsFeedPostVideoPlayer> {
     });
   }
 
-  // ============================ initState method =============================
-  @override
-  void initState() {
+  // ============================ Buffer/playing state listener ================
+  void _onPlayerStateChanged() {
+    if (!mounted || _isDisposing) return;
+    final ctrl = _controller;
+    if (ctrl == null) return;
+    final newBuffering = ctrl.value.isBuffering;
+    final newPlaying = ctrl.value.isPlaying;
+    if (newBuffering != _isBuffering || newPlaying != _isPlaying) {
+      setState(() {
+        _isBuffering = newBuffering;
+        _isPlaying = newPlaying;
+      });
+    }
+  }
+
+  // ============================ Lazy initialization ==========================
+  /// Called the first time the video becomes visible on screen.
+  /// Defers heavy VideoPlayerController creation until needed.
+  void _initializeController() {
+    if (_initialized) return;
     try {
       debugPrint('VIDEO LIVE URL : ${widget.isLive}');
       debugPrint(widget.videoSrc);
 
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoSrc))
-        ..initialize().then((_) {
-          // ================ check if widget is still mounted =================
-          if (!mounted) return;
-          setState(() {});
-          // ================ ensure volume is set on initialization ===========
-          videoSoundSetupUpdate();
-          if (widget.isAutoPlayEnabled) {
-            _controller.play();
-            _isPlaying = true;
-          }
-        })
-        ..setLooping(false);
+      final ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.videoSrc));
+      ctrl.setLooping(false);
+
+      _controller = ctrl;
       _initialized = true;
 
-      // ==================== listen to global mute state ======================
-      VideoSoundController.isMuted.addListener(videoSoundSetupUpdate);
-
-      // ============================ listen buffer ============================
-      _controller.addListener(() {
+      ctrl.initialize().then((_) {
         if (!mounted) return;
-        final newBuffering = _controller.value.isBuffering;
-        final newPlaying = _controller.value.isPlaying;
-        if (newBuffering != _isBuffering || newPlaying != _isPlaying) {
-          setState(() {
-            _isBuffering = newBuffering;
-            _isPlaying = newPlaying;
-          });
+        setState(() {});
+        videoSoundSetupUpdate();
+        if (widget.isAutoPlayEnabled) {
+          ctrl.play();
+          _isPlaying = true;
         }
       });
+
+      // Listen to global mute state
+      VideoSoundController.isMuted.addListener(videoSoundSetupUpdate);
+
+      // Listen to buffer/playing changes (named method — removable)
+      ctrl.addListener(_onPlayerStateChanged);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isVideoSrcError = true;
       });
     }
+  }
 
+  // ============================ initState method =============================
+  @override
+  void initState() {
     super.initState();
+    // Controller is NOT created here — see _initializeController().
+    // It will be lazily initialized when the widget first scrolls into view.
   }
 
   // ============================== Handle video play and pause ================
   void _togglePlayPause() {
+    final ctrl = _controller;
+    if (ctrl == null) return;
     setState(() {
-      if (_controller.value.isPlaying) {
-        _controller.pause();
-        _isManuallyPaused = true; // Mark as manually paused
+      if (ctrl.value.isPlaying) {
+        ctrl.pause();
+        _isManuallyPaused = true;
       } else {
-        _controller.play();
-        _isManuallyPaused = false; // Reset manual pause flag
+        ctrl.play();
+        _isManuallyPaused = false;
       }
-      _isPlaying = _controller.value.isPlaying;
+      _isPlaying = ctrl.value.isPlaying;
     });
   }
 
   // ============================== video sound set up =========================
   void videoSoundSetupUpdate() {
-    if (_controller.value.isInitialized) {
+    final ctrl = _controller;
+    if (ctrl != null && ctrl.value.isInitialized) {
       double volume = VideoSoundController.isMuted.value ? 0.0 : 1.0;
-      _controller.setVolume(volume);
-      // Mute icon updates via ValueListenableBuilder — no setState needed
+      ctrl.setVolume(volume);
     }
   }
 
@@ -140,11 +156,11 @@ class _NewsfeedPostVideoPlayerState extends State<NewsFeedPostVideoPlayer> {
   void dispose() {
     _isDisposing = true;
     VideoSoundController.isMuted.removeListener(videoSoundSetupUpdate);
-    if (_initialized) {
-      _controller.removeListener(() {});
-      _controller.dispose();
+    if (_initialized && _controller != null) {
+      _controller!.removeListener(_onPlayerStateChanged);
+      _controller!.dispose();
     }
-    _hidePlayButtonTimer?.cancel(); // Cancel the timer when disposing
+    _hidePlayButtonTimer?.cancel();
     super.dispose();
   }
 
@@ -180,29 +196,35 @@ class _NewsfeedPostVideoPlayerState extends State<NewsFeedPostVideoPlayer> {
             onVisibilityChanged: (visibilityInfo) {
               double visibleFraction = visibilityInfo.visibleFraction;
               bool isVisible = visibleFraction >= videoPlayFactorOnScreen;
+
+              // Lazy init: create the controller on first visibility
+              if (isVisible && !_initialized && !_isDisposing) {
+                _initializeController();
+                return; // controller is initializing — wait for next callback
+              }
+
+              final ctrl = _controller;
+              if (ctrl == null || !_initialized || _isDisposing) return;
+
               if (isVisible) {
-                if (_initialized &&
-                    !_isDisposing &&
-                    !_controller.value.isPlaying &&
+                if (!ctrl.value.isPlaying &&
                     widget.isAutoPlayEnabled &&
                     !_isManuallyPaused) {
-                  _controller.play();
+                  ctrl.play();
                   setState(() {
                     _isPlaying = true;
                   });
                 }
               } else {
-                if (_initialized &&
-                    !_isDisposing &&
-                    _controller.value.isPlaying) {
-                  _controller.pause();
+                if (ctrl.value.isPlaying) {
+                  ctrl.pause();
                   setState(() {
                     _isPlaying = false;
                   });
                 }
               }
             },
-            child: _controller.value.isInitialized
+            child: (_controller != null && _controller!.value.isInitialized)
                 ? Stack(
                     alignment: Alignment.center,
                     children: [
@@ -210,9 +232,9 @@ class _NewsfeedPostVideoPlayerState extends State<NewsFeedPostVideoPlayer> {
                       InkWell(
                         onTap: widget.onNavigate,
                         child: AspectRatio(
-                          aspectRatio: _controller.value.aspectRatio,
+                          aspectRatio: _controller!.value.aspectRatio,
                           child: VideoPlayer(
-                            _controller,
+                            _controller!,
                           ),
                         ),
                       ),
@@ -319,7 +341,7 @@ class _NewsfeedPostVideoPlayerState extends State<NewsFeedPostVideoPlayer> {
                     ],
                   )
                 : AspectRatio(
-                    aspectRatio: _controller.value.aspectRatio,
+                    aspectRatio: 16 / 9, // default aspect ratio while loading
                     child: const DecoratedBox(
                       decoration: BoxDecoration(
                         color: Colors.black,

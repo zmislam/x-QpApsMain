@@ -1,248 +1,224 @@
-import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
-
 import 'package:get/get.dart';
 import '../../../../../../../../../../routes/app_pages.dart';
-import '../../../../../../../../../../components/edit_profile/privacy_model.dart';
-import '../controllers/add_contact_controller.dart';
-
 import '../../../../../../../../../../config/constants/color.dart';
-
-import '../../../../../../../../../../components/button.dart';
+import '../../../../../../../../../../config/constants/feed_design_tokens.dart';
+import '../controllers/add_contact_controller.dart';
 
 class AddContactView extends GetView<AddContactController> {
   const AddContactView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          titleSpacing: 0.0,
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1.0),
-            child: Container(
-              color: PRIMARY_GREY_DIVIDER_COLOR,
-              height: 1.0,
-            ),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Get.back(),
-          ),
-          title: Text(
-            controller.isEditing ? 'Edit Contact' : 'Add Contact',
-            style: Theme.of(context)
-                .textTheme
-                .bodyLarge
-                ?.copyWith(fontWeight: FontWeight.bold),
-          ),
-        ),
-        body: SingleChildScrollView(
-            child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(
-              height: 15,
-            ),
-            /*============================================================Contact Type=========================*/
-            Row(
-              children: [
-                const SizedBox(
-                  width: 20,
-                ),
-                Text('Contact Type'.tr,
-                  textAlign: TextAlign.start,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyLarge
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(
-              height: 10,
-            ),
-            Obx(() {
-              return Padding(
-                  padding: const EdgeInsets.only(left: 20, right: 20),
-                  child: Container(
-                    padding: const EdgeInsets.only(left: 10, right: 10),
-                    height: 50,
-                    width: double.maxFinite,
-                    decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(5)),
-                    child: DropdownButton<String>(
-                      value: controller.contactDropdownalue.value,
-                      isExpanded: true,
-                      onChanged: (newValue) {
-                        controller.setSelectedDropdownValue(newValue ?? '');
-                      },
-                      items: <String>['Email', 'Phone']
-                          .map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      underline: const SizedBox.shrink(),
-                    ),
-                  ));
-            }),
-            const SizedBox(height: 20),
+    final textPrimary = FeedDesignTokens.textPrimary(context);
+    final textSecondary = FeedDesignTokens.textSecondary(context);
+    final bgColor = FeedDesignTokens.cardBg(context);
+    final dividerColor = FeedDesignTokens.divider(context);
 
-            /*================================================================ Phone /Email Field=======================*/
-            Row(
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: bgColor,
+        surfaceTintColor: bgColor,
+        leading: IconButton(
+          icon: Icon(Icons.close, color: textPrimary),
+          onPressed: () => Get.back(),
+        ),
+        centerTitle: true,
+        title: Text(
+          controller.isEditing ? 'Edit Contact'.tr : 'Add Contact'.tr,
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: textPrimary),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Container(color: dividerColor, height: 0.5),
+        ),
+      ),
+      body: Obx(
+        () => SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(
-                  width: 20,
-                ),
-                Obx(
-                  () => Text(
-                    controller.contactDropdownalue.value == 'Email'
-                        ? 'Email'
-                        : 'Phone',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                // ── Contact type dropdown ──
+                Text('Contact type'.tr,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: textSecondary.withValues(alpha: 0.3)),
+                  ),
+                  child: DropdownButton<String>(
+                    value: controller.contactDropdownalue.value,
+                    isExpanded: true,
+                    underline: const SizedBox.shrink(),
+                    icon: Icon(Icons.arrow_drop_down, color: textSecondary),
+                    dropdownColor: bgColor,
+                    style: TextStyle(fontSize: 15, color: textPrimary),
+                    onChanged: (newValue) {
+                      controller.setSelectedDropdownValue(newValue ?? '');
+                    },
+                    items: <String>['Email', 'Phone']
+                        .map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(value: value, child: Text(value));
+                    }).toList(),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(
-              height: 10,
-            ),
-            Obx(
-              () => Padding(
-                padding: const EdgeInsets.only(left: 20.0, right: 20.0),
-                child: TextFormField(
+                const SizedBox(height: 20),
+
+                // ── Email / Phone field ──
+                TextFormField(
                   controller: controller.phoneEmailNameController,
                   keyboardType: controller.contactDropdownalue.value != 'Email'
                       ? TextInputType.phone
                       : TextInputType.emailAddress,
+                  style: TextStyle(fontSize: 15, color: textPrimary),
                   decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: controller.contactDropdownalue.value == 'Email'
-                        ? 'Email'
-                        : 'Phone',
+                    labelText: controller.contactDropdownalue.value == 'Email' ? 'Email'.tr : 'Phone'.tr,
+                    labelStyle: TextStyle(fontSize: 14, color: textSecondary),
+                    floatingLabelStyle: TextStyle(fontSize: 12, color: textSecondary),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: textSecondary.withValues(alpha: 0.3)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: textSecondary.withValues(alpha: 0.3)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: PRIMARY_COLOR),
+                    ),
                   ),
-                  onChanged: (value) {
-                    controller.phoneEmailNameController.text = value.toString();
-                  },
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            /*============================================================Privacy=========================*/
-            Row(
-              children: [
-                const SizedBox(width: 20),
-                Text('Privacy'.tr,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyLarge
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                const SizedBox(height: 24),
+
+                // ── Who can see this? ──
+                _buildPrivacyRow(
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  dividerColor: dividerColor,
+                  privacy: controller.privacyModel?.privacy,
+                  onTap: () => _showPrivacyPicker(context, textPrimary, textSecondary, bgColor),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Save button ──
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (controller.isEditing == true &&
+                          controller.contactDropdownalue.value.toLowerCase() == 'email') {
+                        controller.onTapEditContactPacth();
+                      } else if (controller.isEditing == false &&
+                          controller.contactDropdownalue.toLowerCase() == 'email') {
+                        controller.sendOtp();
+                        Get.toNamed(Routes.OTP_CONTACT);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PRIMARY_COLOR,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text('Save'.tr,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.only(left: 20, right: 20),
-              child: DropdownSearch<PrivacySearchModel>(
-                selectedItem: controller.privacyModel,
-                asyncItems: (String filter) => controller.getData(filter),
-                itemAsString: (PrivacySearchModel u) =>
-                    u
-                        .userAsPublic()
-                        .replaceAll(RegExp(r'_'), ' ')
-                        .capitalizeFirst ??
-                    '',
-                onChanged: (PrivacySearchModel? data) {
-                  controller.privacyModel = data;
-                  controller.getPrivacyDescription(
-                      controller.privacyModel?.privacy.toString() ?? '');
-                },
-                dropdownDecoratorProps: DropDownDecoratorProps(
-                  dropdownSearchDecoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Public'.tr,
-                  ),
-                ),
-                popupProps: PopupProps.bottomSheet(
-                  bottomSheetProps: BottomSheetProps(
-                    shape: const RoundedRectangleBorder(
-                        side: BorderSide(
-                            color: Color(0xFF2A8068)), //the outline color
-                        borderRadius: BorderRadius.all(Radius.circular(4))),
-                    elevation: 4,
-                    // backgroundColor: Colors.white,
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.4,
-                    ),
-                  ),
-                  fit: FlexFit.loose,
-                  showSearchBox: false,
-                  itemBuilder: (context, item, isSelected) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardTheme.color,
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 50.0,
-                            spreadRadius: 5.0,
-                            offset: Offset(0, 5),
-                          ),
-                        ],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: ListTile(
-                        leading: controller.getIconForPrivacy(
-                            isSelected, item.privacy ?? 'Public'),
-                        title: Text(item
-                                .userAsPublic()
-                                .replaceAll(RegExp(r'_'), ' ')
-                                .capitalizeFirst ??
-                            ''),
-                        selected: isSelected,
-                      ),
-                    );
-                  },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPrivacyPicker(BuildContext context, Color textPrimary, Color textSecondary, Color bgColor) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: bgColor,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) {
+        final options = [
+          {'label': 'Public', 'icon': Icons.public, 'value': 'public'},
+          {'label': 'Your friends', 'icon': Icons.group, 'value': 'friends'},
+          {'label': 'Only me', 'icon': Icons.lock, 'value': 'only_me'},
+        ];
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Who can see this?'.tr,
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: textPrimary)),
+              ),
+              ...options.map((o) => ListTile(
+                    leading: Icon(o['icon'] as IconData, color: PRIMARY_COLOR),
+                    title: Text(o['label'] as String, style: TextStyle(color: textPrimary)),
+                    trailing: controller.privacyModel?.privacy == o['value']
+                        ? const Icon(Icons.check, color: PRIMARY_COLOR)
+                        : null,
+                    onTap: () {
+                      controller.privacyModel = controller.getPrivacyModel(o['value'] as String);
+                      controller.getPrivacyDescription(o['value'] as String);
+                      Get.back();
+                    },
+                  )),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPrivacyRow({
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color dividerColor,
+    String? privacy,
+    VoidCallback? onTap,
+  }) {
+    String label = 'Public';
+    if (privacy != null) {
+      final p = privacy.toLowerCase();
+      if (p == 'friends') label = 'Your friends';
+      else if (p == 'only_me' || p == 'onlyme') label = 'Only me';
+    }
+    return Column(
+      children: [
+        Divider(height: 0.5, color: dividerColor),
+        const SizedBox(height: 16),
+        InkWell(
+          onTap: onTap,
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Who can see this?'.tr,
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: textPrimary)),
+                    const SizedBox(height: 2),
+                    Text(label, style: TextStyle(fontSize: 14, color: textSecondary)),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(
-              height: 20,
-            ),
-            SizedBox(
-              width: double.infinity,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 20.0, right: 20),
-                child: PrimaryButton(
-                  onPressed: () {
-                    if (controller.isEditing == true &&
-                        controller.contactDropdownalue.value.toLowerCase() ==
-                            'email') {
-                      controller.onTapEditContactPacth();
-                    } else if (controller.isEditing == false &&
-                        controller.contactDropdownalue.toLowerCase() ==
-                            'email') {
-                      controller.sendOtp();
-                      Get.toNamed(Routes.OTP_CONTACT);
-                      // controller.onTapAddContactPost();
-                    }
-                  },
-                  text: 'Save'.tr,
-                  horizontalPadding: 20,
-                  verticalPadding: 10,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-          ],
-        )));
+              Icon(Icons.chevron_right, color: textSecondary),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Divider(height: 0.5, color: dividerColor),
+      ],
+    );
   }
 }

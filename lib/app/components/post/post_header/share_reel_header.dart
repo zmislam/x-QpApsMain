@@ -1,6 +1,7 @@
 import 'package:expandable_text/expandable_text.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../data/post_background.dart';
 import '../../alert_dialogs/delete_alert_dialogs.dart';
 import '../../../extension/string/string_image_path.dart';
 import '../../../modules/NAVIGATION_MENUS/home/controllers/home_controller.dart';
@@ -248,26 +249,19 @@ class SharedReelHeader extends StatelessWidget {
               ],
             ),
             Container(
-              // =================================================== No Meida Post ===================================================
-              height: (model.post_background_color != null &&
-                      model.post_background_color!.isNotEmpty &&
-                      model.post_background_color! != '')
+              // =================================================== No Media Post ===================================================
+              height: PostBackground.hasBackground(model.post_background_color)
                   ? 256
                   : null,
               // not having background color will make height dynamic
               width: double.maxFinite,
-              decoration: BoxDecoration(
-                  color: (model.post_background_color != null &&
-                          model.post_background_color!.isNotEmpty)
-                      ? Color(int.parse('0xff${model.post_background_color}'))
-                      : null),
+              decoration: PostBackground.decorationFromStoredValue(model.post_background_color) ?? const BoxDecoration(),
               padding: const EdgeInsets.only(left: 10, top: 10),
-              child: (model.post_background_color != null &&
-                      model.post_background_color != '')
+              child: PostBackground.hasBackground(model.post_background_color)
                   ? Center(
                       child: Text('${model.share_reels_id?.description}'.tr,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16),
+                        style: TextStyle(fontSize: 16, color: PostBackground.textColorFromStoredValue(model.post_background_color)),
                       ),
                     )
                   : ExpandableText('${model.share_reels_id?.description}'.tr,

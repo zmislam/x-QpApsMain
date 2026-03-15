@@ -1,206 +1,184 @@
-import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
-
 import 'package:get/get.dart';
-import '../../../../../../../../../../components/edit_profile/privacy_model.dart';
+import '../../../../../../../../../../config/constants/color.dart';
+import '../../../../../../../../../../config/constants/feed_design_tokens.dart';
 import '../controllers/edit_relationship_controller.dart';
 
-import '../../../../../../../../../../config/constants/color.dart';
-
-import '../../../../../../../../../../components/button.dart';
-
 class EditRelationshipView extends GetView<EditRelationshipController> {
-  const EditRelationshipView({
-    super.key,
-  });
+  const EditRelationshipView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final textPrimary = FeedDesignTokens.textPrimary(context);
+    final textSecondary = FeedDesignTokens.textSecondary(context);
+    final bgColor = FeedDesignTokens.cardBg(context);
+    final dividerColor = FeedDesignTokens.divider(context);
+
     return Scaffold(
-        // backgroundColor: Colors.white,
-        appBar: AppBar(
-          titleSpacing: 0.0,
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1.0),
-            child: Container(
-              color: PRIMARY_GREY_DIVIDER_COLOR,
-              height: 1.0,
-            ),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: () => Get.back(),
-          ),
-          title: Text('Edit Relationship'.tr,
-            style: TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          // backgroundColor: Colors.white,
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: bgColor,
+        surfaceTintColor: bgColor,
+        leading: IconButton(
+          icon: Icon(Icons.close, color: textPrimary),
+          onPressed: () => Get.back(),
         ),
-        body: SingleChildScrollView(
+        centerTitle: true,
+        title: Text('Relationship'.tr,
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: textPrimary)),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Container(color: dividerColor, height: 0.5),
+        ),
+      ),
+      body: Obx(
+        () => SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(
-              height: 15,
-            ),
-            /*============================================================Relationship Type=========================*/
-            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: 20,
-                ),
-                Text('Relationship Type'.tr,
-                  textAlign: TextAlign.start,
-                  style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17),
-                ),
-              ],
-            ),
-            const SizedBox(
-              height: 10,
-            ),
-            Obx(() {
-              return Padding(
-                  padding: const EdgeInsets.only(left: 20, right: 20),
-                  child: Container(
-                    padding: const EdgeInsets.only(left: 10, right: 10),
-                    height: 50,
-                    width: double.maxFinite,
-                    decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(5)),
-                    child: DropdownButton<String>(
-                      value: controller.relationDropdownalue.value,
-                      isExpanded: true,
-                      onChanged: (newValue) {
-                        controller.setSelectedDropdownValue(newValue ?? '');
-                      },
-                      items: <String>['Single', 'Married', 'Divoreced', 'In a relationship']
-                          .map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      underline: const SizedBox.shrink(),
-                    ),
-                  ));
-            }),
-            const SizedBox(height: 20),
-            /*============================================================Privacy=========================*/
-            Row(
-              children: [
-                SizedBox(width: 20),
-                Text('Privacy'.tr,
-                  style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Obx(() => Padding(
-                  padding: const EdgeInsets.only(left: 20, right: 20),
-                  child: Container(
-                    padding: const EdgeInsets.only(left: 10, right: 10),
-                    height: 50,
-                    width: double.maxFinite,
-                    decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(5)),
-                    child: DropdownSearch<PrivacySearchModel>(
-                      selectedItem: controller.privacyModel.value,
-                      asyncItems: (String filter) => controller.getData(filter),
-                      itemAsString: (PrivacySearchModel u) =>
-                          u
-                              .userAsPublic()
-                              .replaceAll(RegExp(r'_'), ' ')
-                              .capitalizeFirst ??
-                          '',
-                      onChanged: (PrivacySearchModel? data) {
-                        controller.privacyModel.value = data;
-                        controller.getPrivacyDescription(
-                            controller.privacyModel.value?.privacy.toString() ??
-                                '');
-                      },
-                      dropdownDecoratorProps: DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Public'.tr,
-                        ),
-                      ),
-                      popupProps: PopupProps.bottomSheet(
-                        bottomSheetProps: BottomSheetProps(
-                          shape: const RoundedRectangleBorder(
-                              side: BorderSide(
-                                  color: Color(0xFF2A8068)), //the outline color
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(4))),
-                          elevation: 4,
-                          // backgroundColor: Colors.white,
-                          constraints: BoxConstraints(
-                            maxHeight: MediaQuery.of(context).size.height * 0.4,
-                          ),
-                        ),
-                        fit: FlexFit.loose,
-                        showSearchBox: false,
-                        itemBuilder: (context, item, isSelected) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 50.0,
-                                  spreadRadius: 5.0,
-                                  offset: Offset(0, 5),
-                                ),
-                              ],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: ListTile(
-                              leading: controller.getIconForPrivacy(
-                                  isSelected, item.privacy ?? 'Public'),
-                              title: Text(item
-                                      .userAsPublic()
-                                      .replaceAll(RegExp(r'_'), ' ')
-                                      .capitalizeFirst ??
-                                  ''),
-                              selected: isSelected,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                // ── Relationship type dropdown ──
+                Text('Relationship status'.tr,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: textSecondary.withValues(alpha: 0.3)),
                   ),
-                )),
-            const SizedBox(
-              height: 20,
+                  child: DropdownButton<String>(
+                    value: controller.relationDropdownalue.value,
+                    isExpanded: true,
+                    underline: const SizedBox.shrink(),
+                    icon: Icon(Icons.arrow_drop_down, color: textSecondary),
+                    dropdownColor: bgColor,
+                    style: TextStyle(fontSize: 15, color: textPrimary),
+                    onChanged: (newValue) {
+                      controller.setSelectedDropdownValue(newValue ?? '');
+                    },
+                    items: <String>['Single', 'Married', 'Divoreced', 'In a relationship']
+                        .map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(value: value, child: Text(value));
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Who can see this? ──
+                _buildPrivacyRow(
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  dividerColor: dividerColor,
+                  privacy: controller.privacyModel.value?.privacy,
+                  onTap: () => _showPrivacyPicker(context, textPrimary, textSecondary, bgColor),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Save button ──
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => controller.onTapEditRalationshipPatch(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PRIMARY_COLOR,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text('Save'.tr,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(
-              width: double.infinity,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 20.0, right: 20),
-                child: PrimaryButton(
-                  onPressed: () {
-                    controller.onTapEditRalationshipPatch();
-                  },
-                  text: 'Save'.tr,
-                  horizontalPadding: 20,
-                  verticalPadding: 10,
-                  borderRadius: BorderRadius.circular(5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPrivacyPicker(BuildContext context, Color textPrimary, Color textSecondary, Color bgColor) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: bgColor,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) {
+        final options = [
+          {'label': 'Public', 'icon': Icons.public, 'value': 'public'},
+          {'label': 'Your friends', 'icon': Icons.group, 'value': 'friends'},
+          {'label': 'Only me', 'icon': Icons.lock, 'value': 'only_me'},
+        ];
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Who can see this?'.tr,
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: textPrimary)),
+              ),
+              ...options.map((o) => ListTile(
+                    leading: Icon(o['icon'] as IconData, color: PRIMARY_COLOR),
+                    title: Text(o['label'] as String, style: TextStyle(color: textPrimary)),
+                    trailing: controller.privacyModel.value?.privacy == o['value']
+                        ? const Icon(Icons.check, color: PRIMARY_COLOR)
+                        : null,
+                    onTap: () {
+                      controller.privacyModel.value = controller.getPrivacyModel(o['value'] as String);
+                      controller.getPrivacyDescription(o['value'] as String);
+                      Get.back();
+                    },
+                  )),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPrivacyRow({
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color dividerColor,
+    String? privacy,
+    VoidCallback? onTap,
+  }) {
+    String label = 'Public';
+    if (privacy != null) {
+      final p = privacy.toLowerCase();
+      if (p == 'friends') label = 'Your friends';
+      else if (p == 'only_me' || p == 'onlyme') label = 'Only me';
+    }
+    return Column(
+      children: [
+        Divider(height: 0.5, color: dividerColor),
+        const SizedBox(height: 16),
+        InkWell(
+          onTap: onTap,
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Who can see this?'.tr,
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: textPrimary)),
+                    const SizedBox(height: 2),
+                    Text(label, style: TextStyle(fontSize: 14, color: textSecondary)),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 10),
-          ],
-        )));
+              Icon(Icons.chevron_right, color: textSecondary),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Divider(height: 0.5, color: dividerColor),
+      ],
+    );
   }
 }

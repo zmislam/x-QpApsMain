@@ -12,6 +12,12 @@ import 'post_header/post_header.dart';
 import 'post_header/share_reel_header.dart';
 import 'post_header/shared_post_header.dart';
 import 'why_shown.dart';
+import '../../data/login_creadential.dart';
+import '../../modules/NAVIGATION_MENUS/home/controllers/home_controller.dart';
+import '../../modules/NAVIGATION_MENUS/user_menu/sub_menus/profile/controllers/profile_controller.dart';
+import '../alert_dialogs/delete_alert_dialogs.dart';
+import 'feed_controls_bottomsheet.dart';
+import 'report_post_modal.dart';
 
 class PostCard extends StatelessWidget {
   const PostCard(
@@ -70,6 +76,8 @@ class PostCard extends StatelessWidget {
   // ignore: prefer_typing_uninitialized_variables
   final index;
 
+  bool get _hasWhyShown => model.whyShown != null && model.whyShown!.isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
     if (model.user_id == null) return const SizedBox.shrink();
@@ -100,8 +108,13 @@ class PostCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // ─── WhyShown badge (EdgeRank context) ───
-                if (model.whyShown != null && model.whyShown!.isNotEmpty)
-                  WhyShownWidget(text: model.whyShown!, model: model),
+                if (_hasWhyShown)
+                  WhyShownWidget(
+                    text: model.whyShown!,
+                    model: model,
+                    onTapMenu: () => _showPostActionsSheet(context),
+                    onTapClose: onTapHidePost,
+                  ),
 
                 // ─── Header (varies by post type) ───
                 _buildHeader(context),
@@ -245,6 +258,7 @@ class PostCard extends StatelessWidget {
         onTapHidePost: onTapHidePost ?? () {},
         onTapCopyPost: onTapCopyPost ?? () {},
         viewType: viewType ?? '',
+        hideActionIcons: _hasWhyShown,
       );
     }
     if (model.page_id!.pageName!.length > 1) {
@@ -263,6 +277,7 @@ class PostCard extends StatelessWidget {
           onTapRemoveBookMardPost!();
         },
         viewType: viewType ?? '',
+        hideActionIcons: _hasWhyShown,
       );
     }
     return PostHeader(
@@ -276,6 +291,7 @@ class PostCard extends StatelessWidget {
       onTapPinPost: onTapPinPost ?? () {},
       onTapRemoveBookMarkPost: onTapRemoveBookMardPost ?? () {},
       viewType: viewType ?? '',
+      hideActionIcons: _hasWhyShown,
     );
   }
 
@@ -324,6 +340,233 @@ class PostCard extends StatelessWidget {
 
   Widget ReactionIcon(String assetName) {
     return Image(height: 32, image: AssetImage(assetName));
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // Generic Post Actions Sheet (used from WhyShown row)
+  // ═════════════════════════════════════════════════════════════
+  void _showPostActionsSheet(BuildContext context) {
+    final isOwner = model.user_id?.id == LoginCredential().getUserData().id;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: FeedDesignTokens.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ─── Handle bar ───
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: FeedDesignTokens.textSecondary(context)
+                    .withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            if (isOwner) ...[
+              _postMenuItem(context,
+                  icon: Icons.edit_outlined,
+                  label: 'Edit Post',
+                  subtitle: 'Make changes to this post',
+                  onTap: () {
+                    Navigator.pop(context);
+                    onTapEditPost?.call();
+                  }),
+              _postMenuItem(context,
+                  icon: Icons.visibility_off_outlined,
+                  label: 'Hide Post',
+                  subtitle: 'See fewer posts like this',
+                  onTap: () {
+                    Navigator.pop(context);
+                    onTapHidePost?.call();
+                  }),
+              model.isBookMarked == false
+                  ? _postMenuItem(context,
+                      icon: Icons.bookmark_border_outlined,
+                      label: 'Save Post',
+                      subtitle: 'Add this to your saved items',
+                      onTap: () {
+                        Navigator.pop(context);
+                        onTapBookMardPost?.call();
+                      })
+                  : _postMenuItem(context,
+                      icon: Icons.bookmark_outlined,
+                      label: 'Remove Save',
+                      subtitle: 'Remove from your saved items',
+                      onTap: () {
+                        Navigator.pop(context);
+                        onTapRemoveBookMardPost?.call();
+                      }),
+              _postMenuItem(context,
+                  icon: Icons.history_outlined,
+                  label: 'Edit History',
+                  subtitle: 'See all edits made to this post',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Get.toNamed(Routes.EDIT_HISTORY, arguments: model.id);
+                  }),
+              _postMenuItem(context,
+                  icon: Icons.link_outlined,
+                  label: 'Copy link',
+                  subtitle: 'Copy post link to clipboard',
+                  onTap: () {
+                    Navigator.pop(context);
+                    onTapCopyPost?.call();
+                  }),
+              Divider(
+                height: 1,
+                color: FeedDesignTokens.divider(context),
+              ),
+              _postMenuItem(context,
+                  icon: Icons.delete_outline,
+                  label: 'Delete',
+                  subtitle: 'Move this post to trash',
+                  isDestructive: true,
+                  onTap: () {
+                    Navigator.pop(context);
+                    showDeleteAlertDialogs(
+                      context: context,
+                      onCancel: () {
+                        Navigator.of(context).pop(false);
+                      },
+                      onDelete: () {
+                        final ProfileController controller =
+                            Get.put(ProfileController());
+                        final HomeController hc = Get.put(HomeController());
+                        controller.deletePost(model.id.toString());
+                        Navigator.of(context).pop(false);
+                        controller.postList.value.removeWhere(
+                            (element) => element.id == model.id.toString());
+                        hc.removePostFromFeed(model.id.toString());
+                        controller.postList.refresh();
+                      },
+                    );
+                  }),
+            ] else ...[
+              _postMenuItem(context,
+                  icon: Icons.tune,
+                  label: 'Manage Feed',
+                  subtitle: 'Control what you see in your feed',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Get.bottomSheet(
+                      FeedControlsBottomsheet(
+                        post: model,
+                        onHide: onTapHidePost,
+                      ),
+                      isScrollControlled: true,
+                    );
+                  }),
+              _postMenuItem(context,
+                  icon: Icons.visibility_off_outlined,
+                  label: 'Hide Post',
+                  subtitle: 'See fewer posts like this',
+                  onTap: () {
+                    Navigator.pop(context);
+                    onTapHidePost?.call();
+                  }),
+              model.isBookMarked == false
+                  ? _postMenuItem(context,
+                      icon: Icons.bookmark_border_outlined,
+                      label: 'Save Post',
+                      subtitle: 'Add this to your saved items',
+                      onTap: () {
+                        Navigator.pop(context);
+                        onTapBookMardPost?.call();
+                      })
+                  : _postMenuItem(context,
+                      icon: Icons.bookmark_outlined,
+                      label: 'Remove Save',
+                      subtitle: 'Remove from your saved items',
+                      onTap: () {
+                        Navigator.pop(context);
+                        onTapRemoveBookMardPost?.call();
+                      }),
+              _postMenuItem(context,
+                  icon: Icons.block_outlined,
+                  label: 'Block User',
+                  subtitle: 'Stop seeing content from this user',
+                  onTap: () {
+                    Navigator.pop(context);
+                    onTapBlockUser.call();
+                  }),
+              _postMenuItem(context,
+                  icon: Icons.link_outlined,
+                  label: 'Copy link',
+                  subtitle: 'Copy post link to clipboard',
+                  onTap: () {
+                    Navigator.pop(context);
+                    onTapCopyPost?.call();
+                  }),
+              Divider(
+                height: 1,
+                color: FeedDesignTokens.divider(context),
+              ),
+              _postMenuItem(context,
+                  icon: Icons.flag_outlined,
+                  label: 'Report',
+                  subtitle: 'Report a problem with this post',
+                  isDestructive: true,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Get.bottomSheet(
+                      ReportPostModal(postId: model.id ?? ''),
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                    );
+                  }),
+            ],
+
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _postMenuItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    String? subtitle,
+    VoidCallback? onTap,
+    bool isDestructive = false,
+  }) {
+    final color = isDestructive
+        ? Colors.red.shade400
+        : FeedDesignTokens.textPrimary(context);
+
+    return ListTile(
+      leading: Icon(icon, size: 22, color: color),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: color,
+        ),
+      ),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDestructive
+                    ? Colors.red.shade300
+                    : FeedDesignTokens.textSecondary(context),
+              ),
+            )
+          : null,
+      onTap: onTap,
+    );
   }
 }
 

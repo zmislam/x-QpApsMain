@@ -23,7 +23,6 @@ import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/constants/api_constant.dart';
-import '../../config/constants/app_assets.dart';
 import '../../config/constants/feed_design_tokens.dart';
 import '../../models/sponsored_ad_model.dart';
 import '../../repository/ad_engagement_repository.dart';
@@ -267,18 +266,8 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
               widget.ad.websiteUrl!.isNotEmpty)
             _buildCtaBar(context, isDark),
 
-          // ── Reaction counts row ──
-          _buildCountsRow(context),
-
-          // ── Divider ──
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: FeedDesignTokens.divider(context),
-          ),
-
-          // ── Like / Comment / Share action bar ──
-          _buildActionBar(context),
+          // ── Single-row footer (Facebook-style, matching PostFooter) ──
+          _buildSingleRowFooter(context),
 
           // ── Inline comments section (expandable) ──
           if (_commentsExpanded) _buildCommentsSection(context, isDark),
@@ -568,47 +557,94 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
   // ─────────────────────────────────────────────────────────────────────────
   //  Counts Row (reaction icons + count, comment count) — matches PostFooter
   // ─────────────────────────────────────────────────────────────────────────
-  Widget _buildCountsRow(BuildContext context) {
-    final hasAnyCounts = _totalReactions > 0 || _commentCount > 0;
-    if (!hasAnyCounts && !_isLoadingEngagement) {
-      return const SizedBox.shrink();
-    }
-
+  /// Single-row footer matching regular PostFooter design.
+  /// Left: 👍 reaction icon + count | 💬 comment icon + count | ↗ share icon
+  /// Right: reaction emoji stack
+  Widget _buildSingleRowFooter(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: FeedDesignTokens.cardPaddingH,
-        vertical: 10,
+        vertical: 8,
       ),
       child: Row(
         children: [
-          // Reaction icons + count (left side)
+          // ─── Like button with count ───
+          PostReactionButton(
+            selectedReaction: _userReaction != null
+                ? getReactionModelAsType(_userReaction!)
+                : null,
+            onChangedReaction: (reaction) {
+              HapticFeedback.lightImpact();
+              _onReaction(reaction.value);
+            },
+            isShowLikeText: false,
+          ),
           if (_totalReactions > 0)
-            Expanded(
-              child: GestureDetector(
-                onTap: _openReactionModal,
-                child: Row(
-                  children: [
-                    _buildReactionIcons(),
-                    const SizedBox(width: 6),
-                    Text(
-                      _formatCount(_totalReactions),
-                      style: FeedDesignTokens.countStyle(context),
-                    ),
-                  ],
+            Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: Text(
+                _formatCount(_totalReactions),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: FeedDesignTokens.textSecondary(context),
                 ),
               ),
-            )
-          else
-            const Spacer(),
+            ),
 
-          // Comment count (right side)
-          if (_commentCount > 0)
+          const SizedBox(width: 16),
+
+          // ─── Comment button with count ───
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              _toggleComments();
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  size: 20,
+                  color: FeedDesignTokens.textSecondary(context),
+                ),
+                if (_commentCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      _formatCount(_commentCount),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: FeedDesignTokens.textSecondary(context),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 16),
+
+          // ─── Share button ───
+          GestureDetector(
+            onTap: () => _handleShare(context),
+            behavior: HitTestBehavior.opaque,
+            child: Icon(
+              Icons.reply_rounded,
+              size: 22,
+              color: FeedDesignTokens.textSecondary(context),
+              textDirection: TextDirection.rtl,
+            ),
+          ),
+
+          const Spacer(),
+
+          // ─── Reaction emoji stack (right side) ───
+          if (_totalReactions > 0)
             GestureDetector(
-              onTap: _toggleComments,
-              child: Text(
-                '$_commentCount ${'comment'.tr}${_commentCount > 1 ? 's' : ''}',
-                style: FeedDesignTokens.countStyle(context),
-              ),
+              onTap: _openReactionModal,
+              child: _buildReactionIcons(context),
             ),
         ],
       ),
@@ -616,7 +652,7 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
   }
 
   /// Build stacked reaction icons — same design as PostFooter._buildReactionIcons()
-  Widget _buildReactionIcons() {
+  Widget _buildReactionIcons(BuildContext context) {
     final reactionAssets = _getReactionAssetsFromMap(_reactions, maxCount: 3);
     if (reactionAssets.isEmpty) return const SizedBox.shrink();
 
@@ -633,7 +669,10 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
                 height: FeedDesignTokens.reactionIconSizeLarge,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
+                  border: Border.all(
+                    color: FeedDesignTokens.cardBg(context),
+                    width: 1.5,
+                  ),
                 ),
                 child: Image.asset(
                   reactionAssets[i],
@@ -642,51 +681,6 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  //  Action Bar (Like / Comment / Share) — matches BottomAction design
-  // ─────────────────────────────────────────────────────────────────────────
-  Widget _buildActionBar(BuildContext context) {
-    return SizedBox(
-      height: FeedDesignTokens.actionBarHeight,
-      child: Row(
-        children: [
-          // ── Like / React Button (with long-press reaction picker) ──
-          Expanded(
-            child: PostReactionButton(
-              selectedReaction: _userReaction != null
-                  ? getReactionModelAsType(_userReaction!)
-                  : null,
-              onChangedReaction: (reaction) {
-                _onReaction(reaction.value);
-              },
-              isShowLikeText: false,
-            ),
-          ),
-
-          // ── Comment Button ──
-          Expanded(
-            child: _AdActionButton(
-              icon: AppAssets.COMMENT_ACTION_ICON,
-              label: 'Comment'.tr,
-              onTap: _toggleComments,
-              context: context,
-            ),
-          ),
-
-          // ── Share Button ──
-          Expanded(
-            child: _AdActionButton(
-              icon: AppAssets.SHARE_ACTION_ICON,
-              label: 'Share'.tr,
-              onTap: () => _handleShare(context),
-              context: context,
-            ),
-          ),
         ],
       ),
     );
@@ -1050,56 +1044,6 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Facebook-style action button — identical design to BottomAction._ActionButton
-// ─────────────────────────────────────────────────────────────────────────────
-class _AdActionButton extends StatelessWidget {
-  const _AdActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.context,
-  });
-
-  final String icon;
-  final String label;
-  final VoidCallback onTap;
-  final BuildContext context;
-
-  @override
-  Widget build(BuildContext _) {
-    return InkWell(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      child: SizedBox(
-        height: FeedDesignTokens.actionBarHeight,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              icon,
-              height: FeedDesignTokens.actionIconSize,
-              width: FeedDesignTokens.actionIconSize,
-              color: FeedDesignTokens.textSecondary(context),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: FeedDesignTokens.actionButtonSize,
-                fontWeight: FontWeight.w600,
-                color: FeedDesignTokens.textSecondary(context),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

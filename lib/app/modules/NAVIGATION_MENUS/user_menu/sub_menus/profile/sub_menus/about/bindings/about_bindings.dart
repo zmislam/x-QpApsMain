@@ -7,6 +7,7 @@ class AboutBinding extends Bindings {
   void dependencies() {
     Get.lazyPut<AboutController>(
       () => AboutController(),
+      fenix: true,
     );
   }
 }

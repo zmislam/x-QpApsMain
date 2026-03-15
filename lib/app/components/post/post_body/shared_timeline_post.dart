@@ -337,32 +337,20 @@ class SharedTimelinePost extends StatelessWidget {
                   )
                 : ((postModel.shareMedia?.length ?? 0) == 0)
                     ? Container(
-                        // =================================================== No Meida Post ===================================================
-                        height: (sharedPostModel.post_background_color !=
-                                    null &&
-                                sharedPostModel
-                                    .post_background_color!.isNotEmpty &&
-                                sharedPostModel.post_background_color! != '')
+                        // =================================================== No Media Post ===================================================
+                        height: PostBackground.hasBackground(sharedPostModel.post_background_color)
                             ? 256
                             : null, // not having background color will make height dynamic
                         width: double.maxFinite,
-                        decoration: BoxDecoration(
-                            color: (sharedPostModel.post_background_color !=
-                                        null &&
-                                    sharedPostModel
-                                        .post_background_color!.isNotEmpty)
-                                ? Color(int.parse(
-                                    '0xff${sharedPostModel.post_background_color}'))
-                                : null),
+                        decoration: PostBackground.decorationFromStoredValue(sharedPostModel.post_background_color) ?? const BoxDecoration(),
                         padding: const EdgeInsets.all(10),
-                        child: (sharedPostModel.post_background_color != null &&
-                                sharedPostModel.post_background_color != '')
+                        child: PostBackground.hasBackground(sharedPostModel.post_background_color)
                             ? Center(
                                 child: Text(
                                   sharedPostModel.description ?? '',
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 16),
+                                  style: TextStyle(
+                                      color: PostBackground.textColorFromStoredValue(sharedPostModel.post_background_color), fontSize: 16),
                                 ),
                               )
                             : ExpandableText(

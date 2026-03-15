@@ -27,10 +27,32 @@ class ExploreView extends GetView<ExploreController> {
       backgroundColor: FeedDesignTokens.surfaceBg(context),
       // ======================= appbar section ==============================
       appBar: AppBar(
-        title: Text('Explore...'.tr,
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Get.back(),
         ),
-        leading: const BackButton(),
+        title: Text(
+          'Explore'.tr,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: FeedDesignTokens.textPrimary(context),
+          ),
+        ),
+        centerTitle: false,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        backgroundColor: FeedDesignTokens.cardBg(context),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.search_rounded,
+              size: 26,
+              color: FeedDesignTokens.textPrimary(context),
+            ),
+            onPressed: () => Get.toNamed(Routes.ADVANCE_SEARCH),
+          ),
+        ],
       ),
       // ======================= body section ================================
       body: RefreshIndicator(

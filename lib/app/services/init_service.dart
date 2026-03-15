@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../modules/NAVIGATION_MENUS/home/controllers/home_controller.dart';
 
@@ -22,73 +25,47 @@ class InitService extends GetxService {
     UserMenuController userMenuController = Get.find<UserMenuController>();
     PagesController pagesController = Get.find<PagesController>();
     ShareController shareController = Get.find<ShareController>();
-    // WalletManagementService walletManagementService = Get.find<WalletManagementService>();
 
     //* ********************************************************************************
 
     //? SETTING THE PAGE LOADING ANIMATION TO TRUE
     pagesController.isLoadingUserPages.value = true;
-    homeController.isLoadingNewsFeed.value = true;
 
     //? SETTING THE FRIENDS LOADING ANIMATION TO TRUE
     friendController.suggestedFriendsGetterApiOnCall = true;
     friendController.isLoadingNewsFeed.value = true;
 
-    // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-    // *┃  GET ALL STORY FOR HOME                                               ┃
-    // *┃  THEN GET ALL POSTS AND AD'S SO THAT THEY CAN MAKE UP THE             ┃
-    // *┃  INITIAL HOME PAGE VIEW                                               ┃
-    // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-    await homeController.getMessengerUserData();
-    await homeController.getAllStory(forceRecallAPI: true);
-    await homeController.fetchEdgeRankFeed(forceRecallAPI: true);
-    await homeController.getAdsPagePosts(); // 2 days
-    await homeController.getVideoAds(); // 2 days);
+    // ═══════════════════════════════════════════════════════════════════
+    //  PHASE 1 — Critical home page data (parallelized)
+    //  NOTE: Feed fetch is REMOVED here — HomeController.onInit() already
+    //  calls fetchEdgeRankFeed(isInitial: true). Running it twice caused
+    //  duplicate fetches and race conditions with post ordering.
+    // ═══════════════════════════════════════════════════════════════════
+    await Future.wait([
+      homeController.getMessengerUserData(),
+      homeController.getAllStory(forceRecallAPI: true),
+      homeController.getAdsPagePosts(),
+      homeController.getVideoAds(),
+      notificationController.getUnseenNotificationsCount(),
+    ]);
 
-    // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-    // *┃  NEED TO GET THE NOTIFICATION COUNT                                   ┃
-    // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-    await notificationController.getUnseenNotificationsCount();
-
-    //  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-    //  ┃  WE ALSO NEED TO GET THE FRIENDS COUNT HERE                           ┃
-    //  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-    // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-    // *┃  NEED TO GET SUGGESTED FRIENDS AND PAGES LIST                         ┃
-    // *┃  Each controller fetches its own data directly                        ┃
-    // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
+    // ═══════════════════════════════════════════════════════════════════
+    //  PHASE 2 — Secondary data (fire-and-forget, non-blocking)
+    //  These are not needed for the initial home page render.
+    // ═══════════════════════════════════════════════════════════════════
     friendController.getPeopleMayYouKnow(skip: 0);
     pagesController.getAllPages(initial: true);
 
-    // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-    // *┃  NEED TO GET THE FIRST 2 REELS FOR THE USER                           ┃
-    // *┃  WITH CAMPAIGN                                                        ┃
-    // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-    await videoController.getReels();
-    await videoController.getReelsCampaignList(); // 2 days
-
-    // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-    // *┃  GET THE DATA FORM USERS PRESENT CART                                 ┃
-    // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-    await cartController.getCartDetails();
-
-    // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-    // *┃  GET ALL PRODUCTS FOR THE MARKET PLACE                                ┃
-    // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-    await marketplaceController.getMarketPlaceProduct(); // 5 hr
-
-    // #┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-    // #┃  CART CONTROLLER API                                                  ┃
-    // #┃  WE ARE PUSHING THE THE API CALL AT THE BOTTOM DUE TO ITS PRIORITY    ┃
-    // #┃  AND LARGE SIZE OF DATA VOLUME                                        ┃
-    // #┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-    await cartController.getAddressList().then(
-      (value) {
-        // ? SET THE DIFFICULT ADDRESS FOR THE CART
+    unawaited(Future.wait([
+      videoController.getReels(),
+      videoController.getReelsCampaignList(),
+      cartController.getCartDetails(),
+      marketplaceController.getMarketPlaceProduct(),
+      cartController.getAddressList().then((_) {
         cartController.setDefaultAddress();
-      },
-    );
+      }),
+    ]).catchError((e) {
+      debugPrint('[InitService] Secondary data error: $e');
+    }));
   }
 }

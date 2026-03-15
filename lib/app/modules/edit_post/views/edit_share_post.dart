@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../extension/string/string_image_path.dart';
+import '../../../data/post_background.dart';
 import '../../../data/post_local_data.dart';
 import '../../../components/image.dart';
 import '../../../data/login_creadential.dart';
@@ -275,9 +276,11 @@ class EditSharedPostView extends GetView<EditPostController> {
                 width: double.maxFinite,
                 height: 240,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: controller.postBackgroundColor.value,
-                ),
+                decoration: controller.activeBackground.value != null && controller.activeBackground.value!.isGradient
+                    ? controller.activeBackground.value!.toDecoration()
+                    : BoxDecoration(
+                        color: controller.postBackgroundColor.value,
+                      ),
                 child: TextField(
                   controller: controller.descriptionController,
                   maxLines: 10,

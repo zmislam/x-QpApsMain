@@ -242,4 +242,30 @@ class UserRelationshipRepository {
 
     return apiResponse;
   }
+
+  // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // *┃  GET FRIEND LIST (by username)                                         ┃
+  // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> getFriendList({required String username}) async {
+    final apiResponse = await _apiCommunication.doPostRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'friend-list',
+      requestData: {'username': username},
+    );
+    return apiResponse;
+  }
+
+  // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // *┃  CANCEL A SENT FRIEND REQUEST                                          ┃
+  // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> cancelFriendRequest({required String requestId}) async {
+    final apiResponse = await _apiCommunication.doPostRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'cancel-friend-request',
+      requestData: {'request_id': requestId},
+    );
+    return apiResponse;
+  }
 }

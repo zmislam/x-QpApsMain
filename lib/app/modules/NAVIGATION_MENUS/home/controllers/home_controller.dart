@@ -407,7 +407,7 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
         // Fetch the fully populated post (with media, tags, etc.) and update in-place
         final postId = newPost.id ?? '';
         if (postId.isNotEmpty) {
-          await updatePostList(postId, 0);
+          await updatePostList(postId);
         }
       } catch (e) {
         debugPrint('Could not parse new post: $e');
@@ -420,10 +420,7 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
     // Update just the edited post in-place instead of refreshing the whole feed
     final postId = model.id ?? '';
     if (postId.isNotEmpty) {
-      final index = edgeRankPosts.indexWhere((p) => p.id == postId);
-      if (index != -1) {
-        await updatePostList(postId, index);
-      }
+      await updatePostList(postId);
     }
   }
 //============================= Get Posts (Legacy — kept as fallback) =========================================//
@@ -545,7 +542,6 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
     required PostModel postModel,
     required String reaction,
     required String key,
-    required int index,
   }) async {
     applyOptimisticReaction(
       post: postModel,
@@ -561,7 +557,8 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
     );
 
     // Targeted update — only rebuild the affected post, not the full list
-    edgeRankPosts[index] = postModel;
+    final index = edgeRankPosts.indexWhere((p) => p.id == postModel.id);
+    if (index != -1) edgeRankPosts[index] = postModel;
     final apiResponse = await postRepository.reactOnPost(
       postModel: postModel,
       reaction: reaction,
@@ -610,7 +607,7 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
   }
 
 //============================= Update Posts =========================================//
-  Future<void> updatePostList(String postId, int index) async {
+  Future<void> updatePostList(String postId) async {
     ApiResponse apiResponse = await _apiCommunication.doGetRequest(
       apiEndPoint: 'view-single-main-post-with-comments/$postId',
       responseDataKey: 'post',
@@ -618,12 +615,17 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
     if (apiResponse.isSuccessful) {
       List<PostModel> postmodelList =
           (apiResponse.data as List).map((e) => PostModel.fromMap(e)).toList();
-      edgeRankPosts[index] = postmodelList.first;
+      if (postmodelList.isNotEmpty) {
+        final index = edgeRankPosts.indexWhere((p) => p.id == postId);
+        if (index != -1) {
+          edgeRankPosts[index] = postmodelList.first;
+        }
+      }
     }
   }
 //============================= Hide Posts =========================================//
 
-  Future<void> hidePost(int status, String post_id, int postIndex) async {
+  Future<void> hidePost(int status, String post_id) async {
     ApiResponse apiResponse = await postRepository.hidePost(
       status: status,
       post_id: post_id,
@@ -637,13 +639,13 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
 //============================= Bookmark Posts =========================================//
 
   Future<void> bookmarkPost(
-      String post_id, String postPrivacy, int index) async {
+      String post_id, String postPrivacy) async {
     ApiResponse apiResponse = await postRepository.bookMarkAPost(
       post_id: post_id,
       postPrivacy: postPrivacy,
     );
 
-    await updatePostList(post_id, index);
+    await updatePostList(post_id);
 
     if (apiResponse.isSuccessful) {
       Get.back();
@@ -653,13 +655,13 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
 //============================= Remove Bookmarks Posts =========================================//
 
   Future<void> removeBookmarkPost(
-      String post_id, String bookMarkId, int index) async {
+      String post_id, String bookMarkId) async {
     ApiResponse apiResponse = await postRepository.unBookmarkAPost(
         post_id: post_id, bookMarkId: bookMarkId);
 
     if (apiResponse.isSuccessful) {
       Get.back();
-      await updatePostList(post_id, index);
+      await updatePostList(post_id);
       showSuccessSnackkbar(message: 'remove bookmark');
     }
   }
@@ -699,10 +701,11 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
     }
   }
 
-  Future<void> commentOnPost(int index, PostModel postModel) async {
+  Future<void> commentOnPost(PostModel postModel) async {
     if (commentController.text.isNotEmpty || xfiles.value.isNotEmpty) {
       final String commentText = commentController.text.trim();
       final String tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      final String postId = postModel.id ?? '';
 
       // 1. Create Optimistic Comment
       CommentModel tempComment = CommentModel(
@@ -727,12 +730,10 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
       // 2. Update Local State Immediately
       postModel.comments ??= [];
       postModel.comments!.add(tempComment);
-      
-      // Increment comment count locally if you track it
-      // postModel.commentCount = (postModel.commentCount ?? 0) + 1;
 
       // Targeted update — reassign at index to notify only this item
-      edgeRankPosts[index] = postModel;
+      final index = edgeRankPosts.indexWhere((p) => p.id == postId);
+      if (index != -1) edgeRankPosts[index] = postModel;
       
       // Clear inputs immediately
       commentController.clear();
@@ -755,11 +756,12 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
         // 4. On Success: Replace temp comment with real one from server
         // The server response usually contains the created comment. 
         // For now, we follow existing logic: fetch the whole post to be safe and get accurate data.
-        updatePostList(postModel.id ?? '', index);
+        updatePostList(postId);
       } else {
         // 5. On Failure: Revert changes
         postModel.comments!.removeWhere((c) => c.id == tempId);
-        edgeRankPosts[index] = postModel;
+        final revertIndex = edgeRankPosts.indexWhere((p) => p.id == postId);
+        if (revertIndex != -1) edgeRankPosts[revertIndex] = postModel;
         showErrorSnackkbar(message: 'Failed to post comment. Please try again.');
       }
     }
@@ -769,7 +771,6 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
     required String comment_id,
     required String replies_comment_name,
     required String post_id,
-    required int postIndex,
     required String file,
   }) async {
     if (replies_comment_name.isNotEmpty || file.isNotEmpty) {
@@ -794,7 +795,8 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
       );
 
       // 2. Find Parent Comment and Update Local State
-      if (postIndex < edgeRankPosts.length) {
+      final postIndex = edgeRankPosts.indexWhere((p) => p.id == post_id);
+      if (postIndex != -1) {
         PostModel post = edgeRankPosts[postIndex];
         CommentModel? parentComment = post.comments?.firstWhereOrNull((c) => c.id == comment_id);
         
@@ -823,15 +825,16 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
 
       if (apiResponse.isSuccessful) {
         // 4. On Success: Replace with real data (fetch post)
-        updatePostList(post_id, postIndex);
+        updatePostList(post_id);
       } else {
         // 5. On Failure: Revert changes
-        if (postIndex < edgeRankPosts.length) {
-           PostModel post = edgeRankPosts[postIndex];
+        final revertIndex = edgeRankPosts.indexWhere((p) => p.id == post_id);
+        if (revertIndex != -1) {
+           PostModel post = edgeRankPosts[revertIndex];
            CommentModel? parentComment = post.comments?.firstWhereOrNull((c) => c.id == comment_id);
            if (parentComment != null) {
              parentComment.replies!.removeWhere((r) => r.id == tempId);
-             edgeRankPosts[postIndex] = post;
+             edgeRankPosts[revertIndex] = post;
            }
         }
         showErrorSnackkbar(message: 'Failed to reply. Please try again.');
@@ -842,12 +845,14 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
   }
 
   Future<void> commentReaction({
-    required int postIndex,
+    required String postId,
     required String reaction_type,
-    required String post_id,
     required String comment_id,
   }) async {
     debugPrint('⚡ Instant reaction triggered');
+
+    final postIndex = edgeRankPosts.indexWhere((p) => p.id == postId);
+    if (postIndex == -1) return;
 
     final post = edgeRankPosts[postIndex];
     final comments = post.comments ?? [];
@@ -892,7 +897,7 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
       // ====== API Sync in background ======
       final apiResponse = await postRepository.reactOnComment(
         reaction_type: reaction_type,
-        post_id: post_id,
+        post_id: postId,
         comment_id: comment_id,
       );
 
@@ -900,10 +905,13 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
         debugPrint('⚠️ Failed to sync comment reaction, consider reverting');
       } else {
         // Optional: fetch updated comments from backend to stay synced
-        final updatedComments = await getSinglePostsComments(post_id);
-        final syncPost = edgeRankPosts[postIndex];
-        syncPost.comments = updatedComments;
-        edgeRankPosts[postIndex] = syncPost;
+        final updatedComments = await getSinglePostsComments(postId);
+        final syncIdx = edgeRankPosts.indexWhere((p) => p.id == postId);
+        if (syncIdx != -1) {
+          final syncPost = edgeRankPosts[syncIdx];
+          syncPost.comments = updatedComments;
+          edgeRankPosts[syncIdx] = syncPost;
+        }
       }
     }
   }
@@ -911,42 +919,44 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
 
 
   Future<void> commentReplyReaction(
-    int postIndex,
+    String postId,
     String reaction_type,
-    String post_id,
     String comment_id,
     String comment_replies_id,
   ) async {
     ApiResponse apiResponse = await postRepository.replyOnCommentWithReaction(
         reaction_type: reaction_type,
-        post_id: post_id,
+        post_id: postId,
         comment_id: comment_id,
         comment_replies_id: comment_replies_id,
         userId: userModel.id ?? '');
 
     if (apiResponse.isSuccessful) {
-      List<CommentModel> comments = await getSinglePostsComments(post_id);
-      final updatedPost = edgeRankPosts[postIndex];
-      updatedPost.comments = comments;
-      edgeRankPosts[postIndex] = updatedPost;
+      List<CommentModel> comments = await getSinglePostsComments(postId);
+      final idx = edgeRankPosts.indexWhere((p) => p.id == postId);
+      if (idx != -1) {
+        final updatedPost = edgeRankPosts[idx];
+        updatedPost.comments = comments;
+        edgeRankPosts[idx] = updatedPost;
+      }
     }
   }
 
-  void commentDelete(String comment_id, String post_id, int postIndex) async {
+  void commentDelete(String comment_id, String post_id) async {
     ApiResponse apiResponse = await postRepository.deleteCommentFromAPost(
         comment_id: comment_id, post_id: post_id);
 
     if (apiResponse.isSuccessful) {
-      updatePostList(post_id, postIndex);
+      updatePostList(post_id);
     }
   }
 
-  void replyDelete(String reply_id, String post_id, int postIndex) async {
+  void replyDelete(String reply_id, String post_id) async {
     ApiResponse apiResponse = await postRepository.deleteCommentReplyFromAPost(
         reply_id: reply_id, post_id: post_id);
 
     if (apiResponse.isSuccessful) {
-      updatePostList(post_id, postIndex);
+      updatePostList(post_id);
     }
   }
 
@@ -1049,6 +1059,17 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
 
   //=========================================== For Scrolling List View
 
+  /// Smoothly scrolls the home feed to the very top.
+  void scrollToTop() {
+    if (postScrollController.hasClients) {
+      postScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   bool _isLoadingMore = false;
   Timer? _scrollThrottle;
 
@@ -1059,7 +1080,7 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
       if (feedExhausted.value) return;
       if (!hasMorePosts.value) return;
       if (postScrollController.position.pixels >=
-          postScrollController.position.maxScrollExtent - 500) {
+          postScrollController.position.maxScrollExtent - 800) {
         _triggerLoadMore();
       }
     });

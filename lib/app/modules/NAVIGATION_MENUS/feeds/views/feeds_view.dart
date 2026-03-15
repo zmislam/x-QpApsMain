@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../components/comment/comment_component.dart';
 import '../../../../components/custom_alert_dialog.dart';
 import '../../../../components/post/post.dart';
 import '../../../../components/post/post_shimer_loader.dart';
@@ -50,6 +51,16 @@ class FeedsView extends GetView<FeedsController> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         backgroundColor: FeedDesignTokens.cardBg(context),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.search_rounded,
+              size: 26,
+              color: FeedDesignTokens.textPrimary(context),
+            ),
+            onPressed: () => Get.toNamed(Routes.ADVANCE_SEARCH),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: _buildTabBar(context, isDark),
@@ -168,7 +179,7 @@ class _FeedTabContent extends StatelessWidget {
                     key: ValueKey('${tab.name}_${postModel.id}'),
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildPostCard(context, controller, postModel, index),
+                      _buildPostCard(context, controller, postModel, index, tab),
                       const SizedBox(height: 2),
                     ],
                   );
@@ -257,6 +268,7 @@ class _FeedTabContent extends StatelessWidget {
     FeedsController controller,
     PostModel postModel,
     int index,
+    FeedsTab tab,
   ) {
     return PostCard(
       model: postModel,
@@ -338,12 +350,98 @@ class _FeedTabContent extends StatelessWidget {
         );
       },
       onPressedComment: () {
-        Get.toNamed(
-          Routes.NOTIFICATION_POST,
-          arguments: {
-            'postId': postModel.id,
-            'commentId': null,
-          },
+        Get.bottomSheet(
+          backgroundColor: Theme.of(context).cardTheme.color,
+          Obx(
+            () => CommentComponent(
+              commentController: controller.commentController,
+              postModel: controller.posts[tab]![index],
+              userModel: controller.userModel,
+              onTapSendComment: () {
+                controller.commentOnPost(tab, index, postModel);
+              },
+              onCommentEdit: (commentModel) async {
+                await Get.toNamed(Routes.EDIT_POST_COMMENT, arguments: {
+                  'post_comment': commentModel.comment_name,
+                  'post_id': commentModel.post_id,
+                  'comment_id': commentModel.id,
+                  'comment_type': commentModel.comment_type,
+                  'image_video': commentModel.image_or_video,
+                });
+                controller.updatePostList(
+                    tab, commentModel.post_id ?? '', index);
+              },
+              onCommentReplayEdit: (commentReplayModel) async {
+                await Get.toNamed(Routes.EDIT_REPLY_POST_COMMENT, arguments: {
+                  'reply_comment': commentReplayModel.replies_comment_name,
+                  'replay_post_id': commentReplayModel.post_id,
+                  'comment_replay_id': commentReplayModel.id,
+                  'comment_type': commentReplayModel.comment_type,
+                  'image_video': commentReplayModel.image_or_video,
+                  'key': commentReplayModel.key,
+                });
+                controller.updatePostList(
+                    tab, commentReplayModel.post_id ?? '', index);
+              },
+              onCommentDelete: (commentModel) {
+                controller.commentDelete(
+                  tab,
+                  commentModel.id ?? '',
+                  commentModel.post_id ?? '',
+                  index,
+                );
+              },
+              onCommentReplayDelete: (replyId, postId) {
+                controller.replyDelete(
+                  tab,
+                  replyId,
+                  postId,
+                  index,
+                );
+              },
+              onTapReplayComment: ({
+                required commentReplay,
+                required comment_id,
+                required file,
+              }) {
+                controller.commentReply(
+                  tab: tab,
+                  comment_id: comment_id,
+                  replies_comment_name: commentReplay,
+                  post_id: postModel.id ?? '',
+                  postIndex: index,
+                  processedFileData: file,
+                );
+              },
+              onSelectCommentReaction: (reaction, commentId) {
+                controller.commentReaction(
+                  tab: tab,
+                  postIndex: index,
+                  reaction_type: reaction,
+                  post_id: postModel.id ?? '',
+                  comment_id: commentId,
+                );
+              },
+              onSelectCommentReplayReaction: (
+                reaction,
+                commentId,
+                commentRepliesId,
+              ) {
+                controller.commentReplyReaction(
+                  tab: tab,
+                  postIndex: index,
+                  reaction_type: reaction,
+                  post_id: postModel.id ?? '',
+                  comment_id: commentId,
+                  comment_replies_id: commentRepliesId,
+                );
+              },
+              onTapViewReactions: () {
+                Get.toNamed(Routes.REACTIONS, arguments: postModel.id);
+              },
+            ),
+          ),
+          isScrollControlled: true,
         );
       },
       onPressedShare: () {

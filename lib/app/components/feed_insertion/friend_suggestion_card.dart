@@ -310,30 +310,48 @@ class _SuggestionCard extends StatelessWidget {
             ),
           ),
 
-          // ─── Add Friend Button ───
+          // ─── Action Icons Row (Add Friend + Dismiss) ───
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
-            child: SizedBox(
-              height: 32,
-              child: ElevatedButton(
-                onPressed: onAdd,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: FeedDesignTokens.brand(context),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+            child: Row(
+              children: [
+                // Add Friend icon button
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onAdd,
+                    child: Container(
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: FeedDesignTokens.brand(context),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.person_add_alt_1_rounded,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                  padding: EdgeInsets.zero,
-                  elevation: 0,
                 ),
-                child: Text(
-                  'Add Friend'.tr,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 6),
+                // Dismiss icon button
+                GestureDetector(
+                  onTap: onDismiss,
+                  child: Container(
+                    height: 32,
+                    width: 32,
+                    decoration: BoxDecoration(
+                      color: FeedDesignTokens.inputBg(context),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: FeedDesignTokens.textSecondary(context),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ],

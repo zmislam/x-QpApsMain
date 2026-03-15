@@ -5,7 +5,6 @@ import '../../../../config/constants/feed_design_tokens.dart';
 import '../../../../utils/url_utils.dart';
 
 import '../../../../components/custom_alert_dialog.dart';
-import '../../../../components/feed_mode_tabs.dart';
 import '../../../../components/post/post.dart';
 import '../../../../components/post/post_shimer_loader.dart';
 import '../../../../components/share/share_sheet_widget.dart';
@@ -47,7 +46,8 @@ class HomeView extends GetView<HomeController> {
         controller.generateRandomIndicesForPosts();
       },
       child: CustomScrollView(
-        cacheExtent: 800, // Pre-build cards 800px beyond viewport for smoother scroll
+        key: const PageStorageKey<String>('home_feed'),
+        cacheExtent: 1200, // Pre-build cards 1200px beyond viewport for smoother scroll
         controller: controller.postScrollController,
         slivers: [
           // ===================== Do Post Section =========================
@@ -139,34 +139,28 @@ class HomeView extends GetView<HomeController> {
               ),
             ),
           ),
-          // ===================== Feed Mode Tabs =========================
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Obx(() => FeedModeTabs(
-                    currentMode: controller.currentFeedMode.value,
-                    onModeChanged: (mode) {
-                      // Scroll to top before switching mode
-                      if (controller.postScrollController.hasClients) {
-                        controller.postScrollController.animateTo(
-                          0,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOut,
-                        );
-                      }
-                      controller.switchFeedMode(mode);
-                    },
-                  )),
-            ),
-          ),
+          // Feed mode is fixed to 'for_you' — tabs removed per design decision
           Obx(() {
                 final posts = controller.edgeRankPosts;
 
-                return SliverList.builder(
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: true,
-                  itemCount: posts.length,
-                  itemBuilder: (context, index) {
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    // ── findChildIndexCallback ──
+                    // Tells Flutter which child corresponds to which key
+                    // when the list is mutated. Prevents scroll jumps when
+                    // a post is updated/reorder/removed mid-scroll.
+                    findChildIndexCallback: (Key key) {
+                      if (key is ValueKey<String?>) {
+                        final id = key.value;
+                        final idx = posts.indexWhere((p) => p.id == id);
+                        return idx != -1 ? idx : null;
+                      }
+                      return null;
+                    },
+                    childCount: posts.length,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: false, // PostCard has its own RepaintBoundary
+                    (context, index) {
                     final int actualPostIndex = index;
 
                     if (actualPostIndex < 0 || actualPostIndex >= posts.length) {
@@ -240,15 +234,15 @@ class HomeView extends GetView<HomeController> {
                               },
                               onTapHidePost: () {
                                 controller.hidePost(
-                                    1, postModel.id.toString(), actualPostIndex);
+                                    1, postModel.id.toString());
                               },
                               onTapBookMardPost: () {
                                 controller.bookmarkPost(postModel.id.toString(),
-                                    postModel.post_privacy.toString(), actualPostIndex);
+                                    postModel.post_privacy.toString());
                               },
                               onTapRemoveBookMardPost: () {
                                  controller.removeBookmarkPost(
-                                    postModel.id ?? '', postModel.bookmark?.id ?? '', actualPostIndex);
+                                    postModel.id ?? '', postModel.bookmark?.id ?? '');
                               },
                               onTapCopyPost: () async {
                                  CopyToClipboardUtils.copyToClipboard(
@@ -268,7 +262,6 @@ class HomeView extends GetView<HomeController> {
                                 controller.reactOnPost(
                                   postModel: postModel,
                                   reaction: reaction,
-                                  index: actualPostIndex,
                                   key: postModel.key ?? '',
                                 );
                                 debugPrint(reaction);
@@ -276,7 +269,7 @@ class HomeView extends GetView<HomeController> {
                               onPressedComment: () {
                                 Get.to(
                                   () => PostCommentPageView(
-                                    postIndex: actualPostIndex,
+                                    postId: postModel.id ?? '',
                                   ),
                                   transition: Transition.rightToLeft,
                                   duration: const Duration(milliseconds: 250),
@@ -335,6 +328,7 @@ class HomeView extends GetView<HomeController> {
                         ],
                       );
                   },
+                  ),
                 );
               }),
           // Initial feed loading shimmer

@@ -6,6 +6,7 @@ import '../../../../../../../config/constants/api_constant.dart';
 import '../../../../../../../data/login_creadential.dart';
 import '../../../../../../../models/api_response.dart';
 import '../models/all_group_model.dart';
+import '../../invite_groups/models/all_invite_group_model.dart';
 import '../../../../../../../services/api_communication.dart';
 import '../../../../../../../utils/snackbar.dart';
 
@@ -26,6 +27,21 @@ class DiscoverGroupsController extends GetxController {
   int limit = 10;
   int pageCount = 0;
   late ScrollController groupScrollController;
+
+  // ─── Joined Groups State ─────────────────────────────────
+  Rx<List<AllGroupModel>> joinedGroupList = Rx([]);
+  RxBool isLoadingJoinedGroups = false.obs;
+  int joinedPageNo = 1;
+  int joinedPageSize = 20;
+  RxInt joinedTotalCount = 0.obs;
+  late ScrollController joinedGroupScrollController;
+
+  // ─── Invited Groups State ────────────────────────────────
+  Rx<List<InviteGroupsModel>> invitedGroupList = Rx([]);
+  RxBool isLoadingInvitedGroups = false.obs;
+
+  // ─── Tab State ───────────────────────────────────────────
+  RxInt selectedTabIndex = 0.obs;
 
 //==========================================Discover page search =============================//
   Future<void> getSearchGroup(String text) async {
@@ -120,19 +136,120 @@ class DiscoverGroupsController extends GetxController {
     }
   }
 
+  // ─── Joined Groups Scroll Listener ──────────────────────
+  Future<void> _joinedScrollListener() async {
+    if (joinedGroupScrollController.position.pixels ==
+        joinedGroupScrollController.position.maxScrollExtent) {
+      if (joinedPageNo * joinedPageSize < joinedTotalCount.value) {
+        joinedPageNo += 1;
+        await getAllJoinedGroups();
+      }
+    }
+  }
+
+  // ─── Get All Joined Groups ──────────────────────────────
+  Future<void> getAllJoinedGroups({bool forceFetch = false}) async {
+    if (forceFetch) {
+      joinedPageNo = 1;
+      joinedGroupList.value.clear();
+    }
+    isLoadingJoinedGroups.value = true;
+    ApiResponse apiResponse = await _apiCommunication.doGetRequest(
+      apiEndPoint:
+          'get-all-joined-group-apps?pageNo=$joinedPageNo&pageSize=$joinedPageSize',
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+    );
+
+    if (apiResponse.isSuccessful) {
+      joinedTotalCount.value =
+          (apiResponse.data as Map<String, dynamic>)['totalCount'] ?? 0;
+      List<AllGroupModel> newGroups =
+          (((apiResponse.data as Map<String, dynamic>)['results']) as List)
+              .map((e) => AllGroupModel.fromMap(e))
+              .toList();
+      joinedGroupList.value.addAll(newGroups);
+      joinedGroupList.refresh();
+    }
+    isLoadingJoinedGroups.value = false;
+  }
+
+  // ─── Get Invited Groups ─────────────────────────────────
+  Future<void> getAllInvitedGroups() async {
+    isLoadingInvitedGroups.value = true;
+    ApiResponse apiResponse = await _apiCommunication.doGetRequest(
+      apiEndPoint: 'groups/invitation-join-request-list?type=invitation_list',
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+    );
+
+    if (apiResponse.isSuccessful) {
+      final data = apiResponse.data as Map<String, dynamic>;
+      final list = data['data'] as List? ?? [];
+      invitedGroupList.value =
+          list.map((e) => InviteGroupsModel.fromMap(e)).toList();
+      invitedGroupList.refresh();
+    }
+    isLoadingInvitedGroups.value = false;
+  }
+
+  // ─── Accept / Decline Invitation ────────────────────────
+  Future<void> acceptDeclineInvitation({
+    required String id,
+    required bool accept,
+  }) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      apiEndPoint: 'groups/invitation-join-request-accept-decline',
+      requestData: {
+        'id': id,
+        'is_accepted': accept,
+      },
+    );
+
+    if (apiResponse.isSuccessful) {
+      invitedGroupList.value.removeWhere((e) => e.id == id);
+      invitedGroupList.refresh();
+      if (accept) {
+        showSuccessSnackkbar(
+            titile: 'Success', message: 'Invitation accepted');
+        // Refresh joined groups
+        getAllJoinedGroups(forceFetch: true);
+      } else {
+        showSuccessSnackkbar(
+            titile: 'Done', message: 'Invitation declined');
+      }
+    }
+  }
+
+  // ─── Dismiss Discover Group ─────────────────────────────
+  void dismissDiscoverGroup(String groupId) {
+    allGroupList.value.removeWhere((g) => g.id == groupId);
+    allGroupList.refresh();
+  }
+
+  // ─── Refresh All Data ───────────────────────────────────
+  Future<void> refreshAllData() async {
+    await Future.wait([
+      getAllGroups(),
+      getAllJoinedGroups(forceFetch: true),
+      getAllInvitedGroups(),
+    ]);
+  }
+
   @override
   void onInit() {
     _apiCommunication = ApiCommunication();
     loginCredential = LoginCredential();
     groupScrollController = ScrollController();
+    joinedGroupScrollController = ScrollController();
     getAllGroups();
-    // groupScrollController.addListener(_scrollListener);
+    getAllJoinedGroups();
+    getAllInvitedGroups();
     super.onInit();
   }
 
   @override
   void onReady() {
     groupScrollController.addListener(_scrollListener);
+    joinedGroupScrollController.addListener(_joinedScrollListener);
     super.onReady();
   }
 
@@ -140,6 +257,7 @@ class DiscoverGroupsController extends GetxController {
   void onClose() {
     debounce?.cancel();
     groupScrollController.dispose();
+    joinedGroupScrollController.dispose();
     super.onClose();
   }
 }

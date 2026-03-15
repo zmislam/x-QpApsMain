@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../config/constants/api_constant.dart';
+import '../../../data/post_background.dart';
 import '../../../data/post_color_list.dart';
 import '../../../data/post_local_data.dart';
 import '../../../models/event_icon_type_model.dart';
@@ -37,6 +38,7 @@ class EditPostController extends GetxController {
   RxString userId = ''.obs;
   RxString postType = 'timeline_post'.obs;
   Rx<Color> postBackgroundColor = postListColor.first.obs;
+  Rx<PostBackground?> activeBackground = Rx<PostBackground?>(null);
   var locationId = ''.obs;
   RxString postPrivacy = ''.obs;
 
@@ -161,6 +163,9 @@ class EditPostController extends GetxController {
 
   String? getBackgroundColor() {
     if (isBackgroundColorPost.value) {
+      if (activeBackground.value != null) {
+        return activeBackground.value!.storageValue;
+      }
       return postBackgroundColor.value.value.toRadixString(16).substring(2, 8);
     } else {
       return null;

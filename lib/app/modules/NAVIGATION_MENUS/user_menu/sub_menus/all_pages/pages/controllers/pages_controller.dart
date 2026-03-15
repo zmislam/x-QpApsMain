@@ -32,6 +32,8 @@ class PagesController extends GetxController {
   Rx<List<XFile>> coverfiles = Rx([]);
   RxBool isLoadingUserPages = false.obs;
   RxBool isLoadingDiscoverPages = false.obs;
+  RxBool isLoadingMyPages = false.obs;
+  RxBool isLoadingFollowedPages = false.obs;
   RxBool isSaveButtonEnabled = false.obs;
   RxBool isLocationLoading = false.obs;
   RxBool isLoadingFriendList = false.obs;
@@ -128,6 +130,7 @@ class PagesController extends GetxController {
   Future getMyPages({bool? forceFetch}) async {
     myPagesList.value.clear();
     isLoadingUserPages.value = true;
+    isLoadingMyPages.value = true;
     ApiResponse apiResponse = await pageRepository.getMyPages(
         skip: skip, limit: limit, forceFetch: forceFetch);
 
@@ -140,6 +143,7 @@ class PagesController extends GetxController {
       myPagesList.refresh();
     }
     isLoadingUserPages.value = false;
+    isLoadingMyPages.value = false;
   }
 
   //--------------------------------------Get  Manage Pages ----------------------------//
@@ -276,6 +280,7 @@ class PagesController extends GetxController {
 
   Future getFollowedPages({bool? forceFetch}) async {
     isLoadingUserPages.value = true;
+    isLoadingFollowedPages.value = true;
     followedPageList.value.clear();
     ApiResponse apiResponse = await pageRepository.getFollowedPages(
         skip: 0, limit: limit, forceFetch: forceFetch);
@@ -290,6 +295,7 @@ class PagesController extends GetxController {
       followedPageList.refresh();
     }
     isLoadingUserPages.value = false;
+    isLoadingFollowedPages.value = false;
   }
 
   //-------------------------------------- Invited Page ----------------------------//
@@ -417,6 +423,29 @@ class PagesController extends GetxController {
       debugPrint('❌ Failed to follow page');
     }
   }
+
+  //-------------------------------------- unfollow-page ----------------------------//
+
+  Future<void> unfollowPage(String pageId) async {
+    final ApiResponse response = await pageRepository.unfollowPage(pageId: pageId);
+    if (response.isSuccessful) {
+      // Remove from followed list
+      followedPageList.value.removeWhere((page) => page.id == pageId);
+      followedPageList.refresh();
+      showSuccessSnackkbar(message: 'Successfully unfollowed the page');
+    } else {
+      debugPrint('❌ Failed to unfollow page');
+    }
+  }
+
+  //-------------------------------------- refresh all ----------------------------//
+
+  Future<void> refreshAllPages() async {
+    await Future.wait([
+      getMyPages(forceFetch: true),
+      getAllPages(initial: true),
+    ]);
+  }
   //==========================================Send Friend invites =====================================//
 
   Future sendFriendInvitation(
@@ -497,6 +526,7 @@ class PagesController extends GetxController {
     invitePageScrollController = ScrollController();
     myPagesModel = Get.arguments;
     await getAllPages();
+    getMyPages();
     super.onInit();
   }
 

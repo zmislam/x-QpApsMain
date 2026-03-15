@@ -7,7 +7,6 @@ import '../../../../components/image.dart';
 import '../../../../routes/app_pages.dart';
 import '../../settings_privacy/views/settings_privacy_view.dart';
 import '../controllers/user_menu_controller.dart';
-import '../sub_menus/all_pages/pages/controllers/pages_controller.dart';
 import '../widget/change_to_original_profile.dart';
 import '../widget/user_profile_change_button.dart';
 import '../../../tab_view/controllers/tab_view_controller.dart';
@@ -203,9 +202,13 @@ class UserMenuView extends GetView<UserMenuController> {
         label: 'Pages',
         icon: Icons.flag_outlined,
         onTap: () {
-          PagesController pagesController = Get.find<PagesController>();
-          pagesController.getAllPages();
-          Get.toNamed(Routes.PAGES);
+          try {
+            TabViewController tabCtrl = Get.find<TabViewController>();
+            LoginCredential cred = LoginCredential();
+            final pageTabIndex = cred.getProfileSwitch() ? 2 : 3;
+            tabCtrl.tabIndex.value = pageTabIndex;
+            tabCtrl.tabController.animateTo(pageTabIndex);
+          } catch (_) {}
         },
       ),
       _ShortcutItem(
@@ -309,9 +312,13 @@ class UserMenuView extends GetView<UserMenuController> {
           iconColor: const Color(0xFFFF6D00),
           label: 'Pages',
           onTap: () {
-            PagesController pagesController = Get.find<PagesController>();
-            pagesController.getAllPages();
-            Get.toNamed(Routes.PAGES);
+            try {
+              TabViewController tabCtrl = Get.find<TabViewController>();
+              LoginCredential cred = LoginCredential();
+              final pageTabIndex = cred.getProfileSwitch() ? 2 : 3;
+              tabCtrl.tabIndex.value = pageTabIndex;
+              tabCtrl.tabController.animateTo(pageTabIndex);
+            } catch (_) {}
           },
         ),
         _MenuGridItem(
@@ -363,22 +370,25 @@ class UserMenuView extends GetView<UserMenuController> {
         icon: Icons.people_rounded,
         iconColor: const Color(0xFF1EBEA5),
         label: 'Friends',
-        onTap: () => Get.toNamed(
-          Routes.MY_PROFILE_FRIENDS,
-          arguments: controller.userModel.value?.id ?? '',
-        ),
+        onTap: () {
+          final tabCtrl = Get.find<TabViewController>();
+          tabCtrl.tabIndex.value = 2;
+          if (tabCtrl.tabControllerInitComplete.value) {
+            tabCtrl.tabController.animateTo(2);
+          }
+        },
       ),
       _MenuGridItem(
         icon: Icons.event_rounded,
         iconColor: const Color(0xFFD32F2F),
         label: 'Events',
-        onTap: () => Get.toNamed(Routes.EVENT),
+        onTap: () => Get.toNamed(Routes.EVENTS),
       ),
       _MenuGridItem(
         icon: Icons.card_giftcard_rounded,
         iconColor: const Color(0xFF1EBEA5),
         label: 'Birthdays',
-        onTap: () => Get.toNamed(Routes.BIRTHDAY),
+        onTap: () => Get.toNamed(Routes.BIRTHDAYS),
       ),
       _MenuGridItem(
         icon: Icons.bookmark_rounded,
@@ -408,9 +418,13 @@ class UserMenuView extends GetView<UserMenuController> {
         iconColor: const Color(0xFFFF6D00),
         label: 'Pages',
         onTap: () {
-          PagesController pagesController = Get.find<PagesController>();
-          pagesController.getAllPages();
-          Get.toNamed(Routes.PAGES);
+          try {
+            TabViewController tabCtrl = Get.find<TabViewController>();
+            LoginCredential cred = LoginCredential();
+            final pageTabIndex = cred.getProfileSwitch() ? 2 : 3;
+            tabCtrl.tabIndex.value = pageTabIndex;
+            tabCtrl.tabController.animateTo(pageTabIndex);
+          } catch (_) {}
         },
       ),
       // ── Below items shown after "See more" ────────────────────────

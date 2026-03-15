@@ -1,23 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../../../../components/post/post_shimer_loader.dart';
-import '../../../../../../../extension/string/string_image_path.dart';
 
-import '../../../../../../../components/button.dart';
 import '../../../../../../../components/comment/comment_component.dart';
-import '../../../../../../../components/dropdown.dart';
 import '../../../../../../../components/post/post.dart';
 import '../../../../../../../components/share/share_sheet_widget.dart';
 import '../../../../../../../config/constants/api_constant.dart';
 import '../../../../../../../config/constants/app_assets.dart';
 import '../../../../../../../config/constants/color.dart';
-import '../../../../../../../data/post_local_data.dart';
 import '../../../../../../../models/post.dart';
 import '../../../../../../../routes/app_pages.dart';
 import '../../../../../../../routes/profile_navigator.dart';
 import '../../../../../../../utils/bottom_sheet.dart';
 import '../../../../../../../utils/copy_to_clipboard_utils.dart';
-import '../../../../../../../utils/post_utlis.dart';
 import '../../../../../../shared/modules/multiple_image/views/multiple_image_view.dart';
 import '../../controllers/profile_controller.dart';
 
@@ -30,277 +25,6 @@ class FeedComponent extends StatelessWidget {
 
     return SliverList(
       delegate: SliverChildListDelegate([
-        // ====================== create post section ============
-        Padding(
-          padding: const EdgeInsetsDirectional.symmetric(vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              Obx(
-                () => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 10),
-                  height: 47.86,
-                  width: 47.86,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    image: DecorationImage(
-                      alignment: Alignment.center,
-                      fit: BoxFit.cover,
-                      image: NetworkImage(
-                        controller.profileModel.value?.profile_pic != null
-                            ? (controller.profileModel.value!.profile_pic
-                                    .toString())
-                                .formatedProfileUrl
-                            : 'https://img.freepik.com/premium-vector/man-avatar-profile-picture-vector-illustration_268834-538.jpg',
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: controller.onTapCreatePost,
-                child: Container(
-                  height: 47.86,
-                  width: Get.width - 140,
-                  padding: const EdgeInsets.all(5),
-                  alignment: Alignment.centerLeft,
-                  decoration: BoxDecoration(
-                      color: Colors.grey.withValues(
-                          alpha: 0.1), //Color.fromARGB(135, 238, 238, 238),
-                      borderRadius: BorderRadius.circular(10)),
-                  child: Text(
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    "    What's on your mind, ${controller.userModel.first_name}?",
-                    style: TextStyle(color: GREY_COLOR),
-                    textAlign: TextAlign.left,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Container(
-                  height: 47.86,
-                  width: 47.86,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: Colors.grey.withValues(alpha: 0.1),
-                  ),
-                  child: IconButton(
-                      onPressed: () {
-                        controller.pickMediaFiles();
-                      },
-                      icon: const Image(
-                          height: 25,
-                          image: AssetImage(AppAssets.Gallery_ICON))),
-                ),
-              )
-            ],
-          ),
-        ),
-        Container(
-          height: 10,
-          margin: const EdgeInsetsDirectional.only(bottom: 10),
-          color: PRIMARY_GREY_DIVIDER_COLOR.withValues(alpha: 0.3),
-        ),
-        // ======================= Post filter section ===========
-        Row(
-          children: [
-            Padding(
-              padding: EdgeInsets.only(left: 8.0),
-              child: Text('Post Section'.tr,
-                textAlign: TextAlign.start,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-              ),
-            ),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: Image.asset(
-                AppAssets.POST_FILTER_ICON,
-                height: 18,
-                width: 18,
-                fit: BoxFit.cover,
-              ),
-            ),
-            InkWell(
-              onTap: () {
-                controller.filterYear.value = '';
-                controller.filterPostBy.value = '';
-                controller.filterPrivacy.value = 'public';
-                controller.filterTagBy.value = '';
-
-                showDialog(
-                    context: context,
-                    builder: (context) {
-                      return AlertDialog(
-                          scrollable: true,
-                          insetPadding: const EdgeInsets.only(
-                              left: 15, right: 15, top: 10, bottom: 10),
-                          // backgroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15.0)),
-                          title: Row(
-                            children: [
-                              Text('Post Filters'.tr,
-                                style: TextStyle(
-                                  color: PRIMARY_COLOR,
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const Spacer(),
-                              InkWell(
-                                onTap: () {
-                                  Get.back();
-                                },
-                                child: const Icon(
-                                  Icons.cancel,
-                                  color: PRIMARY_COLOR,
-                                ),
-                              )
-                            ],
-                          ),
-                          content: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const SizedBox(
-                                height: 15,
-                              ),
-                              Text('Use filters to find posts on your timeline'.tr,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
-                              const SizedBox(
-                                height: 5,
-                              ),
-                              Text('This will not affect how others see your timeline'.tr,
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 17,
-                              ),
-                              Text('Go to'.tr,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.copyWith(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w600,
-                                      )),
-                              const SizedBox(
-                                height: 10,
-                              ),
-                              PrimaryDropDownField(
-                                  hint: 'Year',
-                                  list: controller.postFilterYearList.value,
-                                  onChanged: (changedValue) {
-                                    controller.filterYear.value =
-                                        changedValue ?? '';
-                                  }),
-                              const SizedBox(
-                                height: 12,
-                              ),
-                              Text('Posted By'.tr,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.copyWith(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w600,
-                                      )),
-                              const SizedBox(
-                                height: 10,
-                              ),
-                              PrimaryDropDownField(
-                                  hint: 'You',
-                                  list: const ['You', 'Others'],
-                                  onChanged: (changedValue) {
-                                    controller.filterPostBy.value =
-                                        changedValue ?? '';
-                                  }),
-                              const SizedBox(
-                                height: 15,
-                              ),
-                              Text('Privacy'.tr,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.copyWith(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w600,
-                                      )),
-                              const SizedBox(
-                                height: 10,
-                              ),
-                              PrimaryDropDownField(
-                                  hint: privacyList.last,
-                                  list: privacyList,
-                                  onChanged: (changedValue) {
-                                    controller.filterPrivacy.value =
-                                        getPostPrivacyValue(changedValue ?? '');
-                                  }),
-                              const SizedBox(
-                                height: 15,
-                              ),
-                              Text('Tagged Post'.tr,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.copyWith(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w600,
-                                      )),
-                              const SizedBox(
-                                height: 10,
-                              ),
-                              PrimaryDropDownField(
-                                  hint: 'All Posts',
-                                  list: const [
-                                    'All Posts',
-                                    'Only show posts i am tagged in'
-                                  ],
-                                  onChanged: (changedValue) {
-                                    controller.filterTagBy.value =
-                                        changedValue == 'All Posts'
-                                            ? 'false'
-                                            : 'true';
-                                  }),
-                              const SizedBox(
-                                height: 35,
-                              ),
-                              PrimaryButton(
-                                onPressed: () {
-                                  controller.getFilterPosts();
-                                  Navigator.pop(context);
-                                },
-                                text: 'Filter'.tr,
-                                horizontalPadding: 110,
-                                verticalPadding: 15,
-                              ),
-                            ],
-                          ));
-                    });
-              },
-              child: Padding(
-                padding: EdgeInsets.only(right: 8.0),
-                child: Text('Filters'.tr,
-                  textAlign: TextAlign.start,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ),
         // ========================= pin post section ==========================
         Obx(
           () => controller.pinnedPostList.value.isEmpty
@@ -494,37 +218,13 @@ class FeedComponent extends StatelessWidget {
                   ],
                 ),
         ),
-        // ======================= other post section ==========================
-        const SizedBox(
-          height: 10,
-        ),
-        Obx(
-          () => controller.isLoadingNewsFeed.value == true
-              ? const SizedBox()
-              : Row(
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.only(left: 8.0),
-                      child: Text('Others Post'.tr,
-                        textAlign: TextAlign.start,
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
+        // ======================= post list section ==========================
         Obx(() => controller.isLoadingNewsFeed.value == true
             ? const Padding(
                 padding: EdgeInsets.all(20),
                 child: PostShimerLoaderGeneral(),
               )
             : Container()),
-        Container(
-          height: 10,
-          margin: const EdgeInsetsDirectional.symmetric(vertical: 10),
-          color: PRIMARY_GREY_DIVIDER_COLOR.withValues(alpha: 0.3),
-        ),
         // ========================== other post list ==========================
         Obx(
           () => ListView.builder(

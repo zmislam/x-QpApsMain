@@ -10,6 +10,7 @@ import 'package:video_player/video_player.dart';
 import '../../../../../config/constants/api_constant.dart';
 import '../../../../../data/login_creadential.dart';
 import '../../../../../data/post_color_list.dart';
+import '../../../../../data/post_background.dart';
 import '../../../../../data/post_local_data.dart';
 import '../../../../../models/event_icon_type_model.dart';
 import '../../../../../models/api_response.dart';
@@ -38,6 +39,7 @@ class CreatePostController extends GetxController {
   // For Background color post view
   Rx<Color> postBackgroundColor = postListColor.first.obs;
   Rx<bool> isBackgroundColorPost = false.obs;
+  Rx<PostBackground?> activeBackground = Rx<PostBackground?>(null);
 
   RxString eventType = 'work'.obs;
   RxString eventSubType = ''.obs;
@@ -208,6 +210,10 @@ class CreatePostController extends GetxController {
 
   String? getBackgroundColor() {
     if (isBackgroundColorPost.value) {
+      // If a gradient/decorative background is active, use its storage value
+      if (activeBackground.value != null) {
+        return activeBackground.value!.storageValue;
+      }
       return postBackgroundColor.value.value.toRadixString(16).substring(2, 8);
     } else {
       return null;

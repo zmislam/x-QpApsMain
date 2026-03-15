@@ -2,6 +2,14 @@ import 'package:get/get.dart';
 
 import '../modules/NAVIGATION_MENUS/account_switch_page/bindings/account_switch_page_binding.dart';
 import '../modules/NAVIGATION_MENUS/account_switch_page/views/account_switch_page_view.dart';
+import '../modules/advance_search/bindings/advance_search_binding.dart';
+import '../modules/advance_search/views/advance_search_view.dart';
+import '../modules/birthdays/bindings/birthdays_binding.dart';
+import '../modules/birthdays/views/birthdays_view.dart';
+import '../modules/events/bindings/events_binding.dart';
+import '../modules/events/bindings/create_event_binding.dart';
+import '../modules/events/views/events_view.dart';
+import '../modules/events/views/create_event_view.dart';
 import '../modules/NAVIGATION_MENUS/feeds/bindings/feeds_binding.dart';
 import '../modules/NAVIGATION_MENUS/feeds/views/feeds_view.dart';
 import '../modules/NAVIGATION_MENUS/reels/sub_menu/suggested_reels/bindings/suggested_reels_binding.dart';
@@ -23,6 +31,7 @@ import '../modules/NAVIGATION_MENUS/explore/view/explore_view.dart';
 import '../modules/NAVIGATION_MENUS/friend/bindings/friend_binding.dart';
 import '../modules/NAVIGATION_MENUS/friend/views/friend_suggestion_view.dart';
 import '../modules/NAVIGATION_MENUS/friend/views/friend_view.dart';
+import '../modules/NAVIGATION_MENUS/friend/views/your_friends_view.dart';
 import '../modules/NAVIGATION_MENUS/home/bindings/home_binding.dart';
 import '../modules/NAVIGATION_MENUS/home/create_story/bindings/create_story_binding.dart';
 import '../modules/NAVIGATION_MENUS/home/create_story/sub_menus/add_audio/bindings/add_audio_binding.dart';
@@ -381,6 +390,11 @@ class AppPages {
     GetPage(
       name: _Paths.FRIEND_SUGGESTION,
       page: () => const FriendSuggestionView(),
+      binding: FriendBinding(),
+    ),
+    GetPage(
+      name: _Paths.YOUR_FRIENDS,
+      page: () => const YourFriendsView(),
       binding: FriendBinding(),
     ),
     GetPage(
@@ -1076,6 +1090,26 @@ class AppPages {
       name: _Paths.FEEDS,
       page: () => const FeedsView(),
       binding: FeedsBinding(),
+    ),
+    GetPage(
+      name: _Paths.ADVANCE_SEARCH,
+      page: () => const AdvanceSearchView(),
+      binding: AdvanceSearchBinding(),
+    ),
+    GetPage(
+      name: _Paths.BIRTHDAYS,
+      page: () => const BirthdaysView(),
+      binding: BirthdaysBinding(),
+    ),
+    GetPage(
+      name: _Paths.EVENTS,
+      page: () => const EventsView(),
+      binding: EventsBinding(),
+    ),
+    GetPage(
+      name: _Paths.CREATE_EVENT,
+      page: () => const CreateEventView(),
+      binding: CreateEventBinding(),
     ),
   ];
 }

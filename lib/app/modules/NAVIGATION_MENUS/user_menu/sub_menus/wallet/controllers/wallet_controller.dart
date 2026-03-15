@@ -55,7 +55,8 @@ class WalletController extends GetxController {
   TextEditingController cardExpiryController = TextEditingController();
   TextEditingController postCodeController = TextEditingController();
 
-  final secrectKey = const String.fromEnvironment('STRIPE_SECRET_KEY', defaultValue: '');
+  // Stripe key moved to server-side — do not store secrets in client code
+  final secrectKey = '';
 
   createPaymentIntent() async {
     final apiResponse = await _apiCommunication.doPostRequest(

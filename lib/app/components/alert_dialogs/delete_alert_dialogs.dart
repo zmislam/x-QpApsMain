@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../config/constants/app_assets.dart';
+import '../../config/constants/color.dart';
 
+/// Facebook-style delete confirmation dialog.
+///
+/// Clean minimal design with centered text and Cancel/Delete text buttons.
 Future<void> showDeleteAlertDialogs({
   required BuildContext context,
   String? title,
@@ -12,79 +15,79 @@ Future<void> showDeleteAlertDialogs({
   required Function onDelete,
   required Function onCancel,
 }) async {
+  final itemName = deletingItemType?.toLowerCase() ?? 'comment';
   await showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      content: SizedBox(
-        height: 250,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.start,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      actionsPadding: EdgeInsets.zero,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title ?? 'Delete ${itemName.capitalizeFirst}',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 17,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            subTitleLineOne ??
+                'Are you sure that you want to permanently remove this $itemName?',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+      actions: [
+        const Divider(height: 1, thickness: 0.5),
+        Row(
           children: [
-            const SizedBox(
-              height: 20,
-            ),
-            const Image(
-              height: 50,
-              width: 50,
-              fit: BoxFit.cover,
-              image: AssetImage(AppAssets.DELETE__ICON),
-            ),
-            const SizedBox(
-              height: 10,
-            ),
-            Text(
-              title ?? 'Delete ${deletingItemType != null ? deletingItemType.toString().capitalizeFirst : 'Post'}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            Text(subTitleLineOne ?? 'Are you sure you want to delete this ${deletingItemType != null ? deletingItemType.toString().toLowerCase() : 'post'} ?'),
-            Text(subTitleLineTwo ?? 'This action cannot be undone.'),
-            const SizedBox(
-              height: 20,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.surface,
-                    side: const BorderSide(color: Colors.grey, width: 1),
-                    // shadowColor: Colors.greenAccent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        10,
-                      ),
+            Expanded(
+              child: InkWell(
+                onTap: () => onCancel(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Text(
+                    'Cancel'.tr,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: PRIMARY_COLOR,
                     ),
-                    minimumSize: const Size(100, 40), //////// HERE
-                  ),
-                  onPressed: () async {
-                    onCancel();
-                  },
-                  child: Text('Cancel'.tr,
-                    style: Theme.of(context).textTheme.bodyLarge,
+                    textAlign: TextAlign.center,
                   ),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        10,
-                      ),
+              ),
+            ),
+            Container(width: 0.5, height: 44, color: Colors.grey.shade300),
+            Expanded(
+              child: InkWell(
+                onTap: () => onDelete(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Text(
+                    'Delete'.tr,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.red.shade400,
                     ),
-                    minimumSize: const Size(100, 40), //////// HERE
+                    textAlign: TextAlign.center,
                   ),
-                  onPressed: () {
-                    onDelete();
-                  },
-                  child: Text('Delete'.tr, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
                 ),
-              ],
-            )
+              ),
+            ),
           ],
         ),
-      ),
+      ],
     ),
   );
 }

@@ -148,35 +148,59 @@ class PostReactionButton extends StatelessWidget {
     return ReactionButton(
       placeHolder: ReactionModel(
         value: 'like',
-        initialView: Row(
-          children: [
-            const Image(
-              width: 25,
-              image: AssetImage(AppAssets.LIKE_ACTION_ICON),
-            ),
-             const SizedBox(width: 10) ,
-            Text(
-              'Like',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
-            )
-
-          ],
-        ),
-        selectedView: Row(
-          children: [
-            Image(
-              width: 25,
-              image: AssetImage(AppAssets.LIKE_ICON),
-            ),
-            Text(
-              'Like',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
-            ),
-          ],
-        ),
+        initialView: isShowLikeText
+            ? Row(
+                children: [
+                  const Image(
+                    width: 25,
+                    image: AssetImage(AppAssets.LIKE_ACTION_ICON),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Like',
+                    style:
+                        TextStyle(fontSize: 15, color: Colors.grey.shade700),
+                  ),
+                ],
+              )
+            : const Image(
+                width: 22,
+                image: AssetImage(AppAssets.LIKE_ACTION_ICON),
+              ),
+        selectedView: isShowLikeText
+            ? Row(
+                children: [
+                  Image(
+                    width: 25,
+                    image: AssetImage(AppAssets.LIKE_ICON),
+                  ),
+                  Text(
+                    'Like',
+                    style:
+                        TextStyle(fontSize: 15, color: Colors.grey.shade700),
+                  ),
+                ],
+              )
+            : Image(
+                width: 22,
+                image: AssetImage(AppAssets.LIKE_ICON),
+              ),
       ),
       selectedReaction: selectedReaction,
-      reactions: postReactions,
+      reactions: isShowLikeText
+          ? postReactions
+          : postReactions.map((r) {
+              // For icon-only mode, selectedView shows just the icon
+              return ReactionModel(
+                value: r.value,
+                initialView: r.initialView,
+                selectedView: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: r.initialView,
+                ),
+              );
+            }).toList(),
       onChangedReaction: onChangedReaction,
     );
   }

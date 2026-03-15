@@ -109,9 +109,8 @@ class PostCommentModal extends GetView<HomeController> {
                         },
                         onSelectCommentReaction: (reaction) {
                           controller.commentReaction(
-                            postIndex: postIndex,
+                            postId: post.id!,
                             reaction_type: reaction,
-                            post_id: post.id!,
                             comment_id: comment.id!,
                           );
                         },
@@ -335,13 +334,12 @@ class PostCommentModal extends GetView<HomeController> {
                    if (controller.isReply.value) {
                      controller.commentReply(
                        comment_id: controller.commentsID.value,
-                       replies_comment_name: controller.commentController.text, // Typo in controller param name?
+                       replies_comment_name: controller.commentController.text,
                        post_id: post.id!,
-                       postIndex: postIndex,
                        file: controller.processedCommentFileData.value,
                      );
                    } else {
-                     controller.commentOnPost(postIndex, post);
+                     controller.commentOnPost(post);
                    }
                 },
                 child: Icon(Icons.send, color: PRIMARY_COLOR),

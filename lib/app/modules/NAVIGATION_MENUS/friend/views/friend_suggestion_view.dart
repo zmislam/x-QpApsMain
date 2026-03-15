@@ -1,304 +1,238 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../../components/friend_request.dart';
 import '../../../../components/people_may_you_know_card.dart';
 import '../../../../components/simmar_loader.dart';
 import '../../../../config/constants/color.dart';
-import '../../../../models/firend_request.dart';
+import '../../../../config/constants/feed_design_tokens.dart';
 import '../controllers/friend_controller.dart';
-import '../model/people_may_you_khnow.dart';
-import 'search_friends_view.dart';
 
 class FriendSuggestionView extends GetView<FriendController> {
   const FriendSuggestionView({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        // backgroundColor: Colors.white,
-        body: RefreshIndicator(
-          onRefresh: () async {
-            controller.peopleMayYouKnowList.value.clear();
-            controller.friendRequestList.value.clear();
-            controller.friendList.value.clear();
+    // Ensure suggestions are loaded
+    if (controller.peopleMayYouKnowList.value.isEmpty &&
+        !controller.isLoadingPeopleYouMayKnow.value) {
+      controller.getPeopleMayYouKnow(skip: 0, limit: 20);
+    }
 
-            Future.wait([
-              controller.getFriendRequestes(),
-              controller.getPeopleMayYouKnow(skip: 0),
-              controller.getFriends()
-            ]);
-          },
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      IconButton(
-                          onPressed: () {
-                            Get.back();
-                          },
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            size: 30,
-                          )),
-                      Text('Friend Suggestions'.tr,
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 25),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.only(left: 10.0),
-                        child: Text('Connections'.tr,
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 25),
-                        ),
-                      ),
-                      IconButton(
-                          onPressed: () {
-                            Get.to(() => const SearchFriendsView());
-                          },
-                          icon: const Icon(
-                            Icons.search,
-                            size: 30,
-                          ))
-                    ],
-                  ),
-
-                  //============================================== Connection Request ==============================================//
-                  const SizedBox(height: 5),
-                  RequestView(),
-                  PeopleMayYouKnowView(),
-
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: FeedDesignTokens.cardBg(context),
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back,
+              color: FeedDesignTokens.textPrimary(context)),
+          onPressed: () => Get.back(),
+        ),
+        title: Text(
+          'Suggestions'.tr,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            color: FeedDesignTokens.textPrimary(context),
           ),
         ),
+        centerTitle: false,
+      ),
+      body: Obx(() {
+        final suggestions = controller.peopleMayYouKnowList.value;
+        final isLoading = controller.isLoadingPeopleYouMayKnow.value;
+
+        if (isLoading && suggestions.isEmpty) {
+          return _buildShimmer();
+        }
+
+        if (suggestions.isEmpty) {
+          return _buildEmptyState(context);
+        }
+
+        return RefreshIndicator(
+          color: PRIMARY_COLOR,
+          backgroundColor: FeedDesignTokens.cardBg(context),
+          onRefresh: () async {
+            controller.friendSearchHasReachedLimit = false;
+            controller.peopleMayYouKnowList.value.clear();
+            await controller.getPeopleMayYouKnow(skip: 0, limit: 20);
+          },
+          child: ListView(
+            controller: controller.friendsScrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: [
+              const SizedBox(height: 12),
+
+              // Section Header
+              Text(
+                'People You May Know'.tr,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: FeedDesignTokens.textPrimary(context),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Based on your connections and activity'.tr,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: FeedDesignTokens.textSecondary(context),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Suggestion Cards
+              ...suggestions.asMap().entries.map((entry) {
+                final index = entry.key;
+                final people = entry.value;
+                return PeopleMayYouKnowCard(
+                  peopleMayYouKnowModel: people,
+                  onPressedAddFriend: () {
+                    controller.sendFriendRequest(
+                      index: index,
+                      userId: people.id ?? '',
+                    );
+                  },
+                  onPressedRemove: () {
+                    controller.removeSuggestion(index);
+                  },
+                );
+              }),
+
+              // Loading more indicator
+              if (isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: CircularProgressIndicator(color: PRIMARY_COLOR),
+                  ),
+                ),
+
+              // End of list
+              if (controller.friendSearchHasReachedLimit && suggestions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: Text(
+                      'No more suggestions'.tr,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: FeedDesignTokens.textSecondary(context),
+                      ),
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: 40),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.person_add_disabled_outlined,
+              size: 64, color: FeedDesignTokens.textSecondary(context)),
+          const SizedBox(height: 12),
+          Text(
+            'No suggestions available'.tr,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: FeedDesignTokens.textSecondary(context),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Check back later for new suggestions'.tr,
+            style: TextStyle(
+              fontSize: 14,
+              color: FeedDesignTokens.textSecondary(context),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget RequestView() {
-    return Obx(() => controller.isLoadingNewsFeed.value == true
-        ? ShimmarLoadingView()
-        : Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: RichText(
-                          text: TextSpan(children: [
-                        TextSpan(
-                          text: 'Connections request'.tr,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                            color: Colors.black,
-                          ),
-                        ),
-                        TextSpan(
-                          text: ' ${controller.friendRequestList.value.length.toString()}'.tr,
-                          style: TextStyle(
-                            color: ACCENT_COLOR,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      ])),
-                    ),
-                    TextButton(
-                        onPressed: () {
-                          controller.friendRequestList.value.length.toString();
-                        },
-                        child: Text('See All'.tr,
-                          style: TextStyle(
-                              fontSize: 16,
-                              color: PRIMARY_COLOR,
-                              fontWeight: FontWeight.bold),
-                        )),
-                  ],
-                ),
-              ),
-
-              // : const SizedBox(),,
-
-              ListView.builder(
-                shrinkWrap: true,
-                itemCount: controller.friendRequestList.value.length,
-                physics: const NeverScrollableScrollPhysics(),
-                itemBuilder: (context, index) {
-                  FriendRequestModel friendRequestModel =
-                      controller.friendRequestList.value[index];
-                  return FriendRequestCard(
-                    friendRequestModel: friendRequestModel,
-                    onPressedAccept: () {
-                      controller.actionOnFriendRequest(
-                          action: 1, requestId: friendRequestModel.id!);
-                    },
-                    onPressedReject: () {
-                      controller.actionOnFriendRequest(
-                          action: 0, requestId: friendRequestModel.id!);
-                    },
-                  );
-                },
-              ),
-              const Divider(),
-            ],
-          ));
-  }
-
-  Widget PeopleMayYouKnowView() {
-    return Obx(() => controller.isLoadingNewsFeed.value == true
-        ? ShimmarLoadingView()
-        : Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: RichText(
-                          text: TextSpan(children: [
-                        TextSpan(
-                          text: 'People May You Know'.tr,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ])),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              ListView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                itemCount: controller.peopleMayYouKnowList.value.length,
-                itemBuilder: (context, index) {
-                  PeopleMayYouKnowModel peopleMayYouKnowModel =
-                      controller.peopleMayYouKnowList.value[index];
-                  return PeopleMayYouKnowCard(
-                    peopleMayYouKnowModel: peopleMayYouKnowModel,
-                    onPressedAddFriend: () {
-                      controller.sendFriendRequest(
-                          index: index, userId: peopleMayYouKnowModel.id ?? '');
-                    },
-                    onPressedRemove: () async {
-                      controller.peopleMayYouKnowList.value.removeAt(index);
-                      await controller.getPeopleMayYouKnow(skip: 0);
-                    },
-                  );
-                },
-              ),
-            ],
-          ));
-  }
-
-  Widget ShimmarLoadingView() {
-    return SizedBox(
-      height: Get.height,
-      child: ListView.builder(
-          itemCount: 10,
-          itemBuilder: (BuildContext context, index) {
-            return ShimmerLoader(
-              child: ListTile(
-                leading: Container(
-                  height: Get.width * 0.40,
-                  width: Get.width * 0.16,
+  Widget _buildShimmer() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 8,
+      itemBuilder: (context, index) {
+        return ShimmerLoader(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    image: const DecorationImage(
-                      fit: BoxFit.cover,
-                      image:
-                          AssetImage('assets/image/default_profile_image.png'),
-                    ),
+                    color: Colors.grey.shade300,
+                    shape: BoxShape.circle,
                   ),
                 ),
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 15,
-                      decoration: BoxDecoration(
-                        color: Colors.grey,
-                        border: Border.all(color: Colors.white, width: 0),
-                        borderRadius: BorderRadius.circular(6),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 14,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                       ),
-                      width: Get.width - 120,
-                    ),
-                    const SizedBox(height: 7),
-                    Container(
-                      height: 15,
-                      decoration: BoxDecoration(
-                        color: Colors.grey,
-                        border: Border.all(color: Colors.white, width: 0),
-                        borderRadius: BorderRadius.circular(6),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 12,
+                        width: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                       ),
-                      width: Get.width / 2 - 20,
-                    ),
-                  ],
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Container(
-                          height: 35,
-                          width: Get.width * 0.24,
-                          decoration: BoxDecoration(
-                              color: PRIMARY_COLOR,
-                              borderRadius: BorderRadius.circular(10)),
-                          child: TextButton(
-                            onPressed: () {},
-                            child: Text('Accept'.tr,
-                              style: TextStyle(color: Colors.white),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(
-                          width: 10,
-                        ),
-                        Container(
-                          height: 35,
-                          width: Get.width * 0.24,
-                          decoration: BoxDecoration(
-                              color: Colors.grey.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(10)),
-                          child: TextButton(
-                            onPressed: () {},
-                            style: const ButtonStyle(),
-                            child: Text('Decline'.tr,
-                              style: TextStyle(color: Colors.white),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

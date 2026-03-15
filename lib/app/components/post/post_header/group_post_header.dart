@@ -28,6 +28,7 @@ class GroupPostHeader extends StatelessWidget {
   final VoidCallback? onTapCopyPost;
   final VoidCallback onTapBlockUser;
   final String? viewType;
+  final bool hideActionIcons;
 
   GroupPostHeader(
       {super.key,
@@ -39,7 +40,8 @@ class GroupPostHeader extends StatelessWidget {
       this.viewType,
       this.onTapCopyPost,
       required this.onTapBlockUser,
-      this.onTapRemoveBookMarkPost});
+      this.onTapRemoveBookMarkPost,
+      this.hideActionIcons = false});
 
   HomeController homeController = Get.find();
 
@@ -292,11 +294,11 @@ class GroupPostHeader extends StatelessWidget {
                 ),
 
               // ─── Three-dot menu ───
-              if (model.post_type != 'Shared')
+              if (!hideActionIcons && model.post_type != 'Shared')
                 _buildThreeDotMenu(context),
 
               // ─── Close / Hide button ───
-              if (onTapHidePost != null)
+              if (!hideActionIcons && onTapHidePost != null)
                 SizedBox(
                   width: 36,
                   height: 36,
@@ -400,7 +402,7 @@ class GroupPostHeader extends StatelessWidget {
                   subtitle: 'See all edits made to this post'.tr,
                   onTap: () {
                     Navigator.pop(context);
-                    onTapViewPostHistory?.call();
+                    Get.toNamed(Routes.EDIT_HISTORY, arguments: model.id);
                   }),
               _menuItem(context,
                   icon: Icons.notifications_off_outlined,

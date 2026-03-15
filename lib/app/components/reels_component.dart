@@ -463,7 +463,7 @@ class ReelsComponentState extends State<ReelsComponent>
             left: Get.width - 120,
             child: InkWell(
                 onTap: () {
-                  Get.toNamed(Routes.GLOBAL_SEARCH, arguments: {'fromReels': 'true'});
+                  Get.toNamed(Routes.ADVANCE_SEARCH);
                 },
                 child: Icon(
                   Icons.search,

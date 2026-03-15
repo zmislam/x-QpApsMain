@@ -12,10 +12,14 @@ class WhyShownWidget extends StatelessWidget {
     super.key,
     required this.text,
     this.model,
+    this.onTapMenu,
+    this.onTapClose,
   });
 
   final String text;
   final PostModel? model;
+  final VoidCallback? onTapMenu;
+  final VoidCallback? onTapClose;
 
   /// Determines the display text based on post context.
   /// For "Suggested for you" labels, prefixes with Page/Group when applicable.
@@ -161,6 +165,28 @@ class WhyShownWidget extends StatelessWidget {
             ),
           ),
           const Spacer(),
+          if (onTapMenu != null || onTapClose != null) ...[
+            if (onTapMenu != null)
+              GestureDetector(
+                onTap: onTapMenu,
+                child: Icon(
+                  Icons.more_horiz,
+                  size: 22,
+                  color: FeedDesignTokens.textSecondary(context),
+                ),
+              ),
+            if (onTapClose != null) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onTapClose,
+                child: Icon(
+                  Icons.close,
+                  size: 20,
+                  color: FeedDesignTokens.textSecondary(context),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );

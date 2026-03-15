@@ -87,18 +87,18 @@ class PagePost extends StatelessWidget {
               )
             : ((postModel.media?.length ?? 0) == 0)
                 ? Container(
-                    // =================================================== No Meida Post ===================================================
-                    height: (postModel.post_background_color != null && postModel.post_background_color!.isNotEmpty && postModel.post_background_color! != '') ? 320 : null,
+                    // =================================================== No Media Post ===================================================
+                    height: PostBackground.hasBackground(postModel.post_background_color) ? 320 : null,
                     // not having background color will make height dynamic
                     width: double.maxFinite,
-                    decoration: BoxDecoration(color: (postModel.post_background_color != null && postModel.post_background_color!.isNotEmpty) ? Color(int.parse('0xff${postModel.post_background_color}')) : null),
+                    decoration: PostBackground.decorationFromStoredValue(postModel.post_background_color) ?? const BoxDecoration(),
                     padding: const EdgeInsets.all(10),
-                    child: (postModel.post_background_color != null && postModel.post_background_color != '')
+                    child: PostBackground.hasBackground(postModel.post_background_color)
                         ? Center(
                             child: Text(
                               postModel.description ?? '',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 24, color: (Color(int.parse('0xff${postModel.post_background_color}')) == const Color(0xFFFFFB00) || Color(int.parse('0xff${postModel.post_background_color}')) == const Color(0xFF00FF00)) ? Colors.black : Colors.white),
+                              style: TextStyle(fontSize: 24, color: PostBackground.textColorFromStoredValue(postModel.post_background_color)),
                             ),
                           )
                         : Padding(

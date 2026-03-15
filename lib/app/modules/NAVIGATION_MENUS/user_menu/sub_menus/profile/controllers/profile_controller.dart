@@ -51,6 +51,10 @@ class ProfileController extends GetxController {
   String? isFromReels = 'false';
   //Friend
   Rx<List<FriendModel>> friendList = Rx([]);
+  RxInt friendCount = 0.obs;
+
+  // Profile tab selector: 0=All, 1=Photos, 2=Reels
+  RxInt selectedProfileTab = 0.obs;
 
   RxBool isLoadingRefresh = false.obs;
 
@@ -1374,10 +1378,17 @@ class ProfileController extends GetxController {
     isLoadingFriendList.value = false;
 
     if (apiResponse.isSuccessful) {
+      final data = apiResponse.data as Map<String, dynamic>;
       friendList.value =
-          (((apiResponse.data as Map<String, dynamic>)['result']) as List)
+          ((data['result']) as List)
               .map((element) => FriendModel.fromJson(element))
               .toList();
+      // Update friend count from response if available
+      if (data['friendCount'] != null) {
+        friendCount.value = data['friendCount'] as int;
+      } else {
+        friendCount.value = friendList.value.length;
+      }
       debugPrint(friendList.value.length.toString());
     } else {
       debugPrint('Error');
@@ -1545,6 +1556,7 @@ class ProfileController extends GetxController {
     initPostFilterList();
     getUserData();
     getPosts();
+    getFriends();
     super.onInit();
   }
 

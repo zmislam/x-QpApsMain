@@ -1,10 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../../../../extension/string/string_image_path.dart';
-import '../../../../../../../components/shimmer_loaders/group_shimmer_loader.dart';
-import '../../../../../../../config/constants/app_assets.dart';
 import '../../../../../../../config/constants/color.dart';
-import '../../../../../../../extension/num.dart';
+import '../../../../../../../config/constants/feed_design_tokens.dart';
+import '../../../../../../../config/constants/app_assets.dart';
+import '../../../../../../../extension/string/string_image_path.dart';
 import '../../../../../../../routes/app_pages.dart';
 import '../controllers/pages_controller.dart';
 import '../model/invitation_model.dart';
@@ -17,360 +17,417 @@ class MyPagesView extends GetView<PagesController> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        // ============================ appbar section =========================
         appBar: AppBar(
-          title: Text('My Pages'.tr,
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          elevation: 0,
+          scrolledUnderElevation: 0,
           leading: const BackButton(),
-        ),
-        // ============================ body section ===========================
-        body: RefreshIndicator(
-          onRefresh: () async {
-            await controller.getMyPages();
-          },
-          child: SingleChildScrollView(
-            controller: controller.myPageScrollController,
-            child: Column(
-              children: [
-                const Divider(),
-                Obx(() {
-                  if (controller.myPagesList.value.isNotEmpty &&
-                      !controller.isLoadingUserPages.value) {
-                    return GridView.builder(
-                      physics: const ScrollPhysics(),
-                      shrinkWrap: true,
-                      itemCount: controller.myPagesList.value.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.80,
-                      ),
-                      itemBuilder: (BuildContext context, int index) {
-                        MyPagesModel myPagesModel =
-                            controller.myPagesList.value[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(
-                              left: 10, right: 10, top: 10),
-                          child: InkWell(
-                            onTap: () {
-                              Get.toNamed(Routes.ADMIN_PAGE,
-                                  arguments: myPagesModel.pageUserName);
-                            },
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Image(
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Image(
-                                      height: 80,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      image: AssetImage(
-                                        AppAssets.DEFAULT_IMAGE,
-                                      ),
-                                    );
-                                  },
-                                  height: 80,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  image: NetworkImage(
-                                      ('${controller.myPagesList.value[index].coverPic}')
-                                          .formatedProfileUrl),
-                                ),
-                                const SizedBox(
-                                  height: 5,
-                                ),
-                                Text('${myPagesModel.pageName}'.tr,
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(
-                                  height: 5,
-                                ),
-                                Text((myPagesModel.category)?.join('') ?? ''),
-                                const SizedBox(
-                                  height: 5,
-                                ),
-                                Text('${myPagesModel.followerCount ?? 0} - followers'.tr),
-                                const SizedBox(
-                                  height: 5,
-                                ),
-                                Row(
-                                  children: [
-                                    Flexible(
-                                      flex: 4,
-                                      child: InkWell(
-                                        onTap: () {
-                                          Get.toNamed(Routes.ADMIN_PAGE,
-                                              arguments:
-                                                  myPagesModel.pageUserName);
-                                        },
-                                        child: Container(
-                                            alignment: Alignment.center,
-                                            height: 35,
-                                            // width: screenWidth * 0.32,
-                                            decoration: BoxDecoration(
-                                                color: PRIMARY_COLOR,
-                                                borderRadius:
-                                                    BorderRadius.circular(7)),
-                                            child: Text('View Page'.tr,
-                                              style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w500),
-                                            )),
-                                      ),
-                                    ),
-                                    10.w,
-                                    Flexible(
-                                      flex: 1,
-                                      child: Container(
-                                        height: 35,
-                                        decoration: BoxDecoration(
-                                            color: Colors.grey
-                                                .withValues(alpha: 0.5),
-                                            borderRadius:
-                                                BorderRadius.circular(7)),
-                                        child: PopupMenuButton(
-                                            offset: const Offset(10, 50),
-                                            icon: const Center(
-                                                child: Image(
-                                                    width: 20,
-                                                    image: AssetImage(AppAssets
-                                                        .MORE_VERT_ICON))),
-                                            iconSize: 25,
-                                            itemBuilder: (context) => [
-                                                  PopupMenuItem(
-                                                    onTap: () {
-                                                      controller
-                                                          .getPagesInvites(
-                                                              myPagesModel.id ??
-                                                                  '');
-
-                                                      showCustomBottomSheet(
-                                                          context,
-                                                          myPagesModel);
-                                                    },
-                                                    child: Row(
-                                                      children: [
-                                                        Text('Invite Connections'.tr,
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style: TextStyle(
-                                                              fontSize: 16),
-                                                        )
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ]),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(
-                                  height: 10,
-                                )
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  } else if (controller.myPagesList.value.isEmpty &&
-                      !controller.isLoadingUserPages.value) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 250),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Image.asset('assets/image/invitation.png',
-                                width: 30, height: 30),
-                            const SizedBox(height: 10),
-                            Text('You Have Create No Pages Yet'.tr,
-                              style:
-                                  TextStyle(color: Colors.grey, fontSize: 20),
-                            )
-                          ],
-                        ),
-                      ),
-                    );
-                  } else {
-                    return const GroupShimmerLoader();
-                  }
-                }),
-                // Obx(() {
-                //   if (controller.isLoadingUserPages.value) {
-                //     return const GroupShimmerLoader();
-                //   } else {
-                //     return const SizedBox();
-                //   }
-                // }),
-              ],
+          title: Text(
+            'My Pages'.tr,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 22,
+              color: FeedDesignTokens.textPrimary(context),
             ),
           ),
+          centerTitle: false,
+        ),
+        body: RefreshIndicator(
+          backgroundColor: Theme.of(context).cardTheme.color,
+          color: PRIMARY_COLOR,
+          onRefresh: () async {
+            await controller.getMyPages(forceFetch: true);
+          },
+          child: Obx(() {
+            final isLoading = controller.isLoadingMyPages.value;
+            final myPages = controller.myPagesList.value;
+
+            if (isLoading && myPages.isEmpty) {
+              return ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  const SizedBox(height: 16),
+                  ...List.generate(6, (_) => _buildShimmerItem(context)),
+                ],
+              );
+            }
+
+            if (myPages.isEmpty) {
+              return ListView(
+                children: [
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                  Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.flag_outlined,
+                            size: 48,
+                            color: FeedDesignTokens.textSecondary(context)),
+                        const SizedBox(height: 12),
+                        Text(
+                          'You have no pages yet'.tr,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: FeedDesignTokens.textSecondary(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return ListView.builder(
+              controller: controller.myPageScrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: myPages.length,
+              itemBuilder: (context, index) {
+                return _buildMyPageItem(context, myPages[index]);
+              },
+            );
+          }),
         ),
       ),
     );
   }
 
-  void showCustomBottomSheet(BuildContext context, MyPagesModel myPagesModel) {
-    showModalBottomSheet(
-        context: context,
-        builder: (context) {
-          return Obx(
-            () => Container(
-              color: Theme.of(context).cardTheme.color,
+  // ─── Single My Page Item ─────────────────────────────────
+  Widget _buildMyPageItem(BuildContext context, MyPagesModel page) {
+    return InkWell(
+      onTap: () =>
+          Get.toNamed(Routes.ADMIN_PAGE, arguments: page.pageUserName),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: CachedNetworkImage(
+                imageUrl: (page.profilePic ?? '').formatedProfileUrl,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  width: 56,
+                  height: 56,
+                  color: FeedDesignTokens.inputBg(context),
+                  child: Icon(Icons.flag,
+                      color: FeedDesignTokens.textSecondary(context)),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  width: 56,
+                  height: 56,
+                  color: FeedDesignTokens.inputBg(context),
+                  child: const Image(
+                    image: AssetImage(AppAssets.DEFAULT_IMAGE),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Invite Your friends to this Page'.tr,
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
-                        IconButton(
-                            onPressed: () {
-                              Get.back();
-                            },
-                            icon: const Icon(Icons.close))
-                      ],
+                  Text(
+                    page.pageName ?? '',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: FeedDesignTokens.textPrimary(context),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Select All'.tr,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Obx(() => Checkbox(
-                              activeColor: PRIMARY_COLOR,
-                              value: controller.selectedPageInvitationList.value
-                                      .length ==
-                                  controller.pageInvitationList.value.length,
-                              onChanged: (bool? value) {
-                                if (value != null) {
-                                  if (value) {
-                                    controller
-                                            .selectedPageInvitationList.value =
-                                        controller.pageInvitationList.value
-                                            .toList();
-                                  } else {
-                                    controller.selectedPageInvitationList.value
-                                        .clear();
-                                  }
-                                  controller.selectedPageInvitationList
-                                      .refresh();
-                                }
-                              },
-                            )),
-                      ],
+                  const SizedBox(height: 2),
+                  Text(
+                    '${page.followerCount ?? 0} ${'followers'.tr}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: FeedDesignTokens.textSecondary(context),
                     ),
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                        itemCount: controller.pageInvitationList.value.length,
-                        itemBuilder: (context, index) {
-                          PageInvitationModel pageInvitationModel =
-                              controller.pageInvitationList.value[index];
-                          return Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  SizedBox(
-                                    height: 60,
-                                    child: Row(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 20,
-                                          child: ClipOval(
-                                            child: Image(
-                                              image: NetworkImage(
-                                                  (pageInvitationModel
-                                                              .profilePic ??
-                                                          '')
-                                                      .formatedProfileUrl),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          pageInvitationModel.fullName ?? '',
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Obx(
-                                    () => Checkbox(
-                                      activeColor: PRIMARY_COLOR,
-                                      value: controller
-                                          .selectedPageInvitationList.value
-                                          .contains(pageInvitationModel),
-                                      onChanged: (bool? changed) {
-                                        if (changed != null) {
-                                          if (changed) {
-                                            controller
-                                                .selectedPageInvitationList
-                                                .value
-                                                .add(pageInvitationModel);
-                                            // controller.selectedPageInvitationList.refresh();
-                                          } else {
-                                            controller
-                                                .selectedPageInvitationList
-                                                .value
-                                                .clear();
-                                          }
-                                          controller.selectedPageInvitationList
-                                              .refresh();
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                ]),
-                          );
-                        }),
-                  ),
-                  Container(
-                    height: 50,
-                    margin: const EdgeInsetsDirectional.symmetric(
-                        horizontal: 12, vertical: 24),
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                        color: PRIMARY_COLOR,
-                        borderRadius: BorderRadius.circular(10)),
-                    child: TextButton(
-                      onPressed: () {
-                        controller.sendFriendInvitation(myPagesModel.id ?? '');
-                        Navigator.of(context).pop();
-                      },
-                      child: Text('Send'.tr,
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 10,
                   ),
                 ],
               ),
             ),
-          );
-        });
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_horiz,
+                  color: FeedDesignTokens.textSecondary(context)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              onSelected: (value) {
+                if (value == 'view') {
+                  Get.toNamed(Routes.ADMIN_PAGE,
+                      arguments: page.pageUserName);
+                } else if (value == 'invite') {
+                  controller.getPagesInvites(page.id ?? '');
+                  _showInviteBottomSheet(context, page);
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem<String>(
+                  value: 'view',
+                  child: Row(
+                    children: [
+                      Icon(Icons.visibility_outlined,
+                          size: 20,
+                          color: FeedDesignTokens.textPrimary(context)),
+                      const SizedBox(width: 12),
+                      Text('View Page'.tr),
+                    ],
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'invite',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_add_outlined,
+                          size: 20,
+                          color: FeedDesignTokens.textPrimary(context)),
+                      const SizedBox(width: 12),
+                      Text('Invite Connections'.tr),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Shimmer Item ────────────────────────────────────────
+  Widget _buildShimmerItem(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: FeedDesignTokens.inputBg(context),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 14,
+                  width: 120,
+                  decoration: BoxDecoration(
+                    color: FeedDesignTokens.inputBg(context),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  height: 12,
+                  width: 80,
+                  decoration: BoxDecoration(
+                    color: FeedDesignTokens.inputBg(context),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Invite Bottom Sheet ─────────────────────────────────
+  void _showInviteBottomSheet(BuildContext context, MyPagesModel page) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: FeedDesignTokens.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: FeedDesignTokens.textSecondary(context),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Invite friends to this Page'.tr,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: FeedDesignTokens.textPrimary(context),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Get.back(),
+                        icon: Icon(Icons.close,
+                            color: FeedDesignTokens.textSecondary(context)),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(color: FeedDesignTokens.divider(context)),
+                Obx(() => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Select All'.tr,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: FeedDesignTokens.textPrimary(context),
+                            ),
+                          ),
+                          Checkbox(
+                            activeColor: PRIMARY_COLOR,
+                            value: controller
+                                    .selectedPageInvitationList
+                                    .value
+                                    .length ==
+                                controller.pageInvitationList.value.length &&
+                                controller
+                                    .pageInvitationList.value.isNotEmpty,
+                            onChanged: (bool? value) {
+                              if (value != null) {
+                                if (value) {
+                                  controller
+                                          .selectedPageInvitationList.value =
+                                      controller.pageInvitationList.value
+                                          .toList();
+                                } else {
+                                  controller
+                                      .selectedPageInvitationList.value
+                                      .clear();
+                                }
+                                controller.selectedPageInvitationList
+                                    .refresh();
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    )),
+                Expanded(
+                  child: Obx(() {
+                    if (controller.pageInvitationList.value.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No friends to invite'.tr,
+                          style: TextStyle(
+                            color: FeedDesignTokens.textSecondary(context),
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      controller: scrollController,
+                      itemCount: controller.pageInvitationList.value.length,
+                      itemBuilder: (context, index) {
+                        final PageInvitationModel friend =
+                            controller.pageInvitationList.value[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            radius: 22,
+                            backgroundImage: NetworkImage(
+                              (friend.profilePic ?? '').formatedProfileUrl,
+                            ),
+                          ),
+                          title: Text(
+                            friend.fullName ?? '',
+                            style: TextStyle(
+                              color: FeedDesignTokens.textPrimary(context),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          trailing: Obx(() => Checkbox(
+                                activeColor: PRIMARY_COLOR,
+                                value: controller
+                                    .selectedPageInvitationList.value
+                                    .contains(friend),
+                                onChanged: (bool? changed) {
+                                  if (changed != null) {
+                                    if (changed) {
+                                      controller.selectedPageInvitationList
+                                          .value
+                                          .add(friend);
+                                    } else {
+                                      controller.selectedPageInvitationList
+                                          .value
+                                          .remove(friend);
+                                    }
+                                    controller.selectedPageInvitationList
+                                        .refresh();
+                                  }
+                                },
+                              )),
+                        );
+                      },
+                    );
+                  }),
+                ),
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          controller.sendFriendInvitation(page.id ?? '');
+                          Get.back();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: PRIMARY_COLOR,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          'Send'.tr,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }

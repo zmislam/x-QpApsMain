@@ -33,6 +33,7 @@ class PostHeader extends StatelessWidget {
   final VoidCallback? onTapViewPostHistory;
   final VoidCallback? onTapPinPost;
   final String? viewType;
+  final bool hideActionIcons;
 
   PostHeader(
       {super.key,
@@ -45,7 +46,8 @@ class PostHeader extends StatelessWidget {
       this.onTapViewPostHistory,
       this.viewType,
       this.onTapPinPost,
-      this.onTapRemoveBookMarkPost});
+      this.onTapRemoveBookMarkPost,
+      this.hideActionIcons = false});
   HomeController homeController = Get.find();
 
   @override
@@ -467,10 +469,11 @@ class PostHeader extends StatelessWidget {
               ),
 
             // ─── Three-dot menu ───
-            _buildThreeDotMenu(context, isOwner),
+            if (!hideActionIcons)
+              _buildThreeDotMenu(context, isOwner),
 
             // ─── Close / Hide button ───
-            if (onTapHidePost != null)
+            if (!hideActionIcons && onTapHidePost != null)
               SizedBox(
                 width: FeedDesignTokens.threeDotButtonSize,
                 height: FeedDesignTokens.threeDotButtonSize,
@@ -586,7 +589,7 @@ class PostHeader extends StatelessWidget {
                   subtitle: 'See all edits made to this post'.tr,
                   onTap: () {
                     Navigator.pop(context);
-                    onTapViewPostHistory?.call();
+                    Get.toNamed(Routes.EDIT_HISTORY, arguments: model.id);
                   }),
               _menuItem(context,
                   icon: Icons.notifications_off_outlined,

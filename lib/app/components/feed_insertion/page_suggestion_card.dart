@@ -331,53 +331,52 @@ class _PageCard extends StatelessWidget {
 
             const Spacer(),
 
-            // ─── Follow Button ───
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-              child: SizedBox(
-                height: 32,
-                child: ElevatedButton(
-                  onPressed: followed ? null : onFollow,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: followed
-                        ? FeedDesignTokens.inputBg(context)
-                        : FeedDesignTokens.brand(context),
-                    foregroundColor: followed
-                        ? FeedDesignTokens.textSecondary(context)
-                        : Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    padding: EdgeInsets.zero,
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    followed ? 'Following'.tr : 'Follow'.tr,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // ─── Remove Button ───
+            // ─── Action Icons Row (Follow + Remove) ───
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-              child: SizedBox(
-                height: 28,
-                child: TextButton(
-                  onPressed: onDismiss,
-                  style: TextButton.styleFrom(
-                    foregroundColor: FeedDesignTokens.textSecondary(context),
-                    padding: EdgeInsets.zero,
+              child: Row(
+                children: [
+                  // Follow icon button
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: followed ? null : onFollow,
+                      child: Container(
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: followed
+                              ? FeedDesignTokens.inputBg(context)
+                              : FeedDesignTokens.brand(context),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          followed ? Icons.check_rounded : Icons.add_rounded,
+                          size: 20,
+                          color: followed
+                              ? FeedDesignTokens.textSecondary(context)
+                              : Colors.white,
+                        ),
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    'Remove'.tr,
-                    style: const TextStyle(fontSize: 12),
+                  const SizedBox(width: 6),
+                  // Remove icon button
+                  GestureDetector(
+                    onTap: onDismiss,
+                    child: Container(
+                      height: 32,
+                      width: 32,
+                      decoration: BoxDecoration(
+                        color: FeedDesignTokens.inputBg(context),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: FeedDesignTokens.textSecondary(context),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ],

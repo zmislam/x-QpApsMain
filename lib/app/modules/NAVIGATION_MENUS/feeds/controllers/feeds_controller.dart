@@ -13,10 +13,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../../config/constants/api_constant.dart';
 import '../../../../data/login_creadential.dart';
+import '../../../../models/api_response.dart';
+import '../../../../models/comment_model.dart';
 import '../../../../models/post.dart';
+import '../../../../models/user.dart';
 import '../../../../repository/post_repository.dart';
+import '../../../../services/api_communication.dart';
 import '../../../../utils/post_utlis.dart';
 import '../repository/feeds_repository.dart';
 
@@ -26,6 +32,12 @@ enum FeedsTab { all, favourites, friends, groups, pages, explore }
 class FeedsController extends GetxController with GetTickerProviderStateMixin {
   final FeedsRepository _feedsRepo = FeedsRepository();
   final PostRepository _postRepo = PostRepository();
+  final ApiCommunication _apiCommunication = ApiCommunication();
+
+  late UserModel userModel;
+  late TextEditingController commentController;
+  late TextEditingController commentReplyController;
+  Rx<List<XFile>> xfiles = Rx([]);
 
   // ── Tab controller ──
   late TabController tabController;
@@ -75,6 +87,10 @@ class FeedsController extends GetxController with GetTickerProviderStateMixin {
   void onInit() {
     super.onInit();
 
+    userModel = LoginCredential().getUserData();
+    commentController = TextEditingController();
+    commentReplyController = TextEditingController();
+
     tabController = TabController(length: tabOrder.length, vsync: this);
     tabController.addListener(_onTabChanged);
 
@@ -103,6 +119,8 @@ class FeedsController extends GetxController with GetTickerProviderStateMixin {
     for (final sc in scrollControllers.values) {
       sc.dispose();
     }
+    commentController.dispose();
+    commentReplyController.dispose();
     _feedsRepo.dispose();
     super.onClose();
   }
@@ -356,5 +374,168 @@ class FeedsController extends GetxController with GetTickerProviderStateMixin {
 
   Future<void> removeBookmark(FeedsTab tab, String postId, String bookmarkId, int index) async {
     await _postRepo.unBookmarkAPost(post_id: postId, bookMarkId: bookmarkId);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Comment interactions
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Future<void> updatePostList(FeedsTab tab, String postId, int index) async {
+    ApiResponse apiResponse = await _apiCommunication.doGetRequest(
+      apiEndPoint: 'view-single-main-post-with-comments/$postId',
+      responseDataKey: 'post',
+    );
+    if (apiResponse.isSuccessful) {
+      List<PostModel> postModelList =
+          (apiResponse.data as List).map((e) => PostModel.fromMap(e)).toList();
+      if (postModelList.isNotEmpty) {
+        posts[tab]![index] = postModelList.first;
+        posts[tab]!.refresh();
+      }
+    }
+  }
+
+  Future<List<CommentModel>> getSinglePostsComments(String postID) async {
+    final apiResponse = await _apiCommunication.doGetRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'get-all-comments-direct-post/$postID',
+    );
+    if (apiResponse.isSuccessful) {
+      return (((apiResponse.data as Map<String, dynamic>)['comments']) as List)
+          .map((element) => CommentModel.fromMap(element))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<void> commentOnPost(FeedsTab tab, int index, PostModel postModel) async {
+    if (commentController.text.isNotEmpty || xfiles.value.isNotEmpty) {
+      final ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+        apiEndPoint: 'save-user-comment-by-post',
+        isFormData: true,
+        enableLoading: true,
+        requestData: {
+          'user_id': postModel.user_id?.id,
+          'post_id': postModel.id,
+          'comment_name': commentController.text,
+          'link': null,
+          'link_title': null,
+          'link_description': null,
+          'link_image': null,
+          'key': postModel.key,
+        },
+        fileKey: 'image_or_video',
+        mediaXFiles: xfiles.value,
+        responseDataKey: 'posts',
+      );
+      if (apiResponse.isSuccessful) {
+        updatePostList(tab, postModel.id ?? '', index);
+        commentController.clear();
+        xfiles.value.clear();
+      }
+    }
+  }
+
+  void commentReply({
+    required FeedsTab tab,
+    required String comment_id,
+    required String replies_comment_name,
+    required String post_id,
+    required int postIndex,
+    required String processedFileData,
+  }) async {
+    if (replies_comment_name.isNotEmpty || processedFileData.isNotEmpty) {
+      ApiResponse apiResponse = await _apiCommunication.doPostRequestNew(
+        apiEndPoint: 'reply-comment-by-direct-post',
+        enableLoading: true,
+        requestData: {
+          'comment_id': comment_id,
+          'replies_user_id': userModel.id,
+          'replies_comment_name': replies_comment_name,
+          'post_id': post_id,
+          'image_or_video': processedFileData,
+        },
+        fileKey: 'image_or_video',
+      );
+      if (apiResponse.isSuccessful) {
+        updatePostList(tab, post_id, postIndex);
+        commentReplyController.text = '';
+      }
+    }
+  }
+
+  void commentReaction({
+    required FeedsTab tab,
+    required int postIndex,
+    required String reaction_type,
+    required String post_id,
+    required String comment_id,
+  }) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      apiEndPoint: 'save-comment-reaction-of-direct-post',
+      requestData: {
+        'reaction_type': reaction_type,
+        'post_id': post_id,
+        'comment_id': comment_id,
+      },
+    );
+    if (apiResponse.isSuccessful) {
+      List<CommentModel> comments = await getSinglePostsComments(post_id);
+      posts[tab]![postIndex].comments = comments;
+      posts[tab]!.refresh();
+    }
+  }
+
+  void commentReplyReaction({
+    required FeedsTab tab,
+    required int postIndex,
+    required String reaction_type,
+    required String post_id,
+    required String comment_id,
+    required String comment_replies_id,
+  }) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      apiEndPoint: 'save-comment-reaction-of-direct-post',
+      requestData: {
+        'reaction_type': reaction_type,
+        'user_id': userModel.id,
+        'post_id': post_id,
+        'comment_id': comment_id,
+        'comment_replies_id': comment_replies_id,
+      },
+    );
+    if (apiResponse.isSuccessful) {
+      List<CommentModel> comments = await getSinglePostsComments(post_id);
+      posts[tab]![postIndex].comments = comments;
+      posts[tab]!.refresh();
+    }
+  }
+
+  void commentDelete(FeedsTab tab, String commentId, String postId, int postIndex) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      apiEndPoint: 'delete-single-comment',
+      requestData: {
+        'comment_id': commentId,
+        'post_id': postId,
+        'type': 'main_comment',
+      },
+    );
+    if (apiResponse.isSuccessful) {
+      updatePostList(tab, postId, postIndex);
+    }
+  }
+
+  void replyDelete(FeedsTab tab, String replyId, String postId, int postIndex) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      apiEndPoint: 'delete-single-comment',
+      requestData: {
+        'comment_id': replyId,
+        'post_id': postId,
+        'type': 'reply_comment',
+      },
+    );
+    if (apiResponse.isSuccessful) {
+      updatePostList(tab, postId, postIndex);
+    }
   }
 }

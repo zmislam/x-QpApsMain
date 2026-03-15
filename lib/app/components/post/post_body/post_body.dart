@@ -26,6 +26,7 @@ import '../../image.dart';
 import '../../media/media_frame/media_component.dart';
 import '../../single_image.dart';
 import '../../media/media_grid/media_grid.dart';
+import '../../../data/post_background.dart';
 
 part 'timeline_post.dart';
 part 'shared_timeline_post.dart';

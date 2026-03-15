@@ -46,8 +46,7 @@ class EditReplyPostCommentView extends GetView<EditReplyPostCommentController> {
 
             Padding(
               padding: const EdgeInsets.only(left: 20.0, right: 20.0),
-              child: Obx(() {
-                return Column(
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
@@ -78,8 +77,7 @@ class EditReplyPostCommentView extends GetView<EditReplyPostCommentController> {
                     ),
                     const SizedBox(height: 5),
                   ],
-                );
-              }),
+                ),
             ),
             const SizedBox(height: 10),
             SizedBox(

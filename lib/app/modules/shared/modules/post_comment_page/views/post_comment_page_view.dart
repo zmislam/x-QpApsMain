@@ -38,10 +38,10 @@ import '../../../../shared/components/post_reactions/views/post_reactions_view.d
 class PostCommentPageView extends StatefulWidget {
   const PostCommentPageView({
     super.key,
-    required this.postIndex,
+    required this.postId,
   });
 
-  final int postIndex;
+  final String postId;
 
   @override
   State<PostCommentPageView> createState() => _PostCommentPageViewState();
@@ -61,7 +61,10 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
   final RxBool _isGroupMember = false.obs;
   final RxBool _isFriendRequestSent = false.obs;
 
-  PostModel get postModel => controller.edgeRankPosts[widget.postIndex];
+  PostModel get postModel {
+    final idx = controller.edgeRankPosts.indexWhere((p) => p.id == widget.postId);
+    return idx != -1 ? controller.edgeRankPosts[idx] : PostModel();
+  }
 
   @override
   void initState() {
@@ -188,7 +191,13 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
             // ─── Scrollable content: Post + Comments ───
             Expanded(
               child: Obx(() {
-                final post = controller.edgeRankPosts[widget.postIndex];
+                final idx = controller.edgeRankPosts.indexWhere((p) => p.id == widget.postId);
+                if (idx == -1) {
+                  return const CustomScrollView(slivers: [
+                    SliverFillRemaining(child: Center(child: Text('Post not found')))
+                  ]);
+                }
+                final post = controller.edgeRankPosts[idx];
                 final comments = _sortedComments(post.comments ?? []);
 
                 return CustomScrollView(
@@ -219,7 +228,7 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
                           (context, index) => _FbCommentTile(
                             comment: comments[index],
                             controller: controller,
-                            postIndex: widget.postIndex,
+                            postId: widget.postId,
                             focusNode: _focusNode,
                           ),
                           childCount: comments.length,
@@ -670,10 +679,10 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
                     Navigator.pop(context);
                     if (post.isBookMarked == false) {
                       controller.bookmarkPost(post.id ?? '',
-                          post.post_privacy.toString(), widget.postIndex);
+                          post.post_privacy.toString());
                     } else {
                       controller.removeBookmarkPost(
-                          post.id ?? '', post.bookmark?.id ?? '', widget.postIndex);
+                          post.id ?? '', post.bookmark?.id ?? '');
                     }
                   }),
               _actionMenuItem(context,
@@ -717,10 +726,10 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
                     Navigator.pop(context);
                     if (post.isBookMarked == false) {
                       controller.bookmarkPost(post.id ?? '',
-                          post.post_privacy.toString(), widget.postIndex);
+                          post.post_privacy.toString());
                     } else {
                       controller.removeBookmarkPost(
-                          post.id ?? '', post.bookmark?.id ?? '', widget.postIndex);
+                          post.id ?? '', post.bookmark?.id ?? '');
                     }
                   }),
               _actionMenuItem(context,
@@ -736,7 +745,7 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
                   label: 'Hide Post'.tr,
                   onTap: () {
                     Navigator.pop(context);
-                    controller.hidePost(1, post.id ?? '', widget.postIndex);
+                    controller.hidePost(1, post.id ?? '');
                     Get.back(); // close comment page
                   }),
               _actionMenuItem(context,
@@ -1083,7 +1092,6 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
           comment_id: controller.commentsID.value,
           replies_comment_name: controller.commentController.text,
           post_id: postModel.id ?? '',
-          postIndex: widget.postIndex,
           file: controller.processedCommentFileData.value,
         );
         controller.isReply.value = false;
@@ -1096,7 +1104,6 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
           comment_id: controller.commentsID.value,
           replies_comment_name: controller.commentController.text,
           post_id: postModel.id ?? '',
-          postIndex: widget.postIndex,
           file: controller.processedCommentFileData.value,
         );
         controller.isReplyOfReply.value = false;
@@ -1105,7 +1112,7 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
     } else {
       if (controller.commentController.text.trim().isNotEmpty ||
           controller.xfiles.value.isNotEmpty) {
-        controller.commentOnPost(widget.postIndex, postModel);
+        controller.commentOnPost(postModel);
       }
     }
   }
@@ -1119,21 +1126,46 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
 
 // ═══════════════════════════════════════════════════════════════════════
 //  FACEBOOK-STYLE COMMENT TILE — No bubble, plain text
-//  Long-press shows reaction emoji popup (like Facebook)
-//  Own comments get edit / delete via three-dot menu
+//  Long-press shows floating action menu (Reply, Edit, Delete, Share)
+//  Edit is inline (no page navigation)
 // ═══════════════════════════════════════════════════════════════════════
-class _FbCommentTile extends StatelessWidget {
+class _FbCommentTile extends StatefulWidget {
   const _FbCommentTile({
     required this.comment,
     required this.controller,
-    required this.postIndex,
+    required this.postId,
     required this.focusNode,
   });
 
   final CommentModel comment;
   final HomeController controller;
-  final int postIndex;
+  final String postId;
   final FocusNode focusNode;
+
+  @override
+  State<_FbCommentTile> createState() => _FbCommentTileState();
+}
+
+class _FbCommentTileState extends State<_FbCommentTile> {
+  bool _isEditing = false;
+  late TextEditingController _editController;
+
+  CommentModel get comment => widget.comment;
+  HomeController get controller => widget.controller;
+  String get postId => widget.postId;
+  FocusNode get focusNode => widget.focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _editController = TextEditingController(text: comment.comment_name ?? '');
+  }
+
+  @override
+  void dispose() {
+    _editController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1143,297 +1175,409 @@ class _FbCommentTile extends StatelessWidget {
     final mediaPath = comment.image_or_video ?? '';
     final isVideo = _isVideoFile(mediaPath);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Avatar ──
-              GestureDetector(
-                onTap: () => ProfileNavigator.navigateToProfile(
-                    username: user?.username ?? '', isFromReels: 'false'),
-                child: ClipOval(
-                  child: CustomCachedNetworkImage(
-                    imageUrl: (user?.profile_pic ?? '').formatedProfileUrl,
-                    height: 36,
-                    width: 36,
-                    fit: BoxFit.cover,
+    // ── INLINE EDIT MODE (Facebook-style: avatar + bordered box) ──
+    if (_isEditing) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Avatar
+            ClipOval(
+              child: CustomCachedNetworkImage(
+                imageUrl: (user?.profile_pic ?? '').formatedProfileUrl,
+                height: 36,
+                width: 36,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Edit box + buttons
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TextField(
+                      controller: _editController,
+                      maxLines: 5,
+                      minLines: 2,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.all(12),
+                      ),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      _InlineButton(
+                        label: 'Cancel'.tr,
+                        onTap: () => setState(() => _isEditing = false),
+                        isPrimary: false,
+                      ),
+                      const SizedBox(width: 8),
+                      _InlineButton(
+                        label: 'Update'.tr,
+                        onTap: _submitEdit,
+                        isPrimary: true,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ── NORMAL DISPLAY MODE ──
+    return GestureDetector(
+      onLongPress: () => _showCommentMenu(context, isOwner),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Avatar ──
+                GestureDetector(
+                  onTap: () => ProfileNavigator.navigateToProfile(
+                      username: user?.username ?? '', isFromReels: 'false'),
+                  child: ClipOval(
+                    child: CustomCachedNetworkImage(
+                      imageUrl: (user?.profile_pic ?? '').formatedProfileUrl,
+                      height: 36,
+                      width: 36,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              // ── Content ──
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Name · time
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () => ProfileNavigator.navigateToProfile(
-                              username: user?.username ?? '',
-                              isFromReels: 'false'),
-                          child: Text(
-                            '${user?.first_name ?? ''} ${user?.last_name ?? ''}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
+                const SizedBox(width: 10),
+                // ── Content ──
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Name · time
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => ProfileNavigator.navigateToProfile(
+                                username: user?.username ?? '',
+                                isFromReels: 'false'),
+                            child: Text(
+                              '${user?.first_name ?? ''} ${user?.last_name ?? ''}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                        ),
-                        if (user?.isProfileVerified == true) ...[
-                          const SizedBox(width: 4),
-                          Icon(Icons.verified,
-                              color: PRIMARY_COLOR, size: 14),
-                        ],
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: Text('·',
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: FeedDesignTokens.textSecondary(
-                                      context))),
-                        ),
-                        Text(
-                          getDynamicFormatedCommentTime(
-                              comment.createdAt ?? ''),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: FeedDesignTokens.textSecondary(context),
+                          if (user?.isProfileVerified == true) ...[
+                            const SizedBox(width: 4),
+                            Icon(Icons.verified,
+                                color: PRIMARY_COLOR, size: 14),
+                          ],
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text('·',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: FeedDesignTokens.textSecondary(
+                                        context))),
                           ),
-                        ),
-                      ],
-                    ),
-                    // Comment text (no bubble)
-                    if (comment.comment_name != null &&
-                        comment.comment_name != '' &&
-                        comment.comment_name != 'null')
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: SmartText(comment.comment_name ?? ''),
+                          Text(
+                            getDynamicFormatedCommentTime(
+                                comment.createdAt ?? ''),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  FeedDesignTokens.textSecondary(context),
+                            ),
+                          ),
+                        ],
                       ),
+                      // Comment text (no bubble)
+                      if (comment.comment_name != null &&
+                          comment.comment_name != '' &&
+                          comment.comment_name != 'null')
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: SmartText(comment.comment_name ?? ''),
+                        ),
 
-                    // Media (image or video)
-                    if (mediaPath.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: isVideo
-                            ? NewsFeedPostVideoPlayer(
-                                onNavigate: () => Get.to(
-                                    PostDetailsVideoScreen(
-                                        videoSrc:
-                                            '${ApiConstant.SERVER_IP_PORT}/$mediaPath')),
-                                postId: '',
-                                videoSrc:
-                                    '${ApiConstant.SERVER_IP_PORT}/$mediaPath',
-                              )
-                            : GestureDetector(
-                                onTap: () => Get.to(() => SingleImage(
-                                    imgURL:
-                                        '${ApiConstant.SERVER_IP_PORT}/$mediaPath')),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: CustomCachedNetworkImage(
-                                    imageUrl:
-                                        '${ApiConstant.SERVER_IP_PORT}/$mediaPath',
-                                    height: 200,
-                                    fit: BoxFit.cover,
+                      // Media (image or video)
+                      if (mediaPath.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: isVideo
+                              ? NewsFeedPostVideoPlayer(
+                                  onNavigate: () => Get.to(
+                                      PostDetailsVideoScreen(
+                                          videoSrc:
+                                              '${ApiConstant.SERVER_IP_PORT}/$mediaPath')),
+                                  postId: '',
+                                  videoSrc:
+                                      '${ApiConstant.SERVER_IP_PORT}/$mediaPath',
+                                )
+                              : GestureDetector(
+                                  onTap: () => Get.to(() => SingleImage(
+                                      imgURL:
+                                          '${ApiConstant.SERVER_IP_PORT}/$mediaPath')),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: CustomCachedNetworkImage(
+                                      imageUrl:
+                                          '${ApiConstant.SERVER_IP_PORT}/$mediaPath',
+                                      height: 200,
+                                      fit: BoxFit.cover,
+                                    ),
                                   ),
                                 ),
-                              ),
-                      ),
+                        ),
 
-                    // Action row: time | CommentReactionButton | Reply | ⋯ own menu
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        children: [
-                          // Reaction button (long-press shows emoji popup)
-                          CommentReactionButton(
-                            selectedReaction: getSelectedCommentReaction(
-                                comment, currentUserId),
-                            onChangedReaction: (reaction) {
-                              controller.commentReaction(
-                                postIndex: postIndex,
-                                reaction_type: reaction.value,
-                                post_id: comment.post_id ?? '',
-                                comment_id: comment.id ?? '',
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          // Reply
-                          InkWell(
-                            onTap: () {
-                              controller.commentsID.value =
-                                  '${comment.id}';
-                              controller.postID.value =
-                                  '${comment.post_id}';
-                              controller.isReply.value = true;
-                              controller.isReplyOfReply.value = false;
-                              controller.commentModel.value = comment;
-                              FocusScope.of(context)
-                                  .requestFocus(focusNode);
-                            },
-                            child: Text(
-                              'Reply'.tr,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                      // Action row: Like | Reply | thumbs up/down
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            // Reaction button (long-press shows emoji popup)
+                            CommentReactionButton(
+                              selectedReaction: getSelectedCommentReaction(
+                                  comment, currentUserId),
+                              onChangedReaction: (reaction) {
+                                controller.commentReaction(
+                                  postId: postId,
+                                  reaction_type: reaction.value,
+                                  comment_id: comment.id ?? '',
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            // Reply
+                            InkWell(
+                              onTap: () {
+                                controller.commentsID.value =
+                                    '${comment.id}';
+                                controller.postID.value =
+                                    '${comment.post_id}';
+                                controller.isReply.value = true;
+                                controller.isReplyOfReply.value = false;
+                                controller.commentModel.value = comment;
+                                FocusScope.of(context)
+                                    .requestFocus(focusNode);
+                              },
+                              child: Text(
+                                'Reply'.tr,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: FeedDesignTokens.textSecondary(
+                                      context),
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            // Thumbs up (quick tap)
+                            InkWell(
+                              onTap: () {
+                                controller.commentReaction(
+                                  postId: postId,
+                                  reaction_type: 'like',
+                                  comment_id: comment.id ?? '',
+                                );
+                              },
+                              child: Icon(
+                                Icons.thumb_up_alt_outlined,
+                                size: 16,
+                                color:
+                                    _hasUserReacted(comment, currentUserId)
+                                        ? PRIMARY_COLOR
+                                        : FeedDesignTokens.textSecondary(
+                                            context),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            // Thumbs down (quick tap)
+                            InkWell(
+                              onTap: () {
+                                controller.commentReaction(
+                                  postId: postId,
+                                  reaction_type: 'dislike',
+                                  comment_id: comment.id ?? '',
+                                );
+                              },
+                              child: Icon(
+                                Icons.thumb_down_alt_outlined,
+                                size: 16,
                                 color: FeedDesignTokens.textSecondary(
                                     context),
                               ),
                             ),
-                          ),
-                          const Spacer(),
-                          // Thumbs up (quick tap)
-                          InkWell(
-                            onTap: () {
-                              controller.commentReaction(
-                                postIndex: postIndex,
-                                reaction_type: 'like',
-                                post_id: comment.post_id ?? '',
-                                comment_id: comment.id ?? '',
-                              );
-                            },
-                            child: Icon(
-                              Icons.thumb_up_alt_outlined,
-                              size: 16,
-                              color: _hasUserReacted(comment, currentUserId)
-                                  ? PRIMARY_COLOR
-                                  : FeedDesignTokens.textSecondary(context),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          // Thumbs down (quick tap)
-                          InkWell(
-                            onTap: () {
-                              controller.commentReaction(
-                                postIndex: postIndex,
-                                reaction_type: 'dislike',
-                                post_id: comment.post_id ?? '',
-                                comment_id: comment.id ?? '',
-                              );
-                            },
-                            child: Icon(
-                              Icons.thumb_down_alt_outlined,
-                              size: 16,
-                              color: FeedDesignTokens.textSecondary(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // ── Edit / Delete menu (own comments only) ──
-              if (isOwner)
-                SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: PopupMenuButton<String>(
-                    padding: EdgeInsets.zero,
-                    iconSize: 18,
-                    icon: Icon(Icons.more_horiz,
-                        size: 18,
-                        color: FeedDesignTokens.textSecondary(context)),
-                    color: FeedDesignTokens.cardBg(context),
-                    offset: const Offset(-40, 0),
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        _editComment(comment);
-                      } else if (value == 'delete') {
-                        _deleteComment(context, comment);
-                      }
-                    },
-                    itemBuilder: (_) {
-                      final items = <PopupMenuEntry<String>>[];
-                      // Only show edit if there's text to edit
-                      if (comment.image_or_video == null ||
-                          (comment.comment_name?.isNotEmpty ?? false)) {
-                        items.add(PopupMenuItem<String>(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              const Icon(Icons.edit_outlined, size: 18),
-                              const SizedBox(width: 8),
-                              Text('Edit'.tr),
-                            ],
-                          ),
-                        ));
-                      }
-                      items.add(PopupMenuItem<String>(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.delete_outline,
-                                size: 18, color: Colors.red),
-                            const SizedBox(width: 8),
-                            Text('Delete'.tr,
-                                style: const TextStyle(color: Colors.red)),
                           ],
                         ),
-                      ));
-                      return items;
-                    },
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
+              ],
+            ),
 
-          // ── Replies ──
-          if ((comment.replies?.length ?? 0) > 0)
-            Padding(
-              padding: const EdgeInsets.only(left: 46, top: 4),
-              child: Column(
-                children: List.generate(
-                  comment.replies!.length,
-                  (i) => _FbReplyTile(
-                    reply: comment.replies![i],
-                    parentComment: comment,
-                    controller: controller,
-                    postIndex: postIndex,
-                    focusNode: focusNode,
+            // ── Replies ──
+            if ((comment.replies?.length ?? 0) > 0)
+              Padding(
+                padding: const EdgeInsets.only(left: 46, top: 4),
+                child: Column(
+                  children: List.generate(
+                    comment.replies!.length,
+                    (i) => _FbReplyTile(
+                      reply: comment.replies![i],
+                      parentComment: comment,
+                      controller: controller,
+                      postId: postId,
+                      focusNode: focusNode,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  void _editComment(CommentModel cm) async {
-    await Get.toNamed(Routes.EDIT_POST_COMMENT, arguments: {
-      'post_comment': cm.comment_name,
-      'post_id': cm.post_id,
-      'comment_id': cm.id,
-      'comment_type': cm.comment_type,
-      'image_video': cm.image_or_video,
-    });
-    controller.updatePostList(cm.post_id ?? '', postIndex);
+  /// Facebook-style long-press floating menu
+  void _showCommentMenu(BuildContext context, bool isOwner) {
+    final canEdit = comment.image_or_video == null ||
+        (comment.comment_name?.isNotEmpty ?? false);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Reply
+              _MenuTile(
+                icon: Icons.reply_rounded,
+                label: 'Reply'.tr,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  controller.commentsID.value = '${comment.id}';
+                  controller.postID.value = '${comment.post_id}';
+                  controller.isReply.value = true;
+                  controller.isReplyOfReply.value = false;
+                  controller.commentModel.value = comment;
+                  FocusScope.of(context).requestFocus(focusNode);
+                },
+              ),
+              // Edit (own + has text)
+              if (isOwner && canEdit)
+                _MenuTile(
+                  icon: Icons.edit_outlined,
+                  label: 'Edit'.tr,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _editController.text = comment.comment_name ?? '';
+                    setState(() => _isEditing = true);
+                  },
+                ),
+              // Delete (own only)
+              if (isOwner)
+                _MenuTile(
+                  icon: Icons.delete_outline,
+                  label: 'Delete'.tr,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _deleteComment(context);
+                  },
+                ),
+              // Share comment
+              _MenuTile(
+                icon: Icons.share_outlined,
+                label: 'Share comment'.tr,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  CopyToClipboardUtils.copyToClipboard(
+                    '${ApiConstant.SERVER_IP}/notification/${comment.post_id}',
+                    'Comment link',
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  void _deleteComment(BuildContext context, CommentModel cm) {
+  /// Inline edit — call API then refresh
+  Future<void> _submitEdit() async {
+    final text = _editController.text.trim();
+    if (text.isEmpty) return;
+
+    final api = ApiCommunication();
+    try {
+      await api.doPostRequest(
+        apiEndPoint:
+            'update-comments-by-direct-post/${comment.post_id}/${comment.id}',
+        isFormData: false,
+        enableLoading: true,
+        requestData: {
+          'comment_name': text,
+          'replies_comment_name': null,
+          'comment_type': comment.comment_type,
+          'image_or_video': comment.image_or_video,
+        },
+      );
+      // Update local model so UI reflects change immediately
+      comment.comment_name = text;
+      setState(() => _isEditing = false);
+      controller.updatePostList(comment.post_id ?? '');
+    } catch (e) {
+      debugPrint('Edit comment error: $e');
+    } finally {
+      api.endConnection();
+    }
+  }
+
+  void _deleteComment(BuildContext context) {
     showDeleteAlertDialogs(
       context: context,
+      deletingItemType: 'comment',
       onCancel: () => Navigator.of(context).pop(false),
       onDelete: () {
         controller.commentDelete(
-            cm.id ?? '', cm.post_id ?? '', postIndex);
+            comment.id ?? '', comment.post_id ?? '');
         Navigator.of(context).pop(false);
       },
     );
   }
 
   bool _hasUserReacted(CommentModel comment, String userId) {
-    return comment.comment_reactions?.any((r) => r.user_id == userId) ?? false;
+    return comment.comment_reactions?.any((r) => r.user_id == userId) ??
+        false;
   }
 
   bool _isVideoFile(String path) {
@@ -1448,22 +1592,50 @@ class _FbCommentTile extends StatelessWidget {
 
 // ═══════════════════════════════════════════════════════════════════════
 //  REPLY TILE — Same style, indented
-//  Includes reaction popup + edit/delete for own replies
+//  Long-press shows floating action menu (Reply, Edit, Delete, Share)
+//  Edit is inline (no page navigation)
 // ═══════════════════════════════════════════════════════════════════════
-class _FbReplyTile extends StatelessWidget {
+class _FbReplyTile extends StatefulWidget {
   const _FbReplyTile({
     required this.reply,
     required this.parentComment,
     required this.controller,
-    required this.postIndex,
+    required this.postId,
     required this.focusNode,
   });
 
   final CommentReplay reply;
   final CommentModel parentComment;
   final HomeController controller;
-  final int postIndex;
+  final String postId;
   final FocusNode focusNode;
+
+  @override
+  State<_FbReplyTile> createState() => _FbReplyTileState();
+}
+
+class _FbReplyTileState extends State<_FbReplyTile> {
+  bool _isEditing = false;
+  late TextEditingController _editController;
+
+  CommentReplay get reply => widget.reply;
+  CommentModel get parentComment => widget.parentComment;
+  HomeController get controller => widget.controller;
+  String get postId => widget.postId;
+  FocusNode get focusNode => widget.focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _editController =
+        TextEditingController(text: reply.replies_comment_name ?? '');
+  }
+
+  @override
+  void dispose() {
+    _editController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1477,16 +1649,14 @@ class _FbReplyTile extends StatelessWidget {
         replyMedia.toLowerCase().endsWith('.avi') ||
         replyMedia.toLowerCase().endsWith('.webm');
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Avatar
-          GestureDetector(
-            onTap: () => ProfileNavigator.navigateToProfile(
-                username: user?.username ?? '', isFromReels: 'false'),
-            child: ClipOval(
+    // ── INLINE EDIT MODE ──
+    if (_isEditing) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipOval(
               child: CustomCachedNetworkImage(
                 imageUrl: (user?.profile_pic ?? '').formatedProfileUrl,
                 height: 28,
@@ -1494,237 +1664,425 @@ class _FbReplyTile extends StatelessWidget {
                 fit: BoxFit.cover,
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          // Content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Name · time
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => ProfileNavigator.navigateToProfile(
-                          username: user?.username ?? '',
-                          isFromReels: 'false'),
-                      child: Text(
-                        '${user?.first_name ?? ''} ${user?.last_name ?? ''}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                        ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TextField(
+                      controller: _editController,
+                      maxLines: 4,
+                      minLines: 2,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.all(12),
                       ),
+                      style: const TextStyle(fontSize: 13),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      child: Text('·',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color:
-                                  FeedDesignTokens.textSecondary(context))),
-                    ),
-                    Text(
-                      getDynamicFormatedCommentTime(reply.createdAt ?? ''),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: FeedDesignTokens.textSecondary(context),
-                      ),
-                    ),
-                  ],
-                ),
-                // Reply text
-                if (reply.replies_comment_name != null &&
-                    reply.replies_comment_name != '' &&
-                    reply.replies_comment_name != 'null')
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: SmartText(reply.replies_comment_name ?? ''),
                   ),
-
-                // Media
-                if (replyMedia.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: isVideo
-                        ? NewsFeedPostVideoPlayer(
-                            onNavigate: () => Get.to(PostDetailsVideoScreen(
-                                videoSrc:
-                                    '${ApiConstant.SERVER_IP_PORT}/$replyMedia')),
-                            postId: '',
-                            videoSrc:
-                                '${ApiConstant.SERVER_IP_PORT}/$replyMedia',
-                          )
-                        : GestureDetector(
-                            onTap: () => Get.to(() => SingleImage(
-                                imgURL:
-                                    '${ApiConstant.SERVER_IP_PORT}/$replyMedia')),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: CustomCachedNetworkImage(
-                                imageUrl:
-                                    '${ApiConstant.SERVER_IP_PORT}/$replyMedia',
-                                height: 160,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                  ),
-
-                // Action row
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Row(
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      // Reaction button (long-press shows emoji popup)
-                      CommentReactionButton(
-                        selectedReaction: getSelectedCommentReplayReaction(
-                            reply, currentUserId),
-                        onChangedReaction: (reaction) {
-                          controller.commentReplyReaction(
-                            postIndex,
-                            reaction.value,
-                            parentComment.post_id ?? '',
-                            parentComment.id ?? '',
-                            reply.id ?? '',
-                          );
-                        },
+                      _InlineButton(
+                        label: 'Cancel'.tr,
+                        onTap: () => setState(() => _isEditing = false),
+                        isPrimary: false,
                       ),
-                      const SizedBox(width: 10),
-                      InkWell(
-                        onTap: () {
-                          controller.commentsID.value =
-                              '${parentComment.id}';
-                          controller.postID.value =
-                              '${parentComment.post_id}';
-                          controller.isReply.value = false;
-                          controller.isReplyOfReply.value = true;
-                          controller.commentReplyModel.value = reply;
-                          FocusScope.of(context).requestFocus(focusNode);
-                        },
-                        child: Text(
-                          'Reply'.tr,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: FeedDesignTokens.textSecondary(context),
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      InkWell(
-                        onTap: () {
-                          controller.commentReplyReaction(
-                            postIndex,
-                            'like',
-                            parentComment.post_id ?? '',
-                            parentComment.id ?? '',
-                            reply.id ?? '',
-                          );
-                        },
-                        child: Icon(Icons.thumb_up_alt_outlined,
-                            size: 14,
-                            color: FeedDesignTokens.textSecondary(context)),
-                      ),
-                      const SizedBox(width: 14),
-                      InkWell(
-                        onTap: () {
-                          controller.commentReplyReaction(
-                            postIndex,
-                            'dislike',
-                            parentComment.post_id ?? '',
-                            parentComment.id ?? '',
-                            reply.id ?? '',
-                          );
-                        },
-                        child: Icon(Icons.thumb_down_alt_outlined,
-                            size: 14,
-                            color: FeedDesignTokens.textSecondary(context)),
+                      const SizedBox(width: 8),
+                      _InlineButton(
+                        label: 'Update'.tr,
+                        onTap: _submitEdit,
+                        isPrimary: true,
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          // ── Edit / Delete menu (own replies only) ──
-          if (isOwner)
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: PopupMenuButton<String>(
-                padding: EdgeInsets.zero,
-                iconSize: 16,
-                icon: Icon(Icons.more_horiz,
-                    size: 16,
-                    color: FeedDesignTokens.textSecondary(context)),
-                color: FeedDesignTokens.cardBg(context),
-                offset: const Offset(-40, 0),
-                onSelected: (value) {
-                  if (value == 'edit') {
-                    _editReply(reply);
-                  } else if (value == 'delete') {
-                    _deleteReply(context, reply);
-                  }
-                },
-                itemBuilder: (_) {
-                  final items = <PopupMenuEntry<String>>[];
-                  if (reply.image_or_video == null ||
-                      (reply.replies_comment_name?.isNotEmpty ?? false)) {
-                    items.add(PopupMenuItem<String>(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.edit_outlined, size: 16),
-                          const SizedBox(width: 8),
-                          Text('Edit'.tr, style: const TextStyle(fontSize: 14)),
-                        ],
-                      ),
-                    ));
-                  }
-                  items.add(PopupMenuItem<String>(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.delete_outline,
-                            size: 16, color: Colors.red),
-                        const SizedBox(width: 8),
-                        Text('Delete'.tr,
-                            style:
-                                const TextStyle(fontSize: 14, color: Colors.red)),
-                      ],
-                    ),
-                  ));
-                  return items;
-                },
+                ],
               ),
             ),
-        ],
+          ],
+        ),
+      );
+    }
+
+    // ── NORMAL DISPLAY MODE ──
+    return GestureDetector(
+      onLongPress: () => _showReplyMenu(context, isOwner),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Avatar
+            GestureDetector(
+              onTap: () => ProfileNavigator.navigateToProfile(
+                  username: user?.username ?? '', isFromReels: 'false'),
+              child: ClipOval(
+                child: CustomCachedNetworkImage(
+                  imageUrl: (user?.profile_pic ?? '').formatedProfileUrl,
+                  height: 28,
+                  width: 28,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Name · time
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => ProfileNavigator.navigateToProfile(
+                            username: user?.username ?? '',
+                            isFromReels: 'false'),
+                        child: Text(
+                          '${user?.first_name ?? ''} ${user?.last_name ?? ''}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        child: Text('·',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: FeedDesignTokens.textSecondary(
+                                    context))),
+                      ),
+                      Text(
+                        getDynamicFormatedCommentTime(
+                            reply.createdAt ?? ''),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: FeedDesignTokens.textSecondary(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Reply text
+                  if (reply.replies_comment_name != null &&
+                      reply.replies_comment_name != '' &&
+                      reply.replies_comment_name != 'null')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: SmartText(reply.replies_comment_name ?? ''),
+                    ),
+
+                  // Media
+                  if (replyMedia.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: isVideo
+                          ? NewsFeedPostVideoPlayer(
+                              onNavigate: () => Get.to(
+                                  PostDetailsVideoScreen(
+                                      videoSrc:
+                                          '${ApiConstant.SERVER_IP_PORT}/$replyMedia')),
+                              postId: '',
+                              videoSrc:
+                                  '${ApiConstant.SERVER_IP_PORT}/$replyMedia',
+                            )
+                          : GestureDetector(
+                              onTap: () => Get.to(() => SingleImage(
+                                  imgURL:
+                                      '${ApiConstant.SERVER_IP_PORT}/$replyMedia')),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: CustomCachedNetworkImage(
+                                  imageUrl:
+                                      '${ApiConstant.SERVER_IP_PORT}/$replyMedia',
+                                  height: 160,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                    ),
+
+                  // Action row
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        CommentReactionButton(
+                          selectedReaction:
+                              getSelectedCommentReplayReaction(
+                                  reply, currentUserId),
+                          onChangedReaction: (reaction) {
+                            controller.commentReplyReaction(
+                              postId,
+                              reaction.value,
+                              parentComment.id ?? '',
+                              reply.id ?? '',
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        InkWell(
+                          onTap: () {
+                            controller.commentsID.value =
+                                '${parentComment.id}';
+                            controller.postID.value =
+                                '${parentComment.post_id}';
+                            controller.isReply.value = false;
+                            controller.isReplyOfReply.value = true;
+                            controller.commentReplyModel.value = reply;
+                            FocusScope.of(context)
+                                .requestFocus(focusNode);
+                          },
+                          child: Text(
+                            'Reply'.tr,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color:
+                                  FeedDesignTokens.textSecondary(context),
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        InkWell(
+                          onTap: () {
+                            controller.commentReplyReaction(
+                              postId,
+                              'like',
+                              parentComment.id ?? '',
+                              reply.id ?? '',
+                            );
+                          },
+                          child: Icon(Icons.thumb_up_alt_outlined,
+                              size: 14,
+                              color: FeedDesignTokens.textSecondary(
+                                  context)),
+                        ),
+                        const SizedBox(width: 14),
+                        InkWell(
+                          onTap: () {
+                            controller.commentReplyReaction(
+                              postId,
+                              'dislike',
+                              parentComment.id ?? '',
+                              reply.id ?? '',
+                            );
+                          },
+                          child: Icon(Icons.thumb_down_alt_outlined,
+                              size: 14,
+                              color: FeedDesignTokens.textSecondary(
+                                  context)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _editReply(CommentReplay r) async {
-    await Get.toNamed(Routes.EDIT_REPLY_POST_COMMENT, arguments: {
-      'reply_comment': r.replies_comment_name,
-      'replay_post_id': r.post_id,
-      'comment_replay_id': r.id,
-      'comment_type': r.comment_type,
-      'image_video': r.image_or_video,
-    });
-    controller.updatePostList(r.post_id ?? '', postIndex);
+  /// Facebook-style long-press floating menu for replies
+  void _showReplyMenu(BuildContext context, bool isOwner) {
+    final canEdit = reply.image_or_video == null ||
+        (reply.replies_comment_name?.isNotEmpty ?? false);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Reply
+              _MenuTile(
+                icon: Icons.reply_rounded,
+                label: 'Reply'.tr,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  controller.commentsID.value = '${parentComment.id}';
+                  controller.postID.value = '${parentComment.post_id}';
+                  controller.isReply.value = false;
+                  controller.isReplyOfReply.value = true;
+                  controller.commentReplyModel.value = reply;
+                  FocusScope.of(context).requestFocus(focusNode);
+                },
+              ),
+              // Edit (own + has text)
+              if (isOwner && canEdit)
+                _MenuTile(
+                  icon: Icons.edit_outlined,
+                  label: 'Edit'.tr,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _editController.text =
+                        reply.replies_comment_name ?? '';
+                    setState(() => _isEditing = true);
+                  },
+                ),
+              // Delete (own only)
+              if (isOwner)
+                _MenuTile(
+                  icon: Icons.delete_outline,
+                  label: 'Delete'.tr,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _deleteReply(context);
+                  },
+                ),
+              // Share comment
+              _MenuTile(
+                icon: Icons.share_outlined,
+                label: 'Share comment'.tr,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  CopyToClipboardUtils.copyToClipboard(
+                    '${ApiConstant.SERVER_IP}/notification/${parentComment.post_id}',
+                    'Comment link',
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  void _deleteReply(BuildContext context, CommentReplay r) {
+  /// Inline edit — call API then refresh
+  Future<void> _submitEdit() async {
+    final text = _editController.text.trim();
+    if (text.isEmpty) return;
+
+    final api = ApiCommunication();
+    try {
+      await api.doPostRequest(
+        apiEndPoint:
+            'update-comments-by-direct-post/${reply.post_id}/${reply.id}',
+        isFormData: false,
+        enableLoading: true,
+        requestData: {
+          'comment_name': null,
+          'replies_comment_name': text,
+          'comment_type': reply.comment_type,
+          'image_or_video': reply.image_or_video,
+        },
+      );
+      reply.replies_comment_name = text;
+      setState(() => _isEditing = false);
+      controller.updatePostList(reply.post_id ?? '');
+    } catch (e) {
+      debugPrint('Edit reply error: $e');
+    } finally {
+      api.endConnection();
+    }
+  }
+
+  void _deleteReply(BuildContext context) {
     showDeleteAlertDialogs(
       context: context,
+      deletingItemType: 'comment',
       onCancel: () => Navigator.of(context).pop(false),
       onDelete: () {
         controller.replyDelete(
-            r.id ?? '', r.post_id ?? '', postIndex);
+            reply.id ?? '', reply.post_id ?? '');
         Navigator.of(context).pop(false);
       },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SHARED WIDGETS — Menu tile & Inline edit button
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Single row in the long-press floating menu
+class _MenuTile extends StatelessWidget {
+  const _MenuTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: FeedDesignTokens.textPrimary(context)),
+            const SizedBox(width: 14),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: FeedDesignTokens.textPrimary(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact inline button for Cancel / Update in edit mode
+class _InlineButton extends StatelessWidget {
+  const _InlineButton({
+    required this.label,
+    required this.onTap,
+    required this.isPrimary,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final bool isPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isPrimary ? PRIMARY_COLOR : Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isPrimary ? Colors.white : Colors.black87,
+          ),
+        ),
+      ),
     );
   }
 }

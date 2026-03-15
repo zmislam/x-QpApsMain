@@ -15,7 +15,9 @@ import '../../NAVIGATION_MENUS/notification/views/notification_view.dart';
 import '../../NAVIGATION_MENUS/user_menu/sub_menus/all_pages/pages/views/pages_view_tab.dart';
 import '../../NAVIGATION_MENUS/user_menu/views/user_menu_view.dart';
 import '../../NAVIGATION_MENUS/reels/views/reels_view.dart';
+import '../../NAVIGATION_MENUS/home/controllers/home_controller.dart';
 import '../controllers/tab_view_controller.dart';
+import 'brand_design_preview.dart';
 
 // =============================================================================
 // TabView — Facebook-inspired bottom navigation redesign
@@ -56,6 +58,11 @@ class TabView extends GetView<TabViewController> {
   Widget build(BuildContext context) {
     return Obx(() {
       final isReels = controller.tabIndex.value == 1;
+      final isFriends = controller.tabIndex.value == 2 &&
+          !controller.loginCredential.getProfileSwitch();
+      final isPages = controller.loginCredential.getProfileSwitch()
+          ? controller.tabIndex.value == 2
+          : controller.tabIndex.value == 3;
       return AnnotatedRegion<SystemUiOverlayStyle>(
         value: isReels
             ? SystemUiOverlayStyle.light
@@ -63,8 +70,8 @@ class TabView extends GetView<TabViewController> {
                 ? SystemUiOverlayStyle.light
                 : SystemUiOverlayStyle.dark),
         child: Scaffold(
-          // ─── AppBar (hidden on Reels tab) ─────────────────────────────
-          appBar: isReels ? null : _buildAppBar(context),
+          // ─── AppBar (hidden on Reels, Friends & Pages tabs) ───────────
+          appBar: (isReels || isFriends || isPages) ? null : _buildAppBar(context),
           // ─── Body ─────────────────────────────────────────────────────
           body: _buildBody(context),
           // ─── Bottom Navigation ────────────────────────────────────────
@@ -120,58 +127,27 @@ class TabView extends GetView<TabViewController> {
           Expanded(
             child: Center(
               child: GestureDetector(
-                onTap: () {
-                  // Show the create menu (Post, Story, Reels, Go Live)
-                  // Position dropdown below the brand text, centered
-                  final RenderBox overlay =
-                      Overlay.of(context).context.findRenderObject() as RenderBox;
-                  final centerX = overlay.size.width / 2;
-                  showMenu(
-                    context: context,
-                    color: Theme.of(context).cardTheme.color,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    position: RelativeRect.fromLTRB(
-                      centerX - 80, // left edge — menu ~160px wide, centered
-                      kToolbarHeight + 8,
-                      centerX - 80,
-                      0,
-                    ),
-                    items: [
-                      _buildPopupItem(context, QpIcon.post, 'Post'.tr,
-                          () => Get.toNamed(Routes.CREAT_POST)),
-                      _buildPopupItem(context, QpIcon.story, 'Story'.tr,
-                          () => Get.toNamed(Routes.CREATE_STORY)),
-                      _buildPopupItem(context, QpIcon.reel, 'Reels'.tr,
-                          () => Get.toNamed(Routes.CUSTOM_CAMERA)),
-                      _buildPopupItem(context, QpIcon.live, 'Go Live'.tr,
-                          () => Get.toNamed(Routes.GO_LIVE)),
-                    ],
-                  );
-                },
+                onTap: () => _showCreateBottomSheet(context),
+                onLongPress: () => showBrandDesignPreview(context), // TEMP — remove after approval
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // ── Design 25: Script Compact ─────────────────────
                     ShaderMask(
                       shaderCallback: (bounds) => const LinearGradient(
-                        colors: [
-                          Color(0xFF1E4F4F), // dark teal
-                          Color(0xFF307777), // PRIMARY_COLOR
-                          Color(0xFF21CBC1), // COLOR_PEST — bright accent
-                        ],
-                        stops: [0.0, 0.45, 1.0],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF287070), Color(0xFF307777)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                       ).createShader(bounds),
                       child: Text(
                         'quantum possibilities',
                         style: TextStyle(
                           fontFamily: 'GrandHotel',
-                          fontSize: brandFontSize,
+                          fontSize: brandFontSize * 0.91,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white, // Required for ShaderMask to work
-                          height: 1.2,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                          height: 1.15,
                         ),
                       ),
                     ),
@@ -193,7 +169,7 @@ class TabView extends GetView<TabViewController> {
       actions: [
         // ── Search button (Facebook-style: big circle, short handle) ───
         GestureDetector(
-          onTap: () => Get.toNamed(Routes.GLOBAL_SEARCH),
+          onTap: () => Get.toNamed(Routes.ADVANCE_SEARCH),
           child: SizedBox(
             width: 26,
             height: 26,
@@ -205,18 +181,127 @@ class TabView extends GetView<TabViewController> {
     );
   }
 
-  /// Helper to build a popup menu item (used by Create button)
-  PopupMenuItem _buildPopupItem(
-      BuildContext context, IconData icon, String text, VoidCallback onTap) {
-    return PopupMenuItem(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Icon(icon, size: 24, color: PRIMARY_COLOR),
-          const SizedBox(width: 10),
-          Text(text, style: Theme.of(context).textTheme.bodyLarge),
-        ],
-      ),
+  // ═════════════════════════════════════════════════════════════════════════
+  //  CREATE BOTTOM SHEET — Instagram-style
+  // ═════════════════════════════════════════════════════════════════════════
+
+  void _showCreateBottomSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final sheetBg = isDark ? const Color(0xFF262626) : Colors.white;
+        final textColor = isDark ? Colors.white : Colors.black87;
+        final subtitleColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+        final iconBgColor = isDark
+            ? Colors.grey.shade800
+            : Colors.grey.shade100;
+        final handleColor = isDark ? Colors.grey.shade600 : Colors.grey.shade300;
+
+        // Menu items configuration — order: Post, Story, Reel, Live
+        final items = <_CreateMenuItem>[
+          _CreateMenuItem(
+            icon: QpIcon.post,
+            label: 'Post'.tr,
+            iconColor: const Color(0xFF4CAF50), // green
+            onTap: () {
+              Navigator.of(ctx).pop();
+              Get.toNamed(Routes.CREAT_POST);
+            },
+          ),
+          _CreateMenuItem(
+            icon: QpIcon.story,
+            label: 'Story'.tr,
+            iconColor: const Color(0xFF2196F3), // blue
+            onTap: () {
+              Navigator.of(ctx).pop();
+              Get.toNamed(Routes.CREATE_STORY);
+            },
+          ),
+          _CreateMenuItem(
+            icon: Icons.event,
+            label: 'Event'.tr,
+            iconColor: const Color(0xFFFF6D00), // warm orange
+            onTap: () {
+              Navigator.of(ctx).pop();
+              Get.toNamed(Routes.CREATE_EVENT);
+            },
+          ),
+          _CreateMenuItem(
+            icon: QpIcon.reel,
+            label: 'Reel'.tr,
+            iconColor: const Color(0xFFE91E63), // pink
+            onTap: () {
+              Navigator.of(ctx).pop();
+              Get.toNamed(Routes.CUSTOM_CAMERA);
+            },
+          ),
+          _CreateMenuItem(
+            icon: QpIcon.live,
+            label: 'Live'.tr,
+            iconColor: const Color(0xFFFF5722), // deep orange
+            onTap: () {
+              Navigator.of(ctx).pop();
+              Get.toNamed(Routes.GO_LIVE);
+            },
+          ),
+        ];
+
+        return Container(
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Drag handle ──────────────────────────────────────
+                const SizedBox(height: 10),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: handleColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // ── Title ────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.only(top: 16, bottom: 8),
+                  child: Text(
+                    'Create'.tr,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+                Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
+                ),
+                // ── Menu items ───────────────────────────────────────
+                const SizedBox(height: 8),
+                ...items.map((item) => _CreateSheetTile(
+                      item: item,
+                      iconBgColor: iconBgColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                    )),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -358,6 +443,13 @@ class TabView extends GetView<TabViewController> {
                       return;
                     }
                     final tabIdx = mapping[index];
+                    // If already on Home tab and tapping Home again → scroll to top
+                    if (tabIdx == 0 && controller.tabIndex.value == 0) {
+                      try {
+                        Get.find<HomeController>().scrollToTop();
+                      } catch (_) {}
+                      return;
+                    }
                     controller.tabIndex.value = tabIdx;
                     if (controller.tabControllerInitComplete.value) {
                       controller.tabController.animateTo(tabIdx);
@@ -564,6 +656,88 @@ class _BottomNavItem extends StatelessWidget {
         radius: 10,
         backgroundImage: NetworkImage(profilePic),
         backgroundColor: Colors.grey.shade300,
+      ),
+    );
+  }
+}
+
+// =============================================================================
+//  Private Data — Create bottom sheet menu item
+// =============================================================================
+
+class _CreateMenuItem {
+  final IconData icon;
+  final String label;
+  final Color iconColor;
+  final VoidCallback onTap;
+
+  const _CreateMenuItem({
+    required this.icon,
+    required this.label,
+    required this.iconColor,
+    required this.onTap,
+  });
+}
+
+// =============================================================================
+//  Private Widget — Single create sheet tile (Instagram-style)
+// =============================================================================
+
+class _CreateSheetTile extends StatelessWidget {
+  final _CreateMenuItem item;
+  final Color iconBgColor;
+  final Color textColor;
+  final Color subtitleColor;
+
+  const _CreateSheetTile({
+    required this.item,
+    required this.iconBgColor,
+    required this.textColor,
+    required this.subtitleColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: item.onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          children: [
+            // ── Icon in rounded container ─────────────────────────────
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: item.iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: item.iconColor.withValues(alpha: 0.25),
+                  width: 0.8,
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  item.icon,
+                  size: 22,
+                  color: item.iconColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // ── Label ─────────────────────────────────────────────────
+            Expanded(
+              child: Text(
+                item.label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: textColor,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

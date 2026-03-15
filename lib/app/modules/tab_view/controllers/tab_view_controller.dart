@@ -94,6 +94,8 @@ class TabViewController extends GetxController
       if (tabIndex.value == 2 && !loginCredential.getProfileSwitch()) {
         FriendController friendController = Get.find<FriendController>();
         friendController.getFriendRequestes();
+        friendController.getPeopleMayYouKnow(skip: 0, limit: 12);
+        friendController.getFullFriendList();
       }
     }
   }
