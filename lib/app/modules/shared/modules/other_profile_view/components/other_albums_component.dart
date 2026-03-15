@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../../config/constants/feed_design_tokens.dart';
 import '../views/other_videos_gallery/controller/other_video_gallery_controller.dart';
 import '../views/other_videos_gallery/view/other_video_gallery_view.dart';
 import '../../../../../routes/app_pages.dart';
-
-import '../../../../../config/constants/app_assets.dart';
+import '../../../../../config/constants/color.dart';
 
 class OtherAlbumsComponent extends StatelessWidget {
   const OtherAlbumsComponent({super.key, required this.userName});
@@ -12,76 +12,79 @@ class OtherAlbumsComponent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Get.put(OtherVideoGalleryController());
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        InkWell(
-          onTap: () {
-            Get.toNamed(Routes.OTHER_PHOTOS_GALLERY);
-          },
-          child:  SizedBox(
-            height: 120,
-            width: 120,
-            child: Column(
-              children: [
-                Image(
-                    height: 100,
-                    width: 120,
-                    fit: BoxFit.cover,
-                    image: AssetImage(AppAssets.DEFAULT_IMAGE)),
-                Text('Photos'.tr,
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+    final textPrimary = FeedDesignTokens.textPrimary(context);
+    final inputBg = FeedDesignTokens.inputBg(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          _albumCard(
+            context: context,
+            icon: Icons.photo_library_rounded,
+            label: 'Photos'.tr,
+            bg: inputBg,
+            textColor: textPrimary,
+            onTap: () => Get.toNamed(Routes.OTHER_PHOTOS_GALLERY),
+          ),
+          const SizedBox(width: 8),
+          _albumCard(
+            context: context,
+            icon: Icons.photo_album_rounded,
+            label: 'Albums'.tr,
+            bg: inputBg,
+            textColor: textPrimary,
+            onTap: () => Get.toNamed(Routes.OTHER_ALBUMS_GALLERY,
+                arguments: userName),
+          ),
+          const SizedBox(width: 8),
+          _albumCard(
+            context: context,
+            icon: Icons.videocam_rounded,
+            label: 'Videos'.tr,
+            bg: inputBg,
+            textColor: textPrimary,
+            onTap: () => Get.to(() => const OtherVideoGalleryView()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _albumCard({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color bg,
+    required Color textColor,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 90,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 32, color: PRIMARY_COLOR),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        InkWell(
-          onTap: () {
-            Get.toNamed(
-              Routes.OTHER_ALBUMS_GALLERY,
-              arguments: userName,
-            );
-          },
-          child:  SizedBox(
-            height: 120,
-            width: 120,
-            child: Column(
-              children: [
-                Image(
-                    height: 100,
-                    width: 120,
-                    fit: BoxFit.cover,
-                    image: AssetImage(AppAssets.DEFAULT_IMAGE)),
-                Text('Albums'.tr,
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-        ),
-        InkWell(
-          onTap: () {
-            Get.to(() => const OtherVideoGalleryView());
-          },
-          child:  SizedBox(
-            height: 120,
-            width: 120,
-            child: Column(
-              children: [
-                Image(
-                    height: 100,
-                    width: 120,
-                    fit: BoxFit.cover,
-                    image: AssetImage(AppAssets.DEFAULT_IMAGE)),
-                Text('Video'.tr,
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

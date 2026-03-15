@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../../extension/string/string_image_path.dart';
-import '../../../../../components/button.dart';
-import '../../../../../components/image.dart';
 import '../../../../../components/share/share_sheet_widget.dart';
-import '../../../../../data/login_creadential.dart';
-import '../../../../../data/post_local_data.dart';
 import '../../../../../routes/profile_navigator.dart';
 import '../../../../../utils/bottom_sheet.dart';
 import '../../multiple_image/views/multiple_image_view.dart';
 import '../controller/other_profile_controller.dart';
 import '../../../../../config/constants/color.dart';
-import '../../../../../components/comment/comment_component.dart';
+import '../../post_comment_page/views/post_comment_page_view.dart';
 import '../../../../../components/post/post.dart';
 import '../../../../../models/post.dart';
 import '../../../../../routes/app_pages.dart';
@@ -22,17 +17,15 @@ class OtherFeedComponent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 8.0),
-      child: Column(
-        children: [
-          Obx(
-            () => ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: controller.postList.value.length,
-              itemBuilder: (context, postIndex) {
-                PostModel postModel = controller.postList.value[postIndex];
+    return Column(
+      children: [
+        Obx(
+          () => ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: controller.postList.value.length,
+            itemBuilder: (context, postIndex) {
+              PostModel postModel = controller.postList.value[postIndex];
 
                 return PostCard(
                   onTapBlockUser: () {
@@ -66,89 +59,13 @@ class OtherFeedComponent extends StatelessWidget {
                         }
                       : null,
                   onPressedComment: () {
-                    Get.bottomSheet(
-                      backgroundColor: Theme.of(context).cardTheme.color,
-                      Obx(
-                        () => CommentComponent(
-                          onCommentEdit: (commentModel) async {
-                            await Get.toNamed(Routes.EDIT_POST_COMMENT,
-                                arguments: {
-                                  'post_comment': commentModel.comment_name,
-                                  'post_id': commentModel.post_id,
-                                  'comment_id': commentModel.id,
-                                  'comment_type': commentModel.comment_type,
-                                  'image_video': commentModel.image_or_video
-                                });
-                            controller.updatePostList(
-                                commentModel.post_id ?? '', postIndex);
-                          },
-                          onCommentReplayEdit: (commentReplayModel) async {
-                            await Get.toNamed(Routes.EDIT_REPLY_POST_COMMENT,
-                                arguments: {
-                                  'reply_comment':
-                                      commentReplayModel.replies_comment_name,
-                                  'replay_post_id': commentReplayModel.post_id,
-                                  'comment_replay_id': commentReplayModel.id,
-                                  'comment_type':
-                                      commentReplayModel.comment_type,
-                                  'image_video':
-                                      commentReplayModel.image_or_video,
-                                  'key': commentReplayModel.key,
-                                });
-                            controller.updatePostList(
-                                commentReplayModel.post_id ?? '', postIndex);
-                          },
-                          onCommentDelete: (commentModel) {
-                            controller.commentDelete(commentModel.id ?? '',
-                                commentModel.post_id ?? '', postIndex);
-                          },
-                          onCommentReplayDelete: (replyId, postId) {
-                            controller.replyDelete(replyId, postId, postIndex);
-                          },
-                          commentController: controller.commentController,
-                          postModel: controller.postList.value[postIndex],
-                          userModel: controller.currentUserModel,
-                          onTapSendComment: () {
-                            controller.commentOnPost(postIndex, postModel);
-                          },
-                          onTapReplayComment: (
-                              {required commentReplay, required comment_id, required file}) {
-                            controller.commentReply(
-                              comment_id: comment_id,
-                              replies_comment_name: commentReplay,
-                              post_id: postModel.id ?? '',
-                              postIndex: postIndex,
-                              file: file,
-                            );
-                          },
-                          onSelectCommentReaction: (reaction, commentId) {
-                            controller.commentReaction(
-                              postIndex: postIndex,
-                              reaction_type: reaction,
-                              post_id: postModel.id ?? '',
-                              comment_id: commentId,
-                            );
-                          },
-                          onSelectCommentReplayReaction: (
-                            reaction,
-                            commentId,
-                            commentRepliesId,
-                          ) {
-                            controller.commentReplyReaction(
-                                postIndex,
-                                reaction,
-                                postModel.id ?? '',
-                                commentId,
-                                commentRepliesId);
-                          },
-                          onTapViewReactions: () {
-                            Get.toNamed(Routes.REACTIONS,
-                                arguments: postModel.id);
-                          },
-                        ),
+                    Get.to(
+                      () => PostCommentPageView(
+                        postId: postModel.id ?? '',
+                        initialPostModel: postModel,
                       ),
-                      // backgroundColor: Colors.white,
-                      isScrollControlled: true,
+                      transition: Transition.rightToLeft,
+                      duration: const Duration(milliseconds: 250),
                     );
                   },
                   onTapBodyViewMoreMedia: () {
@@ -375,20 +292,18 @@ class OtherFeedComponent extends StatelessWidget {
               },
             ),
           ),
-          controller.isLoadingNewsFeed.value
-              ? Container(
-                  height: 40,
-                  width: Get.width,
-                  color: Colors.white,
-                  child: Image.asset(
-                    'assets/other/loading_profile.gif',
-                    height: 40,
-                    width: Get.width,
+          Obx(() => controller.isLoadingNewsFeed.value
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: PRIMARY_COLOR,
+                      strokeWidth: 2.5,
+                    ),
                   ),
                 )
-              : Container()
+              : const SizedBox.shrink()),
         ],
-      ),
-    );
+      );
   }
 }

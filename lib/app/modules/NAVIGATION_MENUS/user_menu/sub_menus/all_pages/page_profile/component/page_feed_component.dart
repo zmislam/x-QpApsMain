@@ -11,7 +11,7 @@ import '../../../../../../../utils/bottom_sheet.dart';
 import '../../../../../../../utils/copy_to_clipboard_utils.dart';
 import '../../../../../../../utils/url_utils.dart';
 import '../controllers/page_profile_controller.dart';
-import '../../../../../../../components/comment/comment_component.dart';
+import '../../../../../../shared/modules/post_comment_page/views/post_comment_page_view.dart';
 import '../../../../../../../components/post/post.dart';
 import '../../../../../../shared/modules/multiple_image/views/multiple_image_view.dart';
 
@@ -120,83 +120,13 @@ class PageFeedComponent extends StatelessWidget {
             }
                 : null,
             onPressedComment: () {
-              Get.bottomSheet(
-                Obx(
-                      () => CommentComponent(
-                    onCommentEdit: (commentModel) async {
-                      await Get.toNamed(Routes.EDIT_POST_COMMENT,
-                          arguments: {
-                            'post_comment': commentModel.comment_name,
-                            'post_id': commentModel.post_id,
-                            'comment_id': commentModel.id,
-                            'comment_type': commentModel.comment_type,
-                            'image_video': commentModel.image_or_video
-                          });
-                      controller.updatePostList(
-                          commentModel.post_id ?? '', index);
-                    },
-                    onCommentReplayEdit: (commentReplayModel) async {
-                      await Get.toNamed(Routes.EDIT_REPLY_POST_COMMENT,
-                          arguments: {
-                            'reply_comment':
-                            commentReplayModel.replies_comment_name,
-                            'replay_post_id': commentReplayModel.post_id,
-                            'comment_replay_id': commentReplayModel.id,
-                            'comment_type':
-                            commentReplayModel.comment_type,
-                            'image_video':
-                            commentReplayModel.image_or_video,
-                            'key': commentReplayModel.key,
-                          });
-                      controller.updatePostList(
-                          commentReplayModel.post_id ?? '', index);
-                    },
-                    onCommentDelete: (commentModel) {
-                      controller.commentDelete(commentModel.id ?? '',
-                          commentModel.post_id ?? '', index);
-                    },
-                    onCommentReplayDelete: (replyId, postId) {
-                      controller.replyDelete(replyId, postId, index);
-                    },
-                    commentController: controller.commentController,
-                    postModel: controller.postList.value[index],
-                    userModel: controller.userModel,
-                    onTapSendComment: () {
-                      controller.commentOnPost(index, model);
-                    },
-                    onTapReplayComment: (
-                        {required commentReplay, required comment_id, required String file}) {
-                      controller.commentReply(
-                          comment_id: comment_id,
-                          replies_comment_name: commentReplay,
-                          post_id: model.id ?? '',
-                          postIndex: index,
-                          file: file
-                      );
-                    },
-                    onSelectCommentReaction: (reaction, commentId) {
-                      controller.commentReaction(
-                        postIndex: index,
-                        reaction_type: reaction,
-                        post_id: model.id ?? '',
-                        comment_id: commentId,
-                      );
-                    },
-                    onSelectCommentReplayReaction: (
-                        reaction,
-                        commentId,
-                        commentRepliesId,
-                        ) {
-                      controller.commentReplyReaction(index, reaction,
-                          model.id ?? '', commentId, commentRepliesId);
-                    },
-                    onTapViewReactions: () {
-                      Get.toNamed(Routes.REACTIONS, arguments: model.id);
-                    },
-                  ),
+              Get.to(
+                () => PostCommentPageView(
+                  postId: model.id ?? '',
+                  initialPostModel: model,
                 ),
-                // backgroundColor: Colors.white,
-                isScrollControlled: true,
+                transition: Transition.rightToLeft,
+                duration: const Duration(milliseconds: 250),
               );
             },
             onTapBodyViewMoreMedia: () {

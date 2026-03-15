@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import '../../../../../../../components/comment/comment_component.dart';
+import '../../../../../../shared/modules/post_comment_page/views/post_comment_page_view.dart';
 import '../../../../../../../components/post/post.dart';
 import '../../../../../../../components/post/post_shimer_loader.dart';
 import '../../../../../../../components/share/share_sheet_widget.dart';
@@ -115,64 +115,13 @@ class PagePinPostCard extends StatelessWidget {
                             }
                           : null,
                       onPressedComment: () {
-                        Get.bottomSheet(
-                          Obx(
-                            () => CommentComponent(
-                              onCommentReplayEdit: (commentReplayModel) {},
-                              onCommentEdit: (commentModel) {},
-                              onCommentDelete: (commentModel) {
-                                controller.commentDelete(commentModel.id ?? '',
-                                    commentModel.post_id ?? '', postIndex);
-                              },
-                              onCommentReplayDelete: (replyId, postId) {
-                                controller.replyDelete(
-                                    replyId, postId, postIndex);
-                              },
-                              commentController: controller.commentController,
-                              postModel: controller.postList.value[postIndex],
-                              userModel: controller.userModel,
-                              onTapSendComment: () {
-                                controller.commentOnPost(postIndex, model);
-                              },
-                              onTapReplayComment: (
-                                  {required commentReplay,
-                                  required comment_id, required file}) {
-                                controller.commentReply(
-                                  comment_id: comment_id,
-                                  replies_comment_name: commentReplay,
-                                  post_id: model.id ?? '',
-                                  postIndex: postIndex,
-                                  file: file,
-                                );
-                              },
-                              onSelectCommentReaction: (reaction, commentId) {
-                                controller.commentReaction(
-                                  postIndex: postIndex,
-                                  reaction_type: reaction,
-                                  post_id: model.id ?? '',
-                                  comment_id: commentId,
-                                );
-                              },
-                              onSelectCommentReplayReaction: (
-                                reaction,
-                                commentId,
-                                commentRepliesId,
-                              ) {
-                                controller.commentReplyReaction(
-                                    postIndex,
-                                    reaction,
-                                    model.id ?? '',
-                                    commentId,
-                                    commentRepliesId);
-                              },
-                              onTapViewReactions: () {
-                                Get.toNamed(Routes.REACTIONS,
-                                    arguments: model.id);
-                              },
-                            ),
+                        Get.to(
+                          () => PostCommentPageView(
+                            postId: model.id ?? '',
+                            initialPostModel: model,
                           ),
-                          // backgroundColor: Colors.white,
-                          isScrollControlled: true,
+                          transition: Transition.rightToLeft,
+                          duration: const Duration(milliseconds: 250),
                         );
                       },
                       onTapBodyViewMoreMedia: () {

@@ -31,6 +31,7 @@ class OthersProfileController extends GetxController {
   String? username;
   String? isFromReels;
   Rx<List<PhotoModel>> photoList = Rx([]);
+  Rx<List<PhotoModel>> highlightPhotos = Rx([]); // First 6 photos for highlights
   Rx<List<ProfilrStoryModel>> storyList = Rx([]);
   Rx<List<VideoReel>> reelsList = Rx([]);
   Rx<List<ProfilPicturesemodel>> profilePicturesList = Rx([]);
@@ -74,8 +75,12 @@ class OthersProfileController extends GetxController {
 
   RxInt otherProfileWidgetViewNumber = 0.obs;
   RxInt otherProfileFriendsViewNumber = 0.obs;
+  RxInt selectedProfileTab = 0.obs; // 0=All, 1=Reels, 2=Photos
   RxBool isLoadingNewsFeed = true.obs;
   RxBool isLoadingProfilePhoto = true.obs;
+
+  /// Computed friend count from friendList
+  int get friendCount => friendList.value.length;
   late ApiCommunication _apiCommunication;
   late UserModel currentUserModel;
   late TextEditingController commentController;
@@ -310,6 +315,9 @@ class OthersProfileController extends GetxController {
             (e) => PhotoModel.fromMap(e),
           )
           .toList();
+      // Populate highlights with first 6 photos
+      highlightPhotos.value = photoList.value.take(6).toList();
+      highlightPhotos.refresh();
       debugPrint('Response success');
       debugPrint('==========================get Photo After model');
     }
@@ -661,7 +669,20 @@ class OthersProfileController extends GetxController {
 // over rided method on refresh
   @override
   Future<void> refresh() async {
+    clearProfileLists();
+    pageNo = 1;
+    totalPageCount = 0;
+    currentSkip.value = 0;
+    hasMoreReels.value = true;
+    currentRepostSkip.value = 0;
+    hasMoreRepostedReels.value = true;
+    await getOtherUserData();
+    await getFriends();
+    await isOtherUserFriendOrNot();
+    await isOtherUserFollowerOrNot();
     await getPosts();
+    await getOtherPhotos();
+    await getProfilePictures();
   }
 
   // ====================================================== Friend, Follower, Following , Block related Function =========================================== //
@@ -1059,6 +1080,8 @@ class OthersProfileController extends GetxController {
     await isOtherUserFriendOrNot();
     await isOtherUserFollowerOrNot();
     await getPosts();
+    await getOtherPhotos(); // Preload photos for highlights
+    await getProfilePictures();
 
     super.onInit();
   }

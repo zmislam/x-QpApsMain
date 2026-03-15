@@ -39,9 +39,16 @@ class PostCommentPageView extends StatefulWidget {
   const PostCommentPageView({
     super.key,
     required this.postId,
+    this.initialPostModel,
   });
 
   final String postId;
+
+  /// Optional post model for contexts outside the home feed (profile, groups,
+  /// pages, explore, bookmarks, notifications, etc.).  When provided the post
+  /// is temporarily injected into [HomeController.edgeRankPosts] so that all
+  /// existing comment / reaction methods continue to work unchanged.
+  final PostModel? initialPostModel;
 
   @override
   State<PostCommentPageView> createState() => _PostCommentPageViewState();
@@ -61,6 +68,9 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
   final RxBool _isGroupMember = false.obs;
   final RxBool _isFriendRequestSent = false.obs;
 
+  /// True when we injected the post ourselves and must remove it on dispose.
+  bool _wasInjected = false;
+
   PostModel get postModel {
     final idx = controller.edgeRankPosts.indexWhere((p) => p.id == widget.postId);
     return idx != -1 ? controller.edgeRankPosts[idx] : PostModel();
@@ -69,6 +79,16 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
   @override
   void initState() {
     super.initState();
+
+    // If the post isn't already in edgeRankPosts, inject it so every
+    // HomeController comment/reaction method can find it by postId.
+    final existingIdx =
+        controller.edgeRankPosts.indexWhere((p) => p.id == widget.postId);
+    if (existingIdx == -1 && widget.initialPostModel != null) {
+      controller.edgeRankPosts.add(widget.initialPostModel!);
+      _wasInjected = true;
+    }
+
     // Load comments if not already loaded
     if (postModel.id != null) {
       controller.getSinglePostsComments(postModel.id!);
@@ -136,6 +156,10 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
 
   @override
   void dispose() {
+    // Remove the temporarily injected post if we added it.
+    if (_wasInjected) {
+      controller.edgeRankPosts.removeWhere((p) => p.id == widget.postId);
+    }
     controller.commentController.removeListener(_onTextChanged);
     _focusNode.dispose();
     _scrollController.dispose();

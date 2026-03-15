@@ -11,7 +11,7 @@ import '../../../modules/NAVIGATION_MENUS/user_menu/sub_menus/profile/controller
 import '../../../modules/shared/modules/multiple_image/views/multiple_image_view.dart';
 import '../../../routes/app_pages.dart';
 import '../../../config/constants/color.dart';
-import '../../comment/comment_component.dart';
+import '../../../modules/shared/modules/post_comment_page/views/post_comment_page_view.dart';
 import '../post.dart';
 import '../post_shimer_loader.dart';
 
@@ -113,64 +113,13 @@ class PinPostCard extends StatelessWidget {
                             }
                           : null,
                       onPressedComment: () {
-                        Get.bottomSheet(
-                          Obx(
-                            () => CommentComponent(
-                              onCommentReplayEdit: (commentReplayModel) {},
-                              onCommentEdit: (commentModel) {},
-                              onCommentDelete: (commentModel) {
-                                controller.commentDelete(commentModel.id ?? '',
-                                    commentModel.post_id ?? '', postIndex);
-                              },
-                              onCommentReplayDelete: (replyId, postId) {
-                                controller.replyDelete(
-                                    replyId, postId, postIndex);
-                              },
-                              commentController: controller.commentController,
-                              postModel: controller.postList.value[postIndex],
-                              userModel: controller.userModel,
-                              onTapSendComment: () {
-                                controller.commentOnPost(postIndex, model);
-                              },
-                              onTapReplayComment: (
-                                  {required commentReplay,
-                                  required comment_id, required String file}) {
-                                controller.commentReply(
-                                  comment_id: comment_id,
-                                  replies_comment_name: commentReplay,
-                                  post_id: model.id ?? '',
-                                  postIndex: postIndex,
-                                  file: file,
-                                );
-                              },
-                              onSelectCommentReaction: (reaction, commentId) {
-                                controller.commentReaction(
-                                  postIndex: postIndex,
-                                  reaction_type: reaction,
-                                  post_id: model.id ?? '',
-                                  comment_id: commentId,
-                                );
-                              },
-                              onSelectCommentReplayReaction: (
-                                reaction,
-                                commentId,
-                                commentRepliesId,
-                              ) {
-                                controller.commentReplyReaction(
-                                    postIndex,
-                                    reaction,
-                                    model.id ?? '',
-                                    commentId,
-                                    commentRepliesId);
-                              },
-                              onTapViewReactions: () {
-                                Get.toNamed(Routes.REACTIONS,
-                                    arguments: model.id);
-                              },
-                            ),
+                        Get.to(
+                          () => PostCommentPageView(
+                            postId: model.id ?? '',
+                            initialPostModel: model,
                           ),
-                          // backgroundColor: Colors.white,
-                          isScrollControlled: true,
+                          transition: Transition.rightToLeft,
+                          duration: const Duration(milliseconds: 250),
                         );
                       },
                       onTapBodyViewMoreMedia: () {

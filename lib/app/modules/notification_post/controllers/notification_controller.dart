@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../repository/post_repository.dart';
 import '../../../routes/app_pages.dart';
-import '../../../components/comment/comment_component.dart';
+import '../../shared/modules/post_comment_page/views/post_comment_page_view.dart';
 import '../../NAVIGATION_MENUS/notification/controllers/notification_controller.dart';
 
 import '../../../config/constants/api_constant.dart';
@@ -43,34 +43,15 @@ class NotificationPostController extends GetxController {
     super.onInit();
   }
 
-// Function to open the CommentComponent BottomSheet
+// Function to open the PostCommentPageView
   void openCommentComponent(BuildContext context) {
-    Get.bottomSheet(
-      backgroundColor: Theme.of(context).cardTheme.color,
-      Obx(
-        () => CommentComponent(
-          commentController: commentController,
-          postModel: postList.value[0],
-          userModel: userModel,
-          onTapSendComment: () {
-            commentOnPost(postList.value[0]);
-          },
-          onCommentEdit: (commentModel) {},
-          onCommentReplayEdit: (commentModel) {},
-          onCommentDelete: (commentModel) {},
-          onCommentReplayDelete: (replyId, postId) {},
-          onTapReplayComment: (
-              {required commentReplay, required comment_id, required file}) {},
-          onSelectCommentReaction: (reaction, commentId) {},
-          onSelectCommentReplayReaction:
-              (reaction, commentId, commentRepliesId) {},
-          onTapViewReactions: () {
-            Get.toNamed(Routes.REACTIONS, arguments: postList.value[0].id);
-          },
-        ),
+    Get.to(
+      () => PostCommentPageView(
+        postId: postList.value[0].id ?? '',
+        initialPostModel: postList.value[0],
       ),
-      // backgroundColor: Colors.white,
-      isScrollControlled: true,
+      transition: Transition.rightToLeft,
+      duration: const Duration(milliseconds: 250),
     );
   }
 
