@@ -5,6 +5,21 @@ import '../../../../models/api_response.dart';
 import '../../../../models/post.dart';
 import '../../../../services/api_communication.dart';
 
+/// Top-level function for background isolate JSON parsing.
+/// Must be a top-level (not instance/closure) function for compute().
+List<PostModel> _parsePostListIsolate(List<dynamic> jsonList) {
+  return jsonList
+      .map((e) {
+        try {
+          return PostModel.fromMap(Map<String, dynamic>.from(e as Map));
+        } catch (_) {
+          return null;
+        }
+      })
+      .whereType<PostModel>()
+      .toList();
+}
+
 /// Response wrapper for the cursor-based Explore feed endpoint.
 class ExploreFeedResponse {
   final List<PostModel> posts;
@@ -54,23 +69,20 @@ class ExplorePageRepository {
         final data = responseData['data'] as Map<String, dynamic>? ??
             responseData;
 
-        // Parse posts
-        final List<PostModel> posts = [];
+        // Parse posts on background isolate to keep UI thread free
         final rawPosts = data['posts'] as List? ?? [];
-        for (final rawPost in rawPosts) {
-          try {
-            posts.add(PostModel.fromMap(
-                Map<String, dynamic>.from(rawPost as Map)));
-          } catch (e) {
-            debugPrint('[Explore] Failed to parse post: $e');
-          }
-        }
+        final posts = rawPosts.isEmpty
+            ? <PostModel>[]
+            : await compute(_parsePostListIsolate, rawPosts);
 
         // Parse pagination
         final pagination =
             data['pagination'] as Map<String, dynamic>? ?? {};
-        final nextCursor = pagination['cursor'] as String?;
+        // Backend returns 'nextCursor' (not 'cursor')
+        final nextCursor = pagination['nextCursor'] as String? ??
+            pagination['cursor'] as String?;
         final hasMore = pagination['hasMore'] as bool? ?? false;
+        debugPrint('[Explore-Repo] pagination=$pagination, nextCursor=$nextCursor, hasMore=$hasMore');
         final meta = data['meta'] as Map<String, dynamic>? ?? {};
 
         final feedResponse = ExploreFeedResponse(

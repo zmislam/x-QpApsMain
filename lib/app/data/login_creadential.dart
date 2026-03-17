@@ -118,6 +118,15 @@ class LoginCredential {
     Get.offAllNamed(Routes.SPLASH);
   }
 
+  //================================================================ Remember Me ================================================================//
+  void saveRememberMe(bool value) {
+    _getStorage.write(AppStorage.REMEMBER_ME_KEY, value);
+  }
+
+  bool getRememberMe() {
+    return _getStorage.read(AppStorage.REMEMBER_ME_KEY) ?? true;
+  }
+
 // $┏━┏━┏━┏━┏━┏━┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━┓━┓━┓━┓━┓━┓━┓━┓
 // $┃ ┃ ┃ ┃ ┃ ┃ ┃          CONFIG FOR DEEP LINK            ┃ ┃ ┃ ┃ ┃ ┃ ┃ ┃ ┃
 // $┗━┗━┗━┗━┗━┗━┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━┛━┛━┛━┛━┛━┛━┛━┛

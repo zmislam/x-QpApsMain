@@ -19,6 +19,7 @@ class ShareController extends GetxController {
   Rx<List<ChatModel>> messengerUserList = Rx([]);
   Rx<List<ChatModel>> messengerUserSearchList = Rx([]);
   Rx<bool> isSend = false.obs;
+  final RxString sharePrivacy = 'public'.obs;
 
   ReportRepository reportRepository = ReportRepository();
 
@@ -165,7 +166,7 @@ class ShareController extends GetxController {
     ApiResponse apiResponse = await _apiCommunication
         .doPostRequest(apiEndPoint: 'reels/save-share-reels', requestData: {
       'description': shareDescriptionController.text,
-      'reels_privacy': 'public',
+      'reels_privacy': sharePrivacy.value,
       'share_reels_id': reelsId,
       'key' : key,
     });
@@ -185,7 +186,7 @@ class ShareController extends GetxController {
         requestData: {
           'share_post_id': sharePostId,
           'description': desciption,
-          'privacy': 'public',
+          'privacy': sharePrivacy.value,
         });
 
     if (apiResponse.isSuccessful) {

@@ -1370,7 +1370,13 @@ class AdminPageController extends GetxController {
   void getWidgetNumber({required String pageUserName}) {
     if (isFromPageReels == 'true') {
       viewNumber.value = 3;
-      tabController.animateTo(3);
+      // tabController is assigned by the view's initState,
+      // so defer animateTo to the next frame to avoid LateInitializationError
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          tabController.animateTo(3);
+        } catch (_) {}
+      });
       getPageUserReels(pageUserName: pageUserName);
     } else {
       viewNumber.value = 0;

@@ -22,7 +22,12 @@ class SplashController extends GetxController {
 
     // Navigate based on login status
     if (loginCredential.isUserLoggedIn()) {
-      Get.offNamed(Routes.TAB);
+      // If "Remember Me" was checked, go straight to app; otherwise ask to login again
+      if (loginCredential.getRememberMe()) {
+        Get.offNamed(Routes.TAB);
+      } else {
+        Get.offNamed(Routes.LOGIN);
+      }
       debugPrint('Splash Page');
       debugPrint('User Data: \n${loginCredential.getUserData()}');
     } else {

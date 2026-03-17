@@ -195,6 +195,9 @@ abstract class Routes {
       _Paths.CHANGE_LANGUAGE;
   static const FEED_PREFERENCES = _Paths.FEED_PREFERENCES;
   static const SUGGESTED_REELS = _Paths.SUGGESTED_REELS;
+  static const REELS_SEARCH = _Paths.REELS_SEARCH;
+  static const WATCHED_REELS = _Paths.WATCHED_REELS;
+  static const SAVED_REELS = _Paths.SAVED_REELS;
   static const FEEDS = _Paths.FEEDS;
   static const ADVANCE_SEARCH = _Paths.ADVANCE_SEARCH;
   static const BIRTHDAYS = _Paths.BIRTHDAYS;
@@ -379,6 +382,9 @@ abstract class _Paths {
   static const CHANGE_LANGUAGE = '/change-language';
   static const FEED_PREFERENCES = '/feed-preferences';
   static const SUGGESTED_REELS = '/suggested-reels';
+  static const REELS_SEARCH = '/reels-search';
+  static const WATCHED_REELS = '/watched-reels';
+  static const SAVED_REELS = '/saved-reels';
   static const FEEDS = '/feeds';
   static const ADVANCE_SEARCH = '/advance-search';
   static const BIRTHDAYS = '/birthdays-page';

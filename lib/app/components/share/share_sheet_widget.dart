@@ -121,7 +121,38 @@ class ShareSheetWidget extends StatelessWidget {
                           hintStyle: const TextStyle(
                               fontSize: 14, fontWeight: FontWeight.w400)),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+
+                    // ─── Privacy Selector ────────────────────────────
+                    Obx(() => Row(
+                      children: [
+                        Icon(
+                          controller.sharePrivacy.value == 'public'
+                              ? Icons.public
+                              : controller.sharePrivacy.value == 'friends'
+                                  ? Icons.group
+                                  : Icons.lock,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                        const SizedBox(width: 8),
+                        DropdownButton<String>(
+                          value: controller.sharePrivacy.value,
+                          underline: const SizedBox(),
+                          isDense: true,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 13),
+                          items: const [
+                            DropdownMenuItem(value: 'public', child: Text('Public')),
+                            DropdownMenuItem(value: 'friends', child: Text('Friends')),
+                            DropdownMenuItem(value: 'private', child: Text('Only Me')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) controller.sharePrivacy.value = val;
+                          },
+                        ),
+                      ],
+                    )),
+                    const SizedBox(height: 8),
 
                     //* ================================================= SHARE NOW =================================
                     Align(

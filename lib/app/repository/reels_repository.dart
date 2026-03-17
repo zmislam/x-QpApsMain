@@ -24,7 +24,7 @@ class ReelsRepository {
     required XFile video,
   }) async {
     final ApiResponse response = await _apiCommunication.doPostRequest(
-      apiEndPoint: 'reels/save-user-reels',
+      apiEndPoint: 'save-user-reels',
       isFormData: true,
       enableLoading: true,
       fileKey: 'video',
@@ -47,7 +47,7 @@ class ReelsRepository {
     required XFile image,
   }) async {
     final ApiResponse response = await _apiCommunication.doPostRequest(
-      apiEndPoint: 'reels/save-user-reels',
+      apiEndPoint: 'save-user-reels',
       isFormData: true,
       enableLoading: true,
       fileKey: 'image',
@@ -71,7 +71,7 @@ class ReelsRepository {
   Future<ApiResponse> deleteReel(
       {required String reelId, required String key}) async {
     final apiResponse = await _apiCommunication.doDeleteRequest(
-        apiEndPoint: 'reels/delete-own-user-reel/:$reelId',
+        apiEndPoint: 'delete-own-user-reel/:$reelId',
         requestData: {
           'key': key,
         });
@@ -90,7 +90,7 @@ class ReelsRepository {
     required String key,
   }) async {
     final apiResponse = await _apiCommunication
-        .doPostRequest(apiEndPoint: 'reels/save-share-reels', requestData: {
+        .doPostRequest(apiEndPoint: 'save-share-reels', requestData: {
       'description': reelsDescription,
       'reels_privacy': reelsPrivacy,
       'share_reels_id': reelsId,
@@ -265,13 +265,13 @@ class ReelsRepository {
     if (reelId != null) {
       apiResponse = await _apiCommunication.doGetRequest(
         apiEndPoint:
-            'reels/all-user-reels?limit=$limit&skip=$reelLength&reels_id=$reelId',
+            'all-user-reels?limit=$limit&skip=$reelLength&reels_id=$reelId',
         responseDataKey: 'all_reels',
         enableLoading: true,
       );
     } else {
       apiResponse = await _apiCommunication.doGetRequest(
-        apiEndPoint: 'reels/all-user-reels?limit=$limit&skip=$skip',
+        apiEndPoint: 'all-user-reels?limit=$limit&skip=$skip',
         responseDataKey: 'all_reels',
         enableLoading: enableLoading ?? false,
       );
@@ -292,7 +292,7 @@ class ReelsRepository {
       {required int fromCount, required String userName}) async {
     final apiResponse = await _apiCommunication.doGetRequest(
       apiEndPoint:
-          'reels/all-user-reels?limit=1&skip=$fromCount&username=$userName',
+          'all-user-reels?limit=1&skip=$fromCount&username=$userName',
       responseDataKey: 'all_reels',
     );
 
@@ -308,7 +308,7 @@ class ReelsRepository {
 
   Future<ApiResponse> getReelsByID({required String reelsID}) async {
     final apiResponse = await _apiCommunication.doGetRequest(
-      apiEndPoint: 'reels/get-single-reel/:$reelsID',
+      apiEndPoint: 'get-single-reel/:$reelsID',
       responseDataKey: 'all_reels',
     );
 
@@ -333,7 +333,7 @@ class ReelsRepository {
     required String postId,
   }) async {
     final apiResponse = await _apiCommunication.doPostRequest(
-        apiEndPoint: 'reels/save-reaction-reel-post',
+        apiEndPoint: 'save-reaction-reel-post',
         requestData: {
           'reaction_type': 'like',
           'post_id': postId,
@@ -412,7 +412,7 @@ class ReelsRepository {
       required String media,
       required String comment, required String key}) async {
     final apiResponse = await _apiCommunication.doPostRequestNew(
-        apiEndPoint: 'reels/save-user-comment-by-reel',
+        apiEndPoint: 'save-user-comment-by-reel',
         enableLoading: true,
         fileKey: 'image_or_video',
         requestData: {
@@ -452,7 +452,7 @@ class ReelsRepository {
       required String key,
       }) async {
     final apiResponse = await _apiCommunication.doPostRequestNew(
-        apiEndPoint: 'reels/reply-comment-by-reel-post',
+        apiEndPoint: 'reply-comment-by-reel-post',
         requestData: {
           'comment_id': comment_id,
           'replies_user_id': replies_user_id,
@@ -538,7 +538,7 @@ class ReelsRepository {
       required String post_id,
       required String key}) async {
     final apiResponse = await _apiCommunication.doPostRequest(
-        apiEndPoint: 'reels/delete-single-comment-reel',
+        apiEndPoint: 'delete-single-comment-reel',
         requestData: {
           'comment_id': comment_id,
           'post_id': post_id,
@@ -567,7 +567,7 @@ class ReelsRepository {
       required String post_id,
       required String key}) async {
     final apiResponse = await _apiCommunication.doPostRequest(
-        apiEndPoint: 'reels/delete-single-comment-reel',
+        apiEndPoint: 'delete-single-comment-reel',
         requestData: {
           'comment_id': reply_id,
           'post_id': post_id,
@@ -666,5 +666,138 @@ class ReelsRepository {
     } else {
       return apiResponse;
     }
+  }
+
+// *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+// *┃  BOOKMARK / SAVE REEL                                                 ┃
+// *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> toggleBookmark({required String reelId}) async {
+    final apiResponse = await _apiCommunication.doPostRequest(
+      apiEndPoint: 'reels/bookmark/$reelId',
+      requestData: {},
+    );
+    return apiResponse;
+  }
+
+  Future<ApiResponse> getMyBookmarkedReels({int limit = 20, int skip = 0}) async {
+    final apiResponse = await _apiCommunication.doGetRequest(
+      apiEndPoint: 'reels/my-bookmarks?limit=$limit&skip=$skip',
+      responseDataKey: 'reels',
+    );
+    if (apiResponse.isSuccessful && apiResponse.data != null) {
+      return apiResponse.copyWith(
+        data: (apiResponse.data as List).map((e) => ReelsModel.fromMap(e)).toList(),
+      );
+    }
+    return apiResponse;
+  }
+
+  Future<ApiResponse> getBookmarkIds() async {
+    final apiResponse = await _apiCommunication.doGetRequest(
+      apiEndPoint: 'reels/bookmark-ids',
+      responseDataKey: 'ids',
+    );
+    return apiResponse;
+  }
+
+// *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+// *┃  FEEDBACK (Interested / Not Interested / Hide)                        ┃
+// *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> sendFeedback({
+    required String reelId,
+    required String signalType,
+  }) async {
+    final apiResponse = await _apiCommunication.doPostRequest(
+      apiEndPoint: 'reels/feedback/$reelId',
+      requestData: {'signal_type': signalType},
+    );
+    return apiResponse;
+  }
+
+// *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+// *┃  REACT ON REEL (with reaction type)                                   ┃
+// *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> reactOnAReel({
+    required String postId,
+    required String reactionType,
+  }) async {
+    final apiResponse = await _apiCommunication.doPostRequest(
+        apiEndPoint: 'save-reaction-reel-post',
+        requestData: {
+          'reaction_type': reactionType,
+          'post_id': postId,
+          'post_single_item_id': null
+        });
+
+    if (apiResponse.isSuccessful) {
+      return apiResponse.copyWith(
+          data: ReelsModel.fromMap(apiResponse.data as Map<String, dynamic>));
+    }
+    return apiResponse;
+  }
+
+// *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+// *┃  WATCH HISTORY                                                        ┃
+// *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> getWatchHistory({int limit = 20, int skip = 0}) async {
+    final apiResponse = await _apiCommunication.doGetRequest(
+      apiEndPoint: 'reels/watch-history?limit=$limit&skip=$skip',
+      responseDataKey: 'reels',
+    );
+    if (apiResponse.isSuccessful && apiResponse.data != null) {
+      return apiResponse.copyWith(
+        data: (apiResponse.data as List).map((e) => ReelsModel.fromMap(e)).toList(),
+      );
+    }
+    return apiResponse;
+  }
+
+  Future<ApiResponse> removeFromWatchHistory({required String reelId}) async {
+    final apiResponse = await _apiCommunication.doDeleteRequest(
+      apiEndPoint: 'reels/watch-history/$reelId',
+      requestData: {},
+    );
+    return apiResponse;
+  }
+
+  Future<ApiResponse> clearWatchHistory() async {
+    final apiResponse = await _apiCommunication.doDeleteRequest(
+      apiEndPoint: 'reels/watch-history',
+      requestData: {},
+    );
+    return apiResponse;
+  }
+
+// *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+// *┃  SEARCH SUGGESTIONS                                                   ┃
+// *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> getSearchSuggestions({int limit = 15}) async {
+    final apiResponse = await _apiCommunication.doGetRequest(
+      apiEndPoint: 'reels/search-suggestions?limit=$limit',
+      responseDataKey: 'data',
+    );
+    return apiResponse;
+  }
+
+// *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+// *┃  SEARCH REELS                                                         ┃
+// *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> searchReels({required String query, int limit = 20, int skip = 0}) async {
+    final apiResponse = await _apiCommunication.doGetRequest(
+      apiEndPoint: 'v2/search/reels?q=$query&limit=$limit&skip=$skip',
+      responseDataKey: 'reels',
+    );
+    if (apiResponse.isSuccessful && apiResponse.data != null) {
+      return apiResponse.copyWith(
+        data: (apiResponse.data as List).map((e) => ReelsModel.fromMap(e)).toList(),
+      );
+    }
+    return apiResponse;
   }
 }

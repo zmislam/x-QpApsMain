@@ -55,9 +55,6 @@ class WalletController extends GetxController {
   TextEditingController cardExpiryController = TextEditingController();
   TextEditingController postCodeController = TextEditingController();
 
-  // Stripe key should come from server-side; do not hardcode here
-  final secrectKey = '';
-
   createPaymentIntent() async {
     final apiResponse = await _apiCommunication.doPostRequest(
       apiEndPoint: 'wallet/create-payment-intent',

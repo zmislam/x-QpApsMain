@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../config/constants/video_ad_config.dart';
 import '../../../services/video_sound_controller.dart';
+import '../../../utils/video_manager/video_manager_value_notifier_singleton.dart';
 
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -21,6 +23,7 @@ class NewsFeedPostVideoPlayer extends StatefulWidget {
   final String? actionButtonText;
   final VoidCallback? campaignCallToAction;
   final VoidCallback? onNavigate;
+  final String? thumbnailUrl;
 
   const NewsFeedPostVideoPlayer(
       {required this.videoSrc,
@@ -35,6 +38,7 @@ class NewsFeedPostVideoPlayer extends StatefulWidget {
       this.actionButtonText,
       this.campaignCallToAction,
       this.onNavigate,
+      this.thumbnailUrl,
       super.key});
 
   @override
@@ -100,6 +104,8 @@ class _NewsfeedPostVideoPlayerState extends State<NewsFeedPostVideoPlayer> {
         setState(() {});
         videoSoundSetupUpdate();
         if (widget.isAutoPlayEnabled) {
+          // Register with VideoManager to pause any other playing video
+          VideoManager().setActiveController(ctrl);
           ctrl.play();
           _isPlaying = true;
         }
@@ -210,6 +216,8 @@ class _NewsfeedPostVideoPlayerState extends State<NewsFeedPostVideoPlayer> {
                 if (!ctrl.value.isPlaying &&
                     widget.isAutoPlayEnabled &&
                     !_isManuallyPaused) {
+                  // Register with VideoManager — auto-pauses the previous video
+                  VideoManager().setActiveController(ctrl);
                   ctrl.play();
                   setState(() {
                     _isPlaying = true;
@@ -342,13 +350,44 @@ class _NewsfeedPostVideoPlayerState extends State<NewsFeedPostVideoPlayer> {
                   )
                 : AspectRatio(
                     aspectRatio: 16 / 9, // default aspect ratio while loading
-                    child: const DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                      ),
-                      child: Center(
-                        child: CircularProgressIndicator(color: Colors.teal),
-                      ),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Thumbnail placeholder (instead of black rectangle)
+                        if (widget.thumbnailUrl != null && widget.thumbnailUrl!.isNotEmpty)
+                          CachedNetworkImage(
+                            imageUrl: widget.thumbnailUrl!,
+                            fit: BoxFit.cover,
+                            memCacheWidth: (MediaQuery.of(context).size.width *
+                                    MediaQuery.of(context).devicePixelRatio)
+                                .toInt(),
+                            errorWidget: (_, __, ___) => const DecoratedBox(
+                              decoration: BoxDecoration(color: Colors.black),
+                              child: SizedBox.expand(),
+                            ),
+                          )
+                        else
+                          const DecoratedBox(
+                            decoration: BoxDecoration(color: Colors.black),
+                            child: SizedBox.expand(),
+                          ),
+                        // Play icon + loading spinner overlay
+                        Center(
+                          child: Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 36,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ));
   }

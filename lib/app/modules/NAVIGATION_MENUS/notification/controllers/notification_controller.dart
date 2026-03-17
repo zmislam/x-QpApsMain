@@ -28,32 +28,34 @@ class NotificationController extends GetxController {
   RxBool hasMoreData = true.obs;
   NotificationRepository notificationRepository = NotificationRepository();
 
-  void updateUnseenNotificationCount() {
-    unseenNotificationCount.value = notificationList
-        .value
-        // .where((notification) => !(notification.notification_seen??false))
-        .length;
-  }
+  /// Notifications grouped into "New" (unseen) and "Earlier" (seen)
+  List<NotificationModel> get newNotifications =>
+      notificationList.value.where((n) => !(n.notification_seen ?? false)).toList();
+
+  List<NotificationModel> get earlierNotifications =>
+      notificationList.value.where((n) => n.notification_seen ?? false).toList();
 
   /// Fetches all notifications with pagination
   Future<void> getAllNotifications() async {
-    if (isFetchingMore.value || !hasMoreData.value) return; // Prevent duplicate calls
+    if (isFetchingMore.value || !hasMoreData.value) return;
 
     isFetchingMore.value = true;
 
-    final ApiResponse apiResponse = await notificationRepository.getAllNotifications(skip: notificationList.value.length, userId: _loginCredential.getUserData().id.toString(), limit: limit);
+    final ApiResponse apiResponse = await notificationRepository.getAllNotifications(
+      skip: notificationList.value.length,
+      userId: _loginCredential.getUserData().id.toString(),
+      limit: limit,
+    );
 
     if (apiResponse.isSuccessful) {
       List<NotificationModel> fetchedNotifications = (apiResponse.data as List<NotificationModel>);
 
-      // $ Will be using the page count as total count
-      if (apiResponse.pageCount! > notificationList.value.length) {
+      if (apiResponse.pageCount! > notificationList.value.length + fetchedNotifications.length) {
         hasMoreData.value = true;
       } else {
         hasMoreData.value = false;
       }
 
-      // Append new data to the existing list
       notificationList.value = [...notificationList.value, ...fetchedNotifications];
 
       debugPrint('Fetched notifications: ${fetchedNotifications.length}');
@@ -65,29 +67,21 @@ class NotificationController extends GetxController {
   }
 
   Future getUnseenNotificationsCount() async {
-    // ! PLEASE NOTE WE CAN SEND PAGE ID FROM HERE
-    // ! BUT WE ARE NOT SENDING IT AS PER INSTRUCTION FROM BACKEND TEAM
-    // * IF NEEDED COMMENT OUT THE BELOW LINE
-
-    // final ApiResponse apiResponse = await notificationRepository.getUnseenCommentCount(userId:_loginCredential.getProfileSwitch() ? _loginCredential.getUserData().page_id.toString() :  _loginCredential.getUserData().id.toString());
-
-    final ApiResponse apiResponse = await notificationRepository.getUnseenCommentCount(userId: _loginCredential.getUserData().id.toString());
+    final ApiResponse apiResponse = await notificationRepository.getUnseenCommentCount(
+      userId: _loginCredential.getUserData().id.toString(),
+    );
     if (apiResponse.isSuccessful) {
       unseenNotificationCount.value = apiResponse.data as int;
-      debugPrint('Notification data....${apiResponse.data}');
     } else {
-      debugPrint('Notification data On Error....${apiResponse.message}');
+      debugPrint('Notification count error: ${apiResponse.message}');
     }
   }
 
   Future<void> updateNotificationSeenStatus(String notificationId) async {
-    isNotificationLoading.value = false;
-
     try {
       final ApiResponse apiResponse = await notificationRepository.updateNotificationSeenStatus(notificationId: notificationId);
 
       if (apiResponse.isSuccessful) {
-        debugPrint('Notification seen status updated successfully');
         notificationList.value = notificationList.value.map((notification) {
           if (notification.id == notificationId) {
             return notification.copyWith(notification_seen: true);
@@ -95,36 +89,192 @@ class NotificationController extends GetxController {
           return notification;
         }).toList();
 
-        // Refresh unseen notifications count
         getUnseenNotificationsCount();
-        // // Refresh unseen count
-        // updateUnseenNotificationCount();
       }
     } catch (error) {
-      debugPrint('Error: $error');
-    } finally {
-      isNotificationLoading.value = false;
-    }
-  }
-
-  Future<void> _scrollListener() async {
-    if (scrollController.position.pixels == scrollController.position.maxScrollExtent) {
-      if (skip.value != limit) {
-        skip.value += 1;
-        await getAllNotifications();
-      }
+      debugPrint('Error updating seen status: $error');
     }
   }
 
   // ?┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  // ?┃  HANDEL NOTIFICATION TAP                                               ┃
+  // ?┃  MARK ALL AS READ                                                      ┃
+  // ?┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<void> markAllAsRead() async {
+    try {
+      final ApiResponse apiResponse = await notificationRepository.markAllAsRead(
+        userId: _loginCredential.getUserData().id.toString(),
+      );
+      if (apiResponse.isSuccessful) {
+        notificationList.value = notificationList.value
+            .map((n) => n.copyWith(notification_seen: true))
+            .toList();
+        unseenNotificationCount.value = 0;
+        showSuccessSnackkbar(message: 'All notifications marked as read'.tr);
+      }
+    } catch (error) {
+      debugPrint('Error marking all as read: $error');
+    }
+  }
+
+  // !┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // !┃  DELETE NOTIFICATION                                                   ┃
+  // !┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<void> deleteNotification(String notificationId) async {
+    try {
+      final ApiResponse apiResponse = await notificationRepository.deleteNotification(notificationId: notificationId);
+      if (apiResponse.isSuccessful) {
+        notificationList.value = notificationList.value
+            .where((n) => n.id != notificationId)
+            .toList();
+        getUnseenNotificationsCount();
+      }
+    } catch (error) {
+      debugPrint('Error deleting notification: $error');
+    }
+  }
+
+  // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // *┃  FRIEND REQUEST ACTIONS                                                ┃
+  // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<void> acceptFriendRequest(NotificationModel notification) async {
+    try {
+      final senderId = notification.notification_sender_id?.id;
+      if (senderId == null) return;
+
+      final ApiResponse apiResponse = await notificationRepository.respondToFriendRequest(
+        requestId: senderId,
+        action: 1,
+      );
+      if (apiResponse.isSuccessful) {
+        _updateNotificationStatus(notification.id!, 'accept');
+        showSuccessSnackkbar(message: 'Friend request accepted'.tr);
+      }
+    } catch (error) {
+      debugPrint('Error accepting friend request: $error');
+      showWarningSnackkbar(message: 'Failed to accept request'.tr);
+    }
+  }
+
+  Future<void> declineFriendRequest(NotificationModel notification) async {
+    try {
+      final senderId = notification.notification_sender_id?.id;
+      if (senderId == null) return;
+
+      final ApiResponse apiResponse = await notificationRepository.respondToFriendRequest(
+        requestId: senderId,
+        action: 0,
+      );
+      if (apiResponse.isSuccessful) {
+        _updateNotificationStatus(notification.id!, 'decline');
+      }
+    } catch (error) {
+      debugPrint('Error declining friend request: $error');
+    }
+  }
+
+  // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // *┃  GROUP INVITATION ACTIONS                                              ┃
+  // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<void> acceptGroupInvitation(NotificationModel notification) async {
+    try {
+      final groupId = notification.resourceObject?.groupId;
+      if (groupId == null) return;
+
+      final ApiResponse apiResponse = await notificationRepository.respondToGroupInvitation(
+        groupId: groupId,
+        action: 'accept',
+      );
+      if (apiResponse.isSuccessful) {
+        _updateNotificationStatus(notification.id!, 'accept');
+        showSuccessSnackkbar(message: 'Group invitation accepted'.tr);
+      }
+    } catch (error) {
+      debugPrint('Error accepting group invitation: $error');
+      showWarningSnackkbar(message: 'Failed to join group'.tr);
+    }
+  }
+
+  Future<void> declineGroupInvitation(NotificationModel notification) async {
+    try {
+      final groupId = notification.resourceObject?.groupId;
+      if (groupId == null) return;
+
+      final ApiResponse apiResponse = await notificationRepository.respondToGroupInvitation(
+        groupId: groupId,
+        action: 'decline',
+      );
+      if (apiResponse.isSuccessful) {
+        _updateNotificationStatus(notification.id!, 'decline');
+      }
+    } catch (error) {
+      debugPrint('Error declining group invitation: $error');
+    }
+  }
+
+  // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // *┃  PAGE INVITATION ACTIONS                                               ┃
+  // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<void> acceptPageInvitation(NotificationModel notification) async {
+    try {
+      final pageUserName = notification.resourceObject?.pageUserName;
+      if (pageUserName == null) return;
+
+      final ApiResponse apiResponse = await notificationRepository.acceptPageInvitation(pageId: pageUserName);
+      if (apiResponse.isSuccessful) {
+        _updateNotificationStatus(notification.id!, 'accept');
+        showSuccessSnackkbar(message: 'Page invitation accepted'.tr);
+      }
+    } catch (error) {
+      debugPrint('Error accepting page invitation: $error');
+      showWarningSnackkbar(message: 'Failed to accept invitation'.tr);
+    }
+  }
+
+  Future<void> declinePageInvitation(NotificationModel notification) async {
+    try {
+      final pageUserName = notification.resourceObject?.pageUserName;
+      if (pageUserName == null) return;
+
+      final ApiResponse apiResponse = await notificationRepository.declinePageInvitation(pageId: pageUserName);
+      if (apiResponse.isSuccessful) {
+        _updateNotificationStatus(notification.id!, 'decline');
+      }
+    } catch (error) {
+      debugPrint('Error declining page invitation: $error');
+    }
+  }
+
+  /// Update notification status locally after an action (accept/decline)
+  void _updateNotificationStatus(String notificationId, String status) {
+    notificationList.value = notificationList.value.map((n) {
+      if (n.id == notificationId) {
+        return n.copyWith(notification_seen: true, status: status);
+      }
+      return n;
+    }).toList();
+    getUnseenNotificationsCount();
+  }
+
+  // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // *┃  LOAD MORE (SEE PREVIOUS NOTIFICATIONS)                                ┃
+  // *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<void> loadMore() async {
+    if (!hasMoreData.value || isFetchingMore.value) return;
+    await getAllNotifications();
+  }
+
+  // ?┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ?┃  HANDLE NOTIFICATION TAP                                               ┃
   // ?┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
   void handleNotificationTap(NotificationModel notificationModel) {
     final type = NotificationTypeEnum.fromString(notificationModel.notification_type);
-
-    debugPrint('NOTIFICATION TYPE');
-    debugPrint('$type');
 
     switch (type) {
       case NotificationTypeEnum.SUPPORT_REPLY:
@@ -140,10 +290,13 @@ class NotificationController extends GetxController {
       case NotificationTypeEnum.ACCEPT_FRIEND_REQUEST:
       case NotificationTypeEnum.FOLLOW_REQUEST:
       case NotificationTypeEnum.FRIEND_REQUEST:
-        Get.toNamed(Routes.OTHERS_PROFILE, arguments: {
-          'username': notificationModel.notification_sender_id?.username,
-          'isFromReels': 'false',
-        });
+        final username = notificationModel.notification_sender_id?.username;
+        if (username != null && username.isNotEmpty) {
+          Get.toNamed(Routes.OTHERS_PROFILE, arguments: {
+            'username': username,
+            'isFromReels': 'false',
+          });
+        }
         break;
 
       case NotificationTypeEnum.SHARED_POST:
@@ -151,29 +304,45 @@ class NotificationController extends GetxController {
       case NotificationTypeEnum.POST_COMMENTED:
       case NotificationTypeEnum.REPLY_COMMENT:
       case NotificationTypeEnum.COMMENT_REACTION:
-        debugPrint('Action IS ON');
+      case NotificationTypeEnum.POST_TAGS:
         try {
-          Get.toNamed(Routes.NOTIFICATION_POST, arguments: {
-            'postId': notificationModel.notification_data!.postId!.id.toString(),
-            'commentId': notificationModel.notification_data!.commentId?.id,
-          });
+          final postId = notificationModel.notification_data?.postId?.id;
+          if (postId != null) {
+            Get.toNamed(Routes.NOTIFICATION_POST, arguments: {
+              'postId': postId,
+              'commentId': notificationModel.notification_data?.commentId?.id,
+            });
+          } else {
+            showWarningSnackkbar(message: 'This post is no longer available'.tr);
+          }
         } catch (_) {
-          showWarningSnackkbar(message: 'This post was not found');
+          showWarningSnackkbar(message: 'This post was not found'.tr);
         }
         break;
 
       case NotificationTypeEnum.PAGE_INVITATION:
-        Get.toNamed(Routes.PAGE_PROFILE, arguments: notificationModel.resourceObject?.pageUserName);
+      case NotificationTypeEnum.ACCEPT_INVITATION:
+      case NotificationTypeEnum.PAGE:
+      case NotificationTypeEnum.PAGE_POST:
+      case NotificationTypeEnum.PAGES:
+        final pageUserName = notificationModel.resourceObject?.pageUserName;
+        if (pageUserName != null) {
+          Get.toNamed(Routes.PAGE_PROFILE, arguments: pageUserName);
+        }
         break;
 
       case NotificationTypeEnum.GROUP_INVITATION:
       case NotificationTypeEnum.GROUP_JOINED:
       case NotificationTypeEnum.GROUP_JOINING:
       case NotificationTypeEnum.GROUP_JOINING_ACCEPT:
-        Get.toNamed(Routes.GROUP_PROFILE, arguments: {
-          'id': notificationModel.resourceObject?.groupId,
-          'group_type': '',
-        });
+      case NotificationTypeEnum.GROUP_POST:
+        final groupId = notificationModel.resourceObject?.groupId;
+        if (groupId != null) {
+          Get.toNamed(Routes.GROUP_PROFILE, arguments: {
+            'id': groupId,
+            'group_type': '',
+          });
+        }
         break;
 
       case NotificationTypeEnum.ROLE_INVITATION:
@@ -185,25 +354,29 @@ class NotificationController extends GetxController {
         }
         break;
 
-      case NotificationTypeEnum.PAGE:
-        if (notificationModel.resourceObject?.pageUserName != null) {
-          Get.toNamed(Routes.PAGE_PROFILE, arguments: notificationModel.resourceObject?.pageUserName);
-        }
-        break;
-
       case NotificationTypeEnum.SHARED_REELS_POST:
       case NotificationTypeEnum.REEL_POST_REACTION:
       case NotificationTypeEnum.REEL_COMMENTED:
-        final reelController = Get.find<ReelsController>();
-        reelController.getAndUpdateReelListWithSpecificReel(reelId: notificationModel.notification_data?.reelId);
+        try {
+          final reelId = notificationModel.notification_data?.reelId;
+          if (reelId != null) {
+            final reelController = Get.find<ReelsController>();
+            reelController.getAndUpdateReelListWithSpecificReel(reelId: reelId);
 
-        Get.toNamed(Routes.REELS, arguments: {
-          'reel_id': notificationModel.notification_data?.reelId,
-          'comment_id': notificationModel.notification_data?.commentId?.id,
-        });
+            Get.toNamed(Routes.REELS, arguments: {
+              'reel_id': reelId,
+              'comment_id': notificationModel.notification_data?.commentId?.id,
+            });
 
-        if (notificationModel.notification_data?.commentId?.id != null) {
-          reelController.openCommentComponentOfReels(reelID: notificationModel.notification_data?.reelId ?? '', commentId: notificationModel.notification_data?.commentId?.id);
+            if (notificationModel.notification_data?.commentId?.id != null) {
+              reelController.openCommentComponentOfReels(
+                reelID: reelId,
+                commentId: notificationModel.notification_data?.commentId?.id,
+              );
+            }
+          }
+        } catch (_) {
+          showWarningSnackkbar(message: 'This reel is no longer available'.tr);
         }
         break;
 
@@ -217,14 +390,43 @@ class NotificationController extends GetxController {
         Get.toNamed(Routes.WALLET);
         break;
 
+      case NotificationTypeEnum.CHECK_IN:
+      case NotificationTypeEnum.MENTION:
+        // Try to open associated post
+        try {
+          final postId = notificationModel.notification_data?.postId?.id;
+          if (postId != null) {
+            Get.toNamed(Routes.NOTIFICATION_POST, arguments: {
+              'postId': postId,
+              'commentId': null,
+            });
+          }
+        } catch (_) {}
+        break;
+
+      case NotificationTypeEnum.PAGE_LIKE:
+        final pageUserName = notificationModel.resourceObject?.pageUserName;
+        if (pageUserName != null) {
+          Get.toNamed(Routes.PAGE_PROFILE, arguments: pageUserName);
+        }
+        break;
+
+      case NotificationTypeEnum.MONETIZATION:
+      case NotificationTypeEnum.REPORT_ACTION:
+        // Info-only notifications — no navigation
+        break;
+
       case NotificationTypeEnum.UNKNOWN:
         try {
-          Get.toNamed(Routes.NOTIFICATION_POST, arguments: {
-            'postId': notificationModel.notification_data!.postId!.id.toString(),
-            'commentId': null,
-          });
+          final postId = notificationModel.notification_data?.postId?.id;
+          if (postId != null) {
+            Get.toNamed(Routes.NOTIFICATION_POST, arguments: {
+              'postId': postId,
+              'commentId': null,
+            });
+          }
         } catch (_) {
-          showWarningSnackkbar(message: 'Check Again later');
+          // Silently fail for truly unknown types
         }
         break;
     }
@@ -237,10 +439,8 @@ class NotificationController extends GetxController {
     _apiCommunication = ApiCommunication();
     _loginCredential = LoginCredential();
     scrollController = ScrollController();
-    // scrollController.addListener(_scrollListener);
 
-    //! API CALL COMMENTED OUT ----------------------
-    // getUnseenNotificationsCount();
+    getUnseenNotificationsCount();
 
     super.onInit();
   }
@@ -248,12 +448,20 @@ class NotificationController extends GetxController {
   @override
   void onReady() {
     scrollController.addListener(_scrollListener);
+    super.onReady();
+  }
 
-    super.onClose();
+  Future<void> _scrollListener() async {
+    if (scrollController.position.pixels >= scrollController.position.maxScrollExtent - 200) {
+      if (hasMoreData.value && !isFetchingMore.value) {
+        await getAllNotifications();
+      }
+    }
   }
 
   @override
   void onClose() {
+    scrollController.dispose();
     _apiCommunication.endConnection();
     super.onClose();
   }

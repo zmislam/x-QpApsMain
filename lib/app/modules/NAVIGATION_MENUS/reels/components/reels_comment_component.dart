@@ -33,6 +33,13 @@ class ReelsCommentComponent extends StatelessWidget {
     required this.onReelsCommentReplayDelete,
     required this.onSelectReelsCommentReaction,
   });
+
+  static const List<String> _quickEmojis = [
+    '😂', '❤️', '🔥', '👏', '😍', '😢', '😮', '🙏', '💯', '🎉',
+    '👍', '😎', '🤣', '💪', '✨', '🥰', '😭', '🤔', '👀', '💀',
+  ];
+
+  final RxBool _showEmojiBar = false.obs;
   final ReelsModel reelsModel;
   final UserModel userModel;
   final TextEditingController reelsCommentController;
@@ -106,13 +113,41 @@ class ReelsCommentComponent extends StatelessWidget {
             ),
           ),
 
+          // ===================================================== Comment Sort Bar =====================================================//
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Obx(() => InkWell(
+                  onTap: () {
+                    final current = videoController.commentSortMode.value;
+                    videoController.commentSortMode.value =
+                        current == 'most_relevant' ? 'newest' : 'most_relevant';
+                  },
+                  child: Row(
+                    children: [
+                      Icon(Icons.sort, size: 18, color: Colors.grey[600]),
+                      const SizedBox(width: 6),
+                      Text(
+                        videoController.commentSortMode.value == 'most_relevant'
+                            ? 'Most relevant'
+                            : 'Newest first',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      Icon(Icons.arrow_drop_down, size: 20, color: Colors.grey[600]),
+                    ],
+                  ),
+                )),
+          ),
+
           // ===================================================== Reels Comment List  =====================================================//
 
           Expanded(
             child: ListView.builder(
               physics: const ScrollPhysics(),
               itemCount: reelsCommentList.length,
-              shrinkWrap: true,
               itemBuilder: (context, commentListIndex) {
                 ReelsCommentModel reelsComentModel =
                     reelsCommentList[commentListIndex];
@@ -152,7 +187,6 @@ class ReelsCommentComponent extends StatelessWidget {
           // ===================================================== Post new Comment =====================================================//
           Column(
             children: [
-              const Divider(),
               Obx(
                 () => Visibility(
                     visible: videoController.isReply.value &&
@@ -192,128 +226,154 @@ class ReelsCommentComponent extends StatelessWidget {
                       ],
                     )),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: RoundCornerNetworkImage(
-                        imageUrl:
-                            (userModel.profile_pic ?? '').formatedProfileUrl),
-                  ),
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Obx(
-                          () => Expanded(
-                            child: TextFormField(
-                              focusNode: focusNode,
-                              cursorColor: PRIMARY_COLOR,
-                              minLines: 1, // Minimum number of lines to show
-                              maxLines: null,
-                              controller: reelsCommentController,
-                              onChanged: (value) => validateComment(value),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Comment cannot be empty.';
-                                }
-                                return null;
-                              },
-                              decoration: InputDecoration(
-                                  contentPadding: const EdgeInsets.all(12),
-                                  isCollapsed: true,
-                                  hintText: videoController.isReply.value
-                                      ? 'To ${videoController.reelsCommentModel.value.user_id?.first_name} Comment as ${userModel.first_name} ...'
-                                      : videoController.isReplyOfReply.value
-                                          ? 'To ${videoController.reelsCommentReplyModel.value.replies_user_id?.first_name} Comment as ${userModel.first_name} ...'
-                                          : ' Comment as ${userModel.first_name} ...',
-                                  hintStyle: TextStyle(fontSize: 15),
-                                  border: InputBorder.none),
-                            ),
-                          ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(10, 8, 10, 8 + MediaQuery.of(context).padding.bottom),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Camera icon — standalone, left of pill
+                    GestureDetector(
+                      onTap: () => videoController.pickFiles(),
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Icon(
+                          Icons.camera_alt_outlined,
+                          size: 24,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
-                        const SizedBox(width: 8),
-                        Row(
+                      ),
+                    ),
+                    // Rounded pill: text + icons inside
+                    Expanded(
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 40),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF3A3B3C)
+                              : const Color(0xFFF0F2F5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            InkWell(
-                              onTap: () {
-                                debugPrint('=============photo clicked======');
-                                videoController.pickFiles();
-                              },
-                              child: Image(
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
-                                  height: 24,
-                                  image: const AssetImage(
-                                      AppAssets.IMAGE_COMMENT_ICON)),
+                            // Text input
+                            Expanded(
+                              child: Obx(
+                                () => TextFormField(
+                                  focusNode: focusNode,
+                                  cursorColor: PRIMARY_COLOR,
+                                  minLines: 1,
+                                  maxLines: 4,
+                                  controller: reelsCommentController,
+                                  onChanged: (value) => validateComment(value),
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                  decoration: InputDecoration(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 10),
+                                    isCollapsed: true,
+                                    hintText: videoController.isReply.value
+                                        ? 'Reply to ${videoController.reelsCommentModel.value.user_id?.first_name}...'
+                                        : videoController.isReplyOfReply.value
+                                            ? 'Reply to ${videoController.reelsCommentReplyModel.value.replies_user_id?.first_name}...'
+                                            : 'Comment as ${userModel.first_name ?? ''}',
+                                    hintStyle: TextStyle(
+                                      fontSize: 15,
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                    ),
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    errorBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
+                                  ),
+                                ),
+                              ),
                             ),
-                            // const SizedBox(width: 10),
-                            //
-                            // InkWell(
-                            //   onTap: () {
-                            //     if (emojiShowing.value == false) {
-                            //       emojiShowing.value = true;
-                            //     } else {
-                            //       emojiShowing.value = false;
-                            //     }
-                            //
-                            //     // _emojiShowing.value!=_emojiShowing.value;
-                            //   },
-                            //   child: const Image(height: 24, image: AssetImage(AppAssets.REACT_COMMENT_ICON)),
-                            // ),
-
-                            ///////////////////////////////////////////////////////////////////////////////
-
-                            const SizedBox(width: 10),
-                            InkWell(
-                              onTap: () {
-                                if (videoController.isReply.value == false) {
-                                  if (reelsCommentController.text
-                                          .trim()
-                                          .isNotEmpty ||
-                                      isCommentValid.value ||
-                                      videoController.xfiles.value.isNotEmpty) {
-                                    onTapSendReelsComment();
-                                  } else {
-                                    null;
-                                  }
-                                } else {
-                                  if (reelsCommentController.text
-                                          .trim()
-                                          .isNotEmpty ||
-                                      isCommentValid.value ||
-                                      videoController.xfiles.value.isNotEmpty) {
-                                    onTapReelsReplayComment(
-                                        comment_id: videoController
-                                            .reelsCommentID.value,
-                                        commentReplay:
-                                            reelsCommentController.text, file: videoController.processedCommentFileData.value);
-                                    videoController.isReply.value = false;
-                                    reelsCommentController.clear();
-                                  } else {
-                                    null;
-                                  }
-                                }
-                              },
-                              child: Image(
-                                  height: 24,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
-                                  image: const AssetImage(
-                                      AppAssets.SEND_COMMENT_ICON)),
-                            ),
-                            const SizedBox(width: 10),
+                            // Right-side icons OR send button
+                            Obx(() {
+                              final hasText = isCommentValid.value || videoController.xfiles.value.isNotEmpty;
+                              if (hasText) {
+                                // Show send button when typing
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (videoController.isReply.value == false) {
+                                      if (reelsCommentController.text.trim().isNotEmpty ||
+                                          isCommentValid.value ||
+                                          videoController.xfiles.value.isNotEmpty) {
+                                        onTapSendReelsComment();
+                                      }
+                                    } else {
+                                      if (reelsCommentController.text.trim().isNotEmpty ||
+                                          isCommentValid.value ||
+                                          videoController.xfiles.value.isNotEmpty) {
+                                        onTapReelsReplayComment(
+                                            comment_id: videoController.reelsCommentID.value,
+                                            commentReplay: reelsCommentController.text,
+                                            file: videoController.processedCommentFileData.value);
+                                        videoController.isReply.value = false;
+                                        reelsCommentController.clear();
+                                      }
+                                    }
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 12),
+                                    child: Icon(
+                                      Icons.send,
+                                      size: 20,
+                                      color: PRIMARY_COLOR,
+                                    ),
+                                  ),
+                                );
+                              }
+                              final iconColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // GIF icon
+                                  GestureDetector(
+                                    onTap: () {},
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: iconColor, width: 1.5),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'GIF',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          color: iconColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Emoji picker toggle
+                                  GestureDetector(
+                                    onTap: () => _showEmojiBar.toggle(),
+                                    child: Icon(
+                                      _showEmojiBar.value ? Icons.keyboard : Icons.emoji_emotions_outlined,
+                                      size: 22,
+                                      color: iconColor,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                ],
+                              );
+                            }),
                           ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
-          MediaQuery.of(context).padding.bottom > 0 ? 40.h : 0.h,
           Obx(() => videoController.xfiles.value.isEmpty
               ? const SizedBox(
                   height: 0,
@@ -347,43 +407,32 @@ class ReelsCommentComponent extends StatelessWidget {
                   ),
                 )),
 
-          // Obx(
-          //   () => Offstage(
-          //     offstage: emojiShowing.value,
-          //     child: EmojiPicker(
-          //       textEditingController: reelsCommentController,
-          //       //scrollController: _scrollController,
-          //       config: Config(
-          //         height: 256,
-          //         checkPlatformCompatibility: true,
-          //         emojiViewConfig: EmojiViewConfig(
-          //           // Issue: https://github.com/flutter/flutter/issues/28894
-          //           emojiSizeMax: 28 *
-          //               (foundation.defaultTargetPlatform == TargetPlatform.iOS
-          //                   ? 1.2
-          //                   : 1.0),
-          //         ),
-          //         swapCategoryAndBottomBar: false,
-          //         skinToneConfig: const SkinToneConfig(),
-          //         categoryViewConfig: const CategoryViewConfig(
-          //           indicatorColor: PRIMARY_COLOR,
-          //           iconColorSelected: PRIMARY_COLOR,
-          //         ),
-          //         bottomActionBarConfig: const BottomActionBarConfig(
-          //           backgroundColor: Colors.transparent,
-          //           buttonColor: Colors.transparent,
-          //           buttonIconColor: Colors.grey,
-          //         ),
-          //         searchViewConfig:
-          //             const SearchViewConfig(backgroundColor: PRIMARY_COLOR),
-          //       ),
-          //     ),
-          //   ),
-          // ),
-
-          const SizedBox(
-            height: 10,
-          )
+          // ─── Quick Emoji Bar ──────────────────────────────────────────
+          Obx(() => _showEmojiBar.value
+              ? Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _quickEmojis.length,
+                    itemBuilder: (_, i) => InkWell(
+                      onTap: () {
+                        final text = reelsCommentController.text;
+                        final sel = reelsCommentController.selection;
+                        final offset = sel.isValid ? sel.baseOffset : text.length;
+                        reelsCommentController.text =
+                            text.substring(0, offset) + _quickEmojis[i] + text.substring(offset);
+                        reelsCommentController.selection =
+                            TextSelection.collapsed(offset: offset + _quickEmojis[i].length);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                        child: Text(_quickEmojis[i], style: const TextStyle(fontSize: 24)),
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink()),
         ],
       ),
     );

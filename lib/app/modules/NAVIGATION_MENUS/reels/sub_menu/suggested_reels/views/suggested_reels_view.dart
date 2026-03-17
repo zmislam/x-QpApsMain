@@ -193,6 +193,16 @@ class _SuggestedReelsViewBodyState extends State<_SuggestedReelsViewBody> {
                       carouselController: CarouselController(),
                       reelsModel: reel,
 
+                      // ── Reaction ──
+                      onPressedReaction: (String reactionType) {
+                        final reelsIndex = widget
+                            .controller.reelsModelList.value
+                            .indexWhere((r) => r.id == reel.id);
+                        if (reelsIndex == -1) return;
+                        widget.controller.reelsReaction(
+                            reel.id ?? '', reelsIndex, reactionType);
+                      },
+
                       // ── Like ──
                       onPressedLike: () {
                         final reelsIndex = widget

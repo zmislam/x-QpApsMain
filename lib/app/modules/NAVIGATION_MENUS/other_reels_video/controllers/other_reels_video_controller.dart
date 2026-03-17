@@ -212,9 +212,28 @@ class OtherReelsVideoController extends GetxController {
 
   void reelsLike(String postId, int index) async {
     ApiResponse apiResponse = await _apiCommunication.doPostRequest(
-        apiEndPoint: 'reels/save-reaction-reel-post',
+        apiEndPoint: 'save-reaction-reel-post',
         requestData: {
           'reaction_type': 'like',
+          'post_id': postId,
+          'post_single_item_id': null,
+        });
+
+    if (apiResponse.isSuccessful) {
+      ReelsModel reelsModel =
+          ReelsModel.fromMap(apiResponse.data as Map<String, dynamic>);
+      reelsModelList.value[index] = reelsModel;
+      reelsModelList.refresh();
+    }
+  }
+
+  //==============================Reels Reaction with Type =========================================//
+
+  void reelsReaction(String postId, int index, String reactionType) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+        apiEndPoint: 'save-reaction-reel-post',
+        requestData: {
+          'reaction_type': reactionType,
           'post_id': postId,
           'post_single_item_id': null,
         });
@@ -245,7 +264,7 @@ class OtherReelsVideoController extends GetxController {
   void reelsComments(
       String postId, String comment, int index, String file, String key) async {
     ApiResponse apiResponse = await ApiCommunication().doPostRequestNew(
-        apiEndPoint: 'reels/save-user-comment-by-reel',
+        apiEndPoint: 'save-user-comment-by-reel',
         requestData: {
           'user_id': loginCredential.getUserData().id,
           'post_id': postId,
@@ -266,7 +285,7 @@ class OtherReelsVideoController extends GetxController {
   void reelsAdsComments(
       String postId, String comment, int index, String key) async {
     ApiResponse apiResponse = await ApiCommunication().doPostRequestNew(
-        apiEndPoint: 'reels/save-user-comment-by-post',
+        apiEndPoint: 'save-user-comment-by-post',
         requestData: {
           'user_id': loginCredential.getUserData().id,
           'post_id': postId,
@@ -292,7 +311,7 @@ class OtherReelsVideoController extends GetxController {
     required String key,
   }) async {
     ApiResponse apiResponse = await ApiCommunication().doPostRequestNew(
-        apiEndPoint: 'reels/reply-comment-by-reel-post',
+        apiEndPoint: 'reply-comment-by-reel-post',
         requestData: {
           'comment_id': comment_id,
           'replies_user_id': replies_user_id,
@@ -339,7 +358,7 @@ class OtherReelsVideoController extends GetxController {
   //========================================Repost================================//
   void reelsRepost(String reelId, String key) async {
     ApiResponse apiResponse = await _apiCommunication
-        .doPostRequest(apiEndPoint: 'reels/save-reels-re-post', requestData: {
+        .doPostRequest(apiEndPoint: 'save-reels-re-post', requestData: {
       'reelsId': reelId,
       'key': key,
     });
@@ -627,7 +646,7 @@ class OtherReelsVideoController extends GetxController {
   void reelsCommentDelete(
       String comment_id, String post_id, int postIndex, String key) async {
     ApiResponse apiResponse = await _apiCommunication.doPostRequest(
-        apiEndPoint: 'reels/delete-single-comment-reel',
+        apiEndPoint: 'delete-single-comment-reel',
         requestData: {
           'comment_id': comment_id,
           'post_id': post_id,
@@ -644,7 +663,7 @@ class OtherReelsVideoController extends GetxController {
   void reelsAdsCommentDelete(
       String comment_id, String post_id, int postIndex, String key) async {
     ApiResponse apiResponse = await _apiCommunication.doPostRequest(
-        apiEndPoint: 'reels/delete-single-comment',
+        apiEndPoint: 'delete-single-comment',
         requestData: {
           'comment_id': comment_id,
           'post_id': post_id,
@@ -662,7 +681,7 @@ class OtherReelsVideoController extends GetxController {
   void reelsCommentReplyDelete(
       String reply_id, String post_id, int postIndex, String key) async {
     ApiResponse apiResponse = await _apiCommunication.doPostRequest(
-        apiEndPoint: 'reels/delete-single-comment-reel',
+        apiEndPoint: 'delete-single-comment-reel',
         requestData: {
           'comment_id': reply_id,
           'post_id': post_id,
@@ -678,7 +697,7 @@ class OtherReelsVideoController extends GetxController {
   void reelsAdsCommentReplyDelete(
       String reply_id, String post_id, int postIndex, String key) async {
     ApiResponse apiResponse = await _apiCommunication.doPostRequest(
-        apiEndPoint: 'reels/delete-single-comment',
+        apiEndPoint: 'delete-single-comment',
         requestData: {
           'comment_id': reply_id,
           'post_id': post_id,
@@ -708,7 +727,7 @@ class OtherReelsVideoController extends GetxController {
 
   Future<void> shareReelsOnNewsFeed(String reelsId, String key) async {
     ApiResponse apiResponse = await _apiCommunication
-        .doPostRequest(apiEndPoint: 'reels/save-share-reels', requestData: {
+        .doPostRequest(apiEndPoint: 'save-share-reels', requestData: {
       'description': reelsDescriptionController.text,
       'reels_privacy': (getReelsPostPrivacyValue(reelsPrivacy.value)),
       'share_reels_id': reelsId,
@@ -781,7 +800,7 @@ class OtherReelsVideoController extends GetxController {
   Future deleteReels(String reelId, String key) async {
     isLoadingUserPages.value = true;
     ApiResponse apiResponse = await _apiCommunication.doDeleteRequest(
-        apiEndPoint: 'reels/delete-own-user-reel/:$reelId',
+        apiEndPoint: 'delete-own-user-reel/:$reelId',
         requestData: {
           'key': key,
         });

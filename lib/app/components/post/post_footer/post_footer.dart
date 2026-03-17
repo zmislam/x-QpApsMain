@@ -29,7 +29,7 @@ class PostFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     if (model.user_id == null) return const SizedBox.shrink();
 
-    final loginCredential = LoginCredential();
+    final LoginCredential loginCredential = LoginCredential();
     final int reactionCount = model.reactionCount ?? 0;
     final int commentCount = model.totalComments ?? 0;
     final int shareCount = model.postShareCount ?? 0;

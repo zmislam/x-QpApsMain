@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:quantum_possibilities_flutter/app/extension/string/string.dart';
 import 'package:dio/dio.dart';
+import 'package:video_player/video_player.dart';
 import '../../../../config/constants/api_constant.dart';
 import '../../../../repository/page_repository.dart';
 import '../../../../repository/report_repository.dart';
@@ -14,6 +16,7 @@ import '../../../../models/api_response.dart';
 import '../../../../models/user.dart';
 import '../../../../repository/reels_repository.dart';
 import '../../../../services/api_communication.dart';
+import '../../../../services/video_preload_manager.dart';
 import '../../../../utils/logger/logger.dart';
 import '../../../../utils/post_utlis.dart';
 import '../../../../utils/snackbar.dart';
@@ -59,6 +62,12 @@ class ReelsController extends GetxController {
   Rx<List<ReelsCampaignResults>> reelsCampaignResultList = Rx([]);
   Rx<List<ReelsCommentModel>> reelsCommentModelList = Rx([]);
   Rx<List<ReelsCommentReplyModel>> reelsCommentReplyModelList = Rx([]);
+
+  // ─── Bookmark State ──────────────────────────────────────────────────────
+  RxList<String> bookmarkedReelIds = <String>[].obs;
+
+  // ─── Comment Sort State ──────────────────────────────────────────────────
+  RxString commentSortMode = 'most_relevant'.obs;
 
   RxString reelsCommentID = ''.obs;
   String reelIDFromNotification = '';
@@ -111,6 +120,18 @@ class ReelsController extends GetxController {
   /// Set of reel IDs whose videos have been preloaded / are being preloaded
   final Set<String> _preloadedReelIds = {};
 
+  /// Periodic timer to flush view tracks every 60 seconds
+  Timer? _viewFlushTimer;
+
+  /// Shared Dio instance for preload HEAD requests
+  final Dio _preloadDio = Dio();
+
+  /// Whether campaigns have been fetched for this session
+  bool _campaignsFetched = false;
+
+  /// Pool-based preload manager for pre-initializing VideoPlayerControllers
+  final VideoPreloadManager _videoPreloadManager = VideoPreloadManager.instance;
+
   //==============================Get Reels All User =========================================//
 
   Future<void> getReels({
@@ -134,6 +155,52 @@ class ReelsController extends GetxController {
       debugPrint(reelsModelList.value.length.toString());
     } else {
       isLoadingMore.value = false; // ← STOP LOADING INDICATOR ON ERROR
+    }
+  }
+
+  // ═══════════════════════ Bookmark / Save ═════════════════════════════════
+
+  void toggleBookmark(String reelId) {
+    if (reelId.isEmpty) return;
+    if (bookmarkedReelIds.contains(reelId)) {
+      bookmarkedReelIds.remove(reelId);
+    } else {
+      bookmarkedReelIds.add(reelId);
+    }
+    reelsRepository.toggleBookmark(reelId: reelId);
+  }
+
+  // ═══════════════════════ Feedback (Interested / Not Interested) ════════
+
+  void sendFeedback(String reelId, String signalType) {
+    if (reelId.isEmpty) return;
+    reelsRepository.sendFeedback(reelId: reelId, signalType: signalType);
+    if (signalType == 'interested') {
+      showSuccessSnackkbar(message: 'Thanks for your feedback!');
+    } else {
+      showSuccessSnackkbar(message: 'You\'ll see fewer reels like this');
+    }
+  }
+
+  // ═══════════════════════ Hide Reel ═════════════════════════════════════
+
+  void hideReel(String reelId) {
+    if (reelId.isEmpty) return;
+    reelsRepository.sendFeedback(reelId: reelId, signalType: 'hide_reel');
+    // Remove from local list immediately
+    reelsModelList.value.removeWhere((r) => r.id == reelId);
+    reelsModelList.refresh();
+    showSuccessSnackkbar(message: 'Reel hidden');
+  }
+
+  // ═══════════════════════ Reaction with Type ════════════════════════════
+
+  void reelsReaction(String postId, int index, String reactionType) async {
+    ApiResponse apiResponse = await reelsRepository.reactOnAReel(
+      postId: postId, reactionType: reactionType);
+    // Optimistic update already applied by caller — no need to overwrite.
+    if (!apiResponse.isSuccessful) {
+      debugPrint('reelsReaction API failed for $postId');
     }
   }
 
@@ -282,9 +349,6 @@ class ReelsController extends GetxController {
     _currentVisibleReelId = reelId;
     _viewStartTimes[reelId] = DateTime.now().millisecondsSinceEpoch;
 
-    // Also fire legacy view (backwards compat)
-    reelsViewClick(reelId);
-
     // Preload upcoming videos
     _preloadUpcomingVideos(currentIndex);
   }
@@ -302,12 +366,10 @@ class ReelsController extends GetxController {
       'completed': watchTimeMs > 10000, // >10s = completed
     });
 
-    // Also fire individual track-view
-    reelsRepository.trackReelView(
-      reelId: reelId,
-      watchTimeMs: watchTimeMs,
-      completed: watchTimeMs > 10000,
-    );
+    // Auto-flush every 20 accumulated views
+    if (_pendingViewTracks.length >= 20) {
+      _flushPendingViewTracks();
+    }
   }
 
   /// Flush all pending view tracks to the server in a batch
@@ -331,6 +393,8 @@ class ReelsController extends GetxController {
   /// Preload the next 1-2 videos from the current index
   void _preloadUpcomingVideos(int currentIndex) {
     final list = reelsModelList.value;
+
+    // HEAD-request warm-up for DNS/TCP (lightweight, best-effort)
     for (int offset = 1; offset <= 2; offset++) {
       final nextIndex = currentIndex + offset;
       if (nextIndex < list.length) {
@@ -341,11 +405,26 @@ class ReelsController extends GetxController {
             videoPath.isNotEmpty &&
             !_preloadedReelIds.contains(reelId)) {
           _preloadedReelIds.add(reelId);
-          // Fire-and-forget: preload video into cache
           _preloadVideo(videoPath);
         }
       }
     }
+
+    // Pool-based controller pre-initialization
+    final refs = list
+        .where((r) => (r.id ?? '').isNotEmpty && (r.video ?? '').isNotEmpty)
+        .map((r) => ReelRef(id: r.id!, videoPath: r.video!))
+        .toList();
+    _videoPreloadManager.onPageChanged(
+      currentIndex: currentIndex,
+      reels: refs,
+    );
+  }
+
+  /// Returns a pre-initialized VideoPlayerController for the given reel, or
+  /// null if one isn't ready yet (caller should fall back to internal init).
+  VideoPlayerController? getPreloadedController(String reelId) {
+    return _videoPreloadManager.getController(reelId);
   }
 
   /// Download video into the default cache (fire-and-forget)
@@ -353,12 +432,8 @@ class ReelsController extends GetxController {
     try {
       final url =
           '${ApiConstant.SERVER_IP_PORT}/uploads/reels/$videoPath';
-      // Use a lightweight HEAD request to prime the connection;
-      // Full download is handled by video_player when the reel becomes visible.
-      // This at least resolves DNS and warms the TCP connection.
-      final dio = Dio();
-      await dio.head(url);
-      dio.close();
+      // Reuse shared Dio instance for DNS/TCP warm-up
+      await _preloadDio.head(url);
     } catch (_) {
       // Ignore errors — preloading is best-effort
     }
@@ -382,10 +457,15 @@ class ReelsController extends GetxController {
   //==============================Pause and Resume Reels =========================================//
   final RxBool _shouldPauseReels = false.obs;
   RxBool get shouldPauseReels => _shouldPauseReels;
+
+  /// Whether the currently visible reel is actively playing (used to auto-hide bottom nav)
+  final RxBool isReelPlaying = false.obs;
+
   void pauseAllReels() {
     debugPrint('🛑 Pausing all reels');
     // Notify all reel components to pause
     _shouldPauseReels.value = true;
+    isReelPlaying.value = false;
   }
 
   void resumeReels() {
@@ -396,12 +476,15 @@ class ReelsController extends GetxController {
   //==============================Get Reels Campaign List =========================================//
 
   Future<void> getReelsCampaignList() async {
-    isCommentLoading.value = true;
+    // Only fetch campaigns once per session
+    if (_campaignsFetched && reelsCampaignResultList.value.isNotEmpty) return;
+
     ApiResponse response = await reelsRepository.getAllReelCampaigns();
 
     if (response.isSuccessful) {
       reelsCampaignResultList.value =
           (response.data as List<ReelsCampaignResults>);
+      _campaignsFetched = true;
       debugPrint(
           ':::::::::::::::::::Reels Campaign Result LIST: ${response.data}');
     } else {
@@ -428,9 +511,10 @@ class ReelsController extends GetxController {
 
   void reelsLike(String postId, int index) async {
     ApiResponse apiResponse = await reelsRepository.LikeAReel(postId: postId);
-    if (apiResponse.isSuccessful) {
-      reelsModelList.value[index] = apiResponse.data as ReelsModel;
-      reelsModelList.refresh();
+    // Optimistic update already applied by caller — no need to overwrite.
+    // Only log failure for debugging.
+    if (!apiResponse.isSuccessful) {
+      debugPrint('reelsLike API failed for $postId');
     }
   }
 
@@ -555,8 +639,8 @@ class ReelsController extends GetxController {
         await reelsRepository.getAllCommentsOfAReel(reelsId: reelsId);
     if (response.isSuccessful) {
       reelsCommentModelList.value = (response.data as List<ReelsCommentModel>);
-      debugPrint(':::::::::::::::::::COMMENT MODEL LIST: ${response.data}');
     }
+    isCommentLoading.value = false;
   }
 
   Future<void> getReelAdsCommentList(String reelsAdId) async {
@@ -841,20 +925,14 @@ class ReelsController extends GetxController {
     required String comment_id,
     required String userId,
   }) async {
-    debugPrint('===================================reaction function  call');
-
     ApiResponse apiResponse = await reelsRepository.reactOnAReelComment(
         reactionType: reactionType,
         post_id: post_id,
         comment_id: comment_id,
         userId: userId);
 
-    if (apiResponse.isSuccessful) {
-      getReelCommentList(post_id);
-      // List<CommentModel> comments = await getSinglePostsComments(post_id);
-      // postList.value[postIndex].comments = comments;
-      // postList.refresh();
-      // List <CommentReactionModel>   commentReactionList = await apiResponse.data
+    if (!apiResponse.isSuccessful) {
+      debugPrint('reelsCommentReaction API failed for comment $comment_id');
     }
   }
   //============================== Open Bottom Commet sheet =========================================//
@@ -900,8 +978,6 @@ class ReelsController extends GetxController {
     required String comment_reply_id,
     required String userId,
   }) async {
-    debugPrint('===================================reaction function  call');
-
     ApiResponse apiResponse = await reelsRepository.reactOnAReplayOfReelComment(
         reactionType: reactionType,
         post_id: post_id,
@@ -909,12 +985,8 @@ class ReelsController extends GetxController {
         comment_reply_id: comment_reply_id,
         userId: userId);
 
-    if (apiResponse.isSuccessful) {
-      getReelCommentList(post_id);
-      // List<CommentModel> comments = await getSinglePostsComments(post_id);
-      // postList.value[postIndex].comments = comments;
-      // postList.refresh();
-      // List <CommentReactionModel>   commentReactionList = await apiResponse.data
+    if (!apiResponse.isSuccessful) {
+      debugPrint('reelsReplyCommentReaction API failed for reply $comment_reply_id');
     }
   }
 
@@ -972,9 +1044,7 @@ class ReelsController extends GetxController {
   @override
   void onReady() {
     super.onReady();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      reelsViewClick(reelsItem.value.id ?? '');
-    });
+    // View tracking is now handled by onReelVisible() — no duplicate call needed
   }
 
   @override
@@ -990,8 +1060,12 @@ class ReelsController extends GetxController {
     reelsDescriptionController = TextEditingController();
     reportDescription = TextEditingController();
 
-    pageController.addListener(_scrollListener);
     reelsTabPageController.addListener(scrollListener2);
+
+    // Periodic flush of pending view tracks every 60 seconds
+    _viewFlushTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      _flushPendingViewTracks();
+    });
 
     reelsModelList.value.clear();
     reelsCampaignResultList.value.clear();
@@ -1074,35 +1148,40 @@ class ReelsController extends GetxController {
     }
 
     await getReelsCampaignList(); // Merge campaigns after every 5 reels
+    _hydrateBookmarkIds(); // Load saved reel IDs in background
     isLoading.value = false;
+  }
+
+  /// Load bookmarked reel IDs from the server so the UI reflects saved state.
+  Future<void> _hydrateBookmarkIds() async {
+    try {
+      final response = await reelsRepository.getBookmarkIds();
+      if (response.isSuccessful && response.data != null) {
+        final ids = (response.data as List).cast<String>();
+        bookmarkedReelIds.assignAll(ids);
+      }
+    } catch (_) {}
   }
 
   @override
   void onClose() {
+    // Cancel periodic flush timer
+    _viewFlushTimer?.cancel();
     // Flush pending view tracks before closing
     _flushPendingViewTracks();
 
     _apiCommunication.endConnection();
     reelsModelList.value.clear();
     reelsTabPageController.removeListener(scrollListener2);
-    reelsTabPageController.removeListener(_scrollListener);
     reelsTabPageController.dispose();
     // isFromTabView.value = true;
     specificReels.value = '';
     _preloadedReelIds.clear();
+    _videoPreloadManager.disposeAll();
+    _preloadDio.close();
     _viewStartTimes.clear();
     _pendingViewTracks.clear();
     super.onClose();
-  }
-
-  Future<void> _scrollListener() async {
-    if (pageController.position.pixels ==
-        pageController.position.maxScrollExtent) {
-      debugPrint('Reels Max scroll extents');
-      debugPrint('PageController is running');
-      getIndividualReels();
-      getReelsCampaignList();
-    }
   }
 
   Future<void> scrollListener2() async {

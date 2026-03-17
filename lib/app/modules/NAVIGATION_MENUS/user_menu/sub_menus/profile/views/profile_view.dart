@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../../../../extension/string/string_image_path.dart';
+import '../../../../../../extension/url.dart';
 import '../../../../../../config/constants/feed_design_tokens.dart';
 import '../controllers/monitizationController.dart';
 import 'components/profile_all_reels_component.dart';
@@ -16,6 +17,7 @@ import '../../../../../../config/constants/app_assets.dart';
 import '../../../../../../routes/app_pages.dart';
 import '../../../../../../config/constants/color.dart';
 import '../controllers/profile_controller.dart';
+import '../../../controllers/user_menu_controller.dart';
 
 class ProfileView extends GetView<ProfileController> {
   const ProfileView({super.key});
@@ -1715,6 +1717,11 @@ class ProfileView extends GetView<ProfileController> {
         : '';
     final hasProfilePic =
         profile?.profile_pic != null && profile!.profile_pic!.isNotEmpty;
+    final isPageProfile = LoginCredential().getProfileSwitch();
+
+    // Fetch page profiles
+    final userMenuController = Get.find<UserMenuController>();
+    userMenuController.getAllPages();
 
     showModalBottomSheet(
       context: context,
@@ -1741,7 +1748,7 @@ class ProfileView extends GetView<ProfileController> {
               ),
               const SizedBox(height: 16),
 
-              // Current profile
+              // Current personal profile
               ListTile(
                 leading: CircleAvatar(
                   radius: 24,
@@ -1758,9 +1765,77 @@ class ProfileView extends GetView<ProfileController> {
                     color: textPrimary,
                   ),
                 ),
-                trailing: Icon(Icons.check_circle,
-                    color: PRIMARY_COLOR, size: 24),
+                trailing: !isPageProfile
+                    ? Icon(Icons.check_circle,
+                        color: PRIMARY_COLOR, size: 24)
+                    : null,
+                onTap: isPageProfile
+                    ? () {
+                        Navigator.of(ctx).pop();
+                        userMenuController.profileSwitch().then(
+                          (value) => Get.offAndToNamed(Routes.ACCOUNT_SWITCH_PAGE),
+                        );
+                      }
+                    : null,
               ),
+
+              // Page profiles list
+              Obx(() {
+                if (userMenuController.loading.value) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                }
+                if (userMenuController.listOfProfiles.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: userMenuController.listOfProfiles.map((page) {
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 24,
+                        backgroundImage: const AssetImage(AppAssets.DEFAULT_IMAGE),
+                        foregroundImage: (page.profilePic != null && page.profilePic!.isNotEmpty)
+                            ? NetworkImage(page.profilePic!.pageImageUrlBuild)
+                            : null,
+                      ),
+                      title: Text(
+                        page.pageName ?? '',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${page.followerCount ?? 0} ${'Followers'.tr}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: textPrimary.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      trailing: page.isSelected
+                          ? Icon(Icons.check_circle,
+                              color: PRIMARY_COLOR, size: 24)
+                          : null,
+                      onTap: page.isSelected
+                          ? null
+                          : () {
+                              Navigator.of(ctx).pop();
+                              userMenuController
+                                  .profileSwitch(id: page.id.toString())
+                                  .then((value) => Get.offAndToNamed(
+                                      Routes.ACCOUNT_SWITCH_PAGE));
+                            },
+                    );
+                  }).toList(),
+                );
+              }),
 
               const SizedBox(height: 8),
               Divider(color: FeedDesignTokens.divider(context)),
@@ -1779,7 +1854,10 @@ class ProfileView extends GetView<ProfileController> {
                 ),
                 title: Text('See all profiles'.tr,
                     style: TextStyle(color: textPrimary)),
-                onTap: () => Get.back(),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  Get.toNamed(Routes.ALL_PAGES);
+                },
               ),
             ],
           ),

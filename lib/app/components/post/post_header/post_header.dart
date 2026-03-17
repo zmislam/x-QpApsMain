@@ -53,7 +53,7 @@ class PostHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     UserIdModel? userModel = model.user_id;
-    UserModel currentUserModel = LoginCredential().getUserData();
+    final UserModel currentUserModel = LoginCredential().getUserData();
 
     // ─── Campaign post header ───
     if (model.post_type == 'campaign') {

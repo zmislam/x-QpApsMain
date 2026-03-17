@@ -1,214 +1,397 @@
-import 'package:dio/dio.dart';
-import 'package:flutter/cupertino.dart';
+import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:quantum_possibilities_flutter/app/config/constants/api_constant.dart';
-import 'package:quantum_possibilities_flutter/app/modules/earnDashboard/model/earningPointsModel.dart';
-import 'package:quantum_possibilities_flutter/app/services/api_communication.dart';
-import '../../../data/login_creadential.dart';
-import '../model/earningSummaryModel.dart';
-import '../model/earningTop3SummaryModel.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../model/revenue_share_models.dart';
+import '../services/earning_api_service.dart';
 
-class EarnDashboardController extends GetxController {
-  late final ApiCommunication _apiCommunication;
-  final earningPoints = Rxn<EarningPointsResult>();
-  final earningSummary = Rxn<EarningSummaryResult>();
-  final earningTop3Summary = Rxn<EarningTop3Summary>();
+class EarnDashboardController extends GetxController
+    with GetSingleTickerProviderStateMixin {
+  final EarningApiService _api = EarningApiService();
 
-  final dio = Dio(BaseOptions(
-    baseUrl: ApiConstant.BASE_URL,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  ));
+  // --- Tab ---
+  late TabController tabController;
 
-  // Loading state
-  var isLoading = false.obs;
+  // --- Loading ---
+  final isLoading = true.obs;
+  final isEarningsLoading = false.obs;
+  final isBreakdownLoading = false.obs;
+  final isWalletLoading = false.obs;
+
+  // --- Today Estimate ---
+  final todayEstimate = Rxn<TodayEstimateModel>();
+
+  // --- Countdown ---
+  final countdownText = ''.obs;
+  Timer? _countdownTimer;
+
+  // --- Page Breakdown ---
+  final pageBreakdown = <PageBreakdownEntry>[].obs;
+
+  // --- Score Weights ---
+  final scoreWeights = Rxn<ScoreWeightsModel>();
+
+  // --- Platform Stats ---
+  final platformStats = Rxn<PlatformStatsModel>();
+
+  // --- Leaderboard ---
+  final leaderboard = <LeaderboardEntry>[].obs;
+  final leaderboardSummary = Rxn<LeaderboardSummary>();
+  final leaderboardCalculatedAt = Rxn<String>();
+  final currentUserInTop10 = false.obs;
+  Timer? _leaderboardTimer;
+
+  // --- Daily Earnings ---
+  final dailyEarnings = <DailyEarningEntry>[].obs;
+  final dailyEarningsPagination = Rxn<PaginationMeta>();
+  final dailyEarningsSummary = Rxn<DailyEarningsSummary>();
+  final earningsCurrentPage = 1.obs;
+
+  // --- Daily Breakdown (for detail sheet) ---
+  final selectedDayBreakdown = Rxn<DailyBreakdownModel>();
+
+  // --- Wallet ---
+  final walletSummary = Rxn<WalletSummaryModel>();
+  final walletBalance = 0.0.obs;
 
   @override
-  void onInit() async {
+  void onInit() {
     super.onInit();
-    await fetchEarningData();
-    await fetchEarningSummaryData();
-    await fetchEarningTop3SummaryData();
+    tabController = TabController(length: 2, vsync: this);
+    _loadDashboard();
   }
 
-  final LoginCredential _loginCredential = LoginCredential();
-
-  // Get token method
-  String? getToken() {
-    return _loginCredential.getAccessToken();
+  @override
+  void onClose() {
+    _countdownTimer?.cancel();
+    _leaderboardTimer?.cancel();
+    tabController.dispose();
+    super.onClose();
   }
 
-  // Fetch data from API
-  Future<void> fetchEarningData() async {
+  // ──────────────────────────────────────────────
+  // INITIAL LOAD — matches qp-web fetchAllRevenueShareData
+  // ──────────────────────────────────────────────
+  Future<void> _loadDashboard() async {
+    isLoading.value = true;
     try {
-      isLoading.value = true;
-      final token = getToken();
-      final response = await dio.get(
-        'post/earning-points',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-          },
-        ),
-      );
-      if (response.statusCode == 200) {
-        final model = EarningPointsModel.fromJson(
-          response.data as Map<String, dynamic>,
-        );
-
-        if (model.result != null && model.result!.isNotEmpty) {
-          earningPoints.value = model.result!.first;
-        } else {
-          debugPrint('❌ Result is null or empty');
+      final res = await _api.fetchDashboardData();
+      if (res.isSuccessful && res.data != null) {
+        final data = res.data as Map<String, dynamic>;
+        // today_estimate
+        if (data['today_estimate'] != null) {
+          todayEstimate.value =
+              TodayEstimateModel.fromJson(data['today_estimate']);
+          _startCountdown();
+        }
+        // page_breakdown
+        if (data['page_breakdown'] != null) {
+          pageBreakdown.value = (data['page_breakdown'] as List)
+              .map((e) => PageBreakdownEntry.fromJson(e))
+              .toList();
+        }
+        // score_weights
+        if (data['score_weights'] != null) {
+          scoreWeights.value =
+              ScoreWeightsModel.fromJson(data['score_weights']);
+        }
+        // platform_stats
+        if (data['platform_stats'] != null) {
+          platformStats.value =
+              PlatformStatsModel.fromJson(data['platform_stats']);
+        }
+        // leaderboard
+        final lb = data['leaderboard'];
+        if (lb != null) {
+          leaderboard.value = (lb['leaderboard'] as List? ?? [])
+              .map((e) => LeaderboardEntry.fromJson(e))
+              .toList();
+          leaderboardSummary.value = lb['summary'] != null
+              ? LeaderboardSummary.fromJson(lb['summary'])
+              : null;
+          leaderboardCalculatedAt.value = lb['calculated_at']?.toString();
+          currentUserInTop10.value = lb['current_user_in_top10'] == true;
         }
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to fetch data: ${response.statusCode}',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+        // Fallback: individual calls (matches qp-web catch block)
+        await Future.wait([
+          _fetchTodayEstimate(),
+          _fetchScoreWeights(),
+          _fetchPageBreakdown(),
+        ]);
+        _fetchPlatformStats();
+        _fetchLeaderboard();
       }
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        Get.snackbar(
-          'Session Expired',
-          'Please login again',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        // Redirect to login
-        Get.offAllNamed('/login');
-      } else {
-        Get.snackbar(
-          'Error',
-          'Failed to fetch earning data: ${e.message}',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      }
-    } catch (e, stackTrace) {
-      Get.snackbar(
-        'Error',
-        'Failed to fetch earning data: $e',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+    } catch (e) {
+      debugPrint('[_loadDashboard] Error: $e');
+      // Fallback
+      await Future.wait([
+        _fetchTodayEstimate(),
+        _fetchScoreWeights(),
+        _fetchPageBreakdown(),
+      ]);
+      _fetchPlatformStats();
+      _fetchLeaderboard();
     } finally {
       isLoading.value = false;
     }
+
+    // Start leaderboard auto-refresh (every 30s, matches web)
+    _leaderboardTimer?.cancel();
+    _leaderboardTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _fetchLeaderboard(),
+    );
+
+    // Fetch wallet + earnings in background
+    fetchWalletSummary();
+    fetchDailyEarnings();
   }
 
-  Future<void> fetchEarningSummaryData() async {
+  // ──────────────────────────────────────────────
+  // INDIVIDUAL FETCHERS
+  // ──────────────────────────────────────────────
+  Future<void> _fetchTodayEstimate() async {
     try {
-      isLoading.value = true;
-      final token = getToken();
-      final response = await dio.get(
-        'post/earning-summary',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-          },
-        ),
-      );
-      if (response.statusCode == 200) {
-        final model = EarningSummaryModel.fromJson(
-          response.data as Map<String, dynamic>,
-        );
-
-        if (model.results != null && model.results!.isNotEmpty) {
-          earningSummary.value = model.results!.first;
-        } else {
-          debugPrint('❌ Result is null or empty');
-        }
-      } else {
-        Get.snackbar(
-          'Error',
-          'Failed to fetch data: ${response.statusCode}',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+      final res = await _api.fetchTodayEstimate();
+      if (res.isSuccessful && res.data != null) {
+        todayEstimate.value =
+            TodayEstimateModel.fromJson(res.data as Map<String, dynamic>);
+        _startCountdown();
       }
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        Get.snackbar(
-          'Session Expired',
-          'Please login again',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        // Redirect to login
-        Get.offAllNamed('/login');
-      } else {
-        Get.snackbar(
-          'Error',
-          'Failed to fetch earning data: ${e.message}',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      }
-    } catch (e, stackTrace) {
-      Get.snackbar(
-        'Error',
-        'Failed to fetch earning data: $e',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } finally {
-      isLoading.value = false;
+    } catch (e) {
+      debugPrint('[_fetchTodayEstimate] Error: $e');
     }
   }
 
-  Future<void> fetchEarningTop3SummaryData() async {
+  Future<void> _fetchScoreWeights() async {
     try {
-      isLoading.value = true;
-      final token = getToken();
-      final response = await dio.get(
-        'post/earning-top-three-summary',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-          },
-        ),
-      );
-      if (response.statusCode == 200) {
-        final model = EarningTop3SummaryModel.fromJson(
-          response.data as Map<String, dynamic>,
-        );
-
-        if (model.results != null) {
-          earningTop3Summary.value = model.results!;
-        } else {
-          debugPrint('❌ Result is null or empty');
-        }
-      } else {
-        Get.snackbar(
-          'Error',
-          'Failed to fetch data: ${response.statusCode}',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+      final res = await _api.fetchScoreWeights();
+      if (res.isSuccessful && res.data != null) {
+        scoreWeights.value =
+            ScoreWeightsModel.fromJson(res.data as Map<String, dynamic>);
       }
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        Get.snackbar(
-          'Session Expired',
-          'Please login again',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        // Redirect to login
-        Get.offAllNamed('/login');
-      } else {
-        Get.snackbar(
-          'Error',
-          'Failed to fetch earning data: ${e.message}',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      }
-    } catch (e, stackTrace) {
-      Get.snackbar(
-        'Error',
-        'Failed to fetch earning data: $e',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } finally {
-      isLoading.value = false;
+    } catch (e) {
+      debugPrint('[_fetchScoreWeights] Error: $e');
     }
   }
-  // Refresh data
-  Future<void> refreshData() async {
-    await fetchEarningData();
+
+  Future<void> _fetchPageBreakdown() async {
+    try {
+      final res = await _api.fetchPageBreakdown();
+      if (res.isSuccessful && res.data != null) {
+        pageBreakdown.value = (res.data as List)
+            .map((e) => PageBreakdownEntry.fromJson(e))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[_fetchPageBreakdown] Error: $e');
+    }
+  }
+
+  Future<void> _fetchPlatformStats() async {
+    try {
+      final res = await _api.fetchPlatformStats();
+      if (res.isSuccessful && res.data != null) {
+        platformStats.value =
+            PlatformStatsModel.fromJson(res.data as Map<String, dynamic>);
+      }
+    } catch (e) {
+      debugPrint('[_fetchPlatformStats] Error: $e');
+    }
+  }
+
+  Future<void> _fetchLeaderboard({String? date}) async {
+    try {
+      final res = await _api.fetchLeaderboard(date: date);
+      if (res.isSuccessful && res.data != null) {
+        final data = res.data as Map<String, dynamic>;
+        leaderboard.value = (data['leaderboard'] as List? ?? [])
+            .map((e) => LeaderboardEntry.fromJson(e))
+            .toList();
+        leaderboardSummary.value = data['summary'] != null
+            ? LeaderboardSummary.fromJson(data['summary'])
+            : null;
+        leaderboardCalculatedAt.value = data['calculated_at']?.toString();
+        currentUserInTop10.value = data['current_user_in_top10'] == true;
+      }
+    } catch (e) {
+      debugPrint('[_fetchLeaderboard] Error: $e');
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // DAILY EARNINGS (paginated)
+  // ──────────────────────────────────────────────
+  Future<void> fetchDailyEarnings({int page = 1, int limit = 30}) async {
+    try {
+      isEarningsLoading.value = true;
+      final res = await _api.fetchDailyEarnings(page: page, limit: limit);
+      if (res.isSuccessful && res.data != null) {
+        final data = res.data as Map<String, dynamic>;
+        dailyEarnings.value = (data['earnings'] as List? ?? [])
+            .map((e) => DailyEarningEntry.fromJson(e))
+            .toList();
+        if (data['pagination'] != null) {
+          dailyEarningsPagination.value =
+              PaginationMeta.fromJson(data['pagination']);
+        }
+        if (data['summary'] != null) {
+          dailyEarningsSummary.value =
+              DailyEarningsSummary.fromJson(data['summary']);
+        }
+        earningsCurrentPage.value = page;
+      }
+    } catch (e) {
+      debugPrint('[fetchDailyEarnings] Error: $e');
+    } finally {
+      isEarningsLoading.value = false;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // DAILY BREAKDOWN (for detail bottom sheet)
+  // ──────────────────────────────────────────────
+  Future<DailyBreakdownModel?> fetchDailyBreakdown(String date) async {
+    try {
+      isBreakdownLoading.value = true;
+      // API expects YYYY-MM-DD, but entries may have full ISO strings
+      final dateOnly = date.contains('T') ? date.split('T').first : date;
+      final res = await _api.fetchDailyBreakdown(dateOnly);
+      if (res.isSuccessful && res.data != null) {
+        final breakdown =
+            DailyBreakdownModel.fromJson(res.data as Map<String, dynamic>);
+        selectedDayBreakdown.value = breakdown;
+        return breakdown;
+      }
+    } catch (e) {
+      debugPrint('[fetchDailyBreakdown] Error: $e');
+    } finally {
+      isBreakdownLoading.value = false;
+    }
+    return null;
+  }
+
+  // ──────────────────────────────────────────────
+  // WALLET
+  // ──────────────────────────────────────────────
+  Future<void> fetchWalletSummary() async {
+    try {
+      isWalletLoading.value = true;
+      final res = await _api.fetchWalletSummary();
+      if (res.isSuccessful && res.data != null) {
+        walletSummary.value =
+            WalletSummaryModel.fromJson(res.data as Map<String, dynamic>);
+      }
+    } catch (e) {
+      debugPrint('[fetchWalletSummary] Error: $e');
+    } finally {
+      isWalletLoading.value = false;
+    }
+  }
+
+  // --- Stripe Connect ---
+  Future<void> connectStripe() async {
+    try {
+      final hasAccount = walletSummary.value?.hasStripeAccount ?? false;
+      final res = hasAccount
+          ? await _api.getStripeOnboardingLink()
+          : await _api.connectStripe();
+      if (res.isSuccessful && res.data != null) {
+        final data = res.data as Map<String, dynamic>;
+        final url = data['onboardingUrl']?.toString();
+        if (url != null && url.isNotEmpty) {
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        }
+      } else {
+        Get.snackbar('Error', res.message ?? 'Failed to connect Stripe',
+            snackPosition: SnackPosition.BOTTOM);
+      }
+    } catch (e) {
+      debugPrint('[connectStripe] Error: $e');
+      Get.snackbar('Error', 'Failed to connect Stripe',
+          snackPosition: SnackPosition.BOTTOM);
+    }
+  }
+
+  // --- Request Withdrawal ---
+  Future<bool> requestWithdrawal(double amountDollars) async {
+    try {
+      final amountCents = (amountDollars * 100).round();
+      final res = await _api.requestWithdrawal(amountCents: amountCents);
+      if (res.isSuccessful) {
+        final data = res.data;
+        if (data is Map<String, dynamic> && data['success'] == true) {
+          Get.snackbar(
+            'Success',
+            'Withdrawal submitted! Funds arrive in 1-2 business days.',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+          await fetchWalletSummary();
+          return true;
+        } else {
+          final msg = data is Map ? data['message']?.toString() : null;
+          Get.snackbar('Error', msg ?? 'Withdrawal failed',
+              snackPosition: SnackPosition.BOTTOM);
+        }
+      } else {
+        Get.snackbar('Error', res.message ?? 'Withdrawal failed',
+            snackPosition: SnackPosition.BOTTOM);
+      }
+    } catch (e) {
+      debugPrint('[requestWithdrawal] Error: $e');
+      Get.snackbar('Error', 'Withdrawal failed',
+          snackPosition: SnackPosition.BOTTOM);
+    }
+    return false;
+  }
+
+  // ──────────────────────────────────────────────
+  // COUNTDOWN — matches qp-web DistributionCountdown
+  // ──────────────────────────────────────────────
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    _updateCountdownText();
+    _countdownTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _updateCountdownText(),
+    );
+  }
+
+  void _updateCountdownText() {
+    final countdown = todayEstimate.value?.countdown;
+    if (countdown == null || countdown.nextDistribution.isEmpty) {
+      countdownText.value = '';
+      return;
+    }
+    if (countdown.distributionCompletedToday) {
+      countdownText.value = 'Completed Today';
+      return;
+    }
+    final target = DateTime.tryParse(countdown.nextDistribution);
+    if (target == null) {
+      countdownText.value = '';
+      return;
+    }
+    final now = DateTime.now().toUtc();
+    final diff = target.difference(now);
+    if (diff.isNegative) {
+      countdownText.value = 'Processing...';
+      return;
+    }
+    final h = diff.inHours.toString().padLeft(2, '0');
+    final m = (diff.inMinutes % 60).toString().padLeft(2, '0');
+    final s = (diff.inSeconds % 60).toString().padLeft(2, '0');
+    countdownText.value = '$h:$m:$s';
+  }
+
+  // ──────────────────────────────────────────────
+  // REFRESH
+  // ──────────────────────────────────────────────
+  Future<void> refreshDashboard() async {
+    await _loadDashboard();
   }
 }

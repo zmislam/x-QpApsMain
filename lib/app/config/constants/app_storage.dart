@@ -9,5 +9,6 @@ class AppStorage {
   static const PROFILE_SWITCH_KEY = 'profile_switch';
   static const String LANGUAGE_KEY = 'selected_language';
   static const String verifiedKey = 'verified_key';
+  static const String REMEMBER_ME_KEY = 'remember_me';
 
 }

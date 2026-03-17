@@ -68,7 +68,17 @@ class ExploreView extends GetView<ExploreController> {
                 addAutomaticKeepAlives: false,
                 addRepaintBoundaries: true,
                 itemCount: controller.postList.length,
+                findChildIndexCallback: (Key key) {
+                  if (key is ValueKey) {
+                    final index = controller.postList
+                        .indexWhere((p) => p.id == key.value);
+                    return index >= 0 ? index : null;
+                  }
+                  return null;
+                },
                 itemBuilder: (context, postIndex) {
+                  // Per-item Obx: only this PostCard rebuilds when its data changes
+                  return Obx(() {
                   if (postIndex < 0 || postIndex >= controller.postList.length) {
                     return const SizedBox.shrink();
                   }
@@ -184,6 +194,7 @@ class ExploreView extends GetView<ExploreController> {
                     const SizedBox(height: 2),
                   ],
                 );
+                  });
                   },
                 ),
               ),

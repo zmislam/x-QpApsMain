@@ -51,7 +51,7 @@ class ReelsViewBody extends StatefulWidget {
 }
 
 class _ReelsViewBodyState extends State<ReelsViewBody>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   Worker? _loadingWorker;
   bool _isLoaderShown = false;
 
@@ -61,6 +61,7 @@ class _ReelsViewBodyState extends State<ReelsViewBody>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // Listen to loading state changes and manage loader
     _loadingWorker = ever(widget.controller.isLoading, (bool loading) {
@@ -83,6 +84,7 @@ class _ReelsViewBodyState extends State<ReelsViewBody>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Clean up: dismiss loader and dispose worker
     _loadingWorker?.dispose();
     if (_isLoaderShown) {
@@ -90,6 +92,16 @@ class _ReelsViewBodyState extends State<ReelsViewBody>
       _isLoaderShown = false;
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      widget.controller.pauseAllReels();
+    } else if (state == AppLifecycleState.resumed) {
+      widget.controller.resumeReels();
+    }
   }
 
   @override
@@ -108,11 +120,6 @@ class _ReelsViewBodyState extends State<ReelsViewBody>
             widget.controller.reelsModelList.value,
             widget.controller.reelsCampaignResultList.value,
           );
-
-          debugPrint('MERGED LIST DATA ---------------------------------- ');
-          debugPrint('${widget.controller.reelsModelList.value}');
-          debugPrint('${mergedList.length}');
-          debugPrint('MERGED LIST DATA ---------------------------------- ');
 
           // If still loading, show empty container (loader is handled by worker)
           if (widget.controller.isLoading.value) {
@@ -164,6 +171,9 @@ class _ReelsViewBodyState extends State<ReelsViewBody>
                       });
 
                       return ReelsComponent(
+                        key: ValueKey(item.id),
+                        externalController: widget.controller
+                            .getPreloadedController(item.id ?? ''),
                         //==========================On Tap Delete =========================//
                         onTapDelete: () async {
                           showDeleteAlertDialogs(
@@ -238,7 +248,7 @@ class _ReelsViewBodyState extends State<ReelsViewBody>
 
                         isLiked: isLiked,
                         carouselController: widget.carouselController,
-                        reelsModel: item,
+                        reelsModel: current,
 
                         //==========================On Tap Like =========================//
                         onPressedLike: () {
@@ -310,6 +320,72 @@ class _ReelsViewBodyState extends State<ReelsViewBody>
                           // fire-and-forget the backend call
                           widget.controller
                               .reelsLike(item.id ?? '', reelsIndex);
+                        },
+
+                        //==========================On Tap Reaction =========================//
+                        onPressedReaction: (String reactionType) {
+                          final reelsIndex = widget
+                              .controller.reelsModelList.value
+                              .indexWhere((reel) => reel.id == item.id);
+                          if (reelsIndex == -1) return;
+
+                          final current = widget
+                              .controller.reelsModelList.value[reelsIndex];
+                          final myId = widget.controller.loginCredential
+                              .getUserData()
+                              .id;
+
+                          // Optimistic: toggle reaction
+                          final bool alreadyReacted =
+                              (current.reactions ?? []).any((r) {
+                            try {
+                              return (r.reacted_user?.id == myId) ||
+                                  (r.user_id?.id == myId);
+                            } catch (_) {
+                              return false;
+                            }
+                          });
+
+                          final int updatedCount =
+                              (current.reaction_count ?? 0) +
+                                  (alreadyReacted ? -1 : 1);
+
+                          List<ReelsReactionModel> newReactions =
+                              List<ReelsReactionModel>.from(
+                                  current.reactions ?? []);
+
+                          if (!alreadyReacted) {
+                            newReactions.insert(
+                              0,
+                              ReelsReactionModel(
+                                reacted_user: ReelsReactedUserIdModel(id: myId),
+                                reaction_type: reactionType,
+                              ),
+                            );
+                          } else {
+                            newReactions = newReactions.where((r) {
+                              try {
+                                return !(r.reacted_user?.id == myId ||
+                                    r.user_id?.id == myId);
+                              } catch (_) {
+                                return true;
+                              }
+                            }).toList();
+                          }
+
+                          final updatedModel = current.copyWith(
+                            reaction_count: updatedCount,
+                            reactions: newReactions,
+                          );
+
+                          final updatedList = List<ReelsModel>.from(
+                              widget.controller.reelsModelList.value);
+                          updatedList[reelsIndex] = updatedModel;
+                          widget.controller.reelsModelList.value = updatedList;
+
+                          // Fire API call
+                          widget.controller.reelsReaction(
+                              item.id ?? '', reelsIndex, reactionType);
                         },
 
                         //==========================On Tap Comment =========================//

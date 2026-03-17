@@ -184,6 +184,7 @@ mixin EdgeRankFeedMixin on GetxController {
             hasMorePosts.value = true;
             debugPrint('[EdgeRank] Auto-retrying with advanced cursor');
             isLoadingFeed.value = false;
+            await Future.delayed(const Duration(milliseconds: 300));
             return fetchEdgeRankFeed();
           } else {
             // Backend says done, no cursor — genuinely exhausted

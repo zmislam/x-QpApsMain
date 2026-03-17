@@ -228,6 +228,17 @@ class SuggestedReelsController extends GetxController {
     }
   }
 
+  // ─── Reaction with Type ────────────────────────────────────────────────────
+
+  void reelsReaction(String postId, int index, String reactionType) async {
+    ApiResponse apiResponse = await reelsRepository.reactOnAReel(
+      postId: postId, reactionType: reactionType);
+    if (apiResponse.isSuccessful) {
+      reelsModelList.value[index] = apiResponse.data as ReelsModel;
+      reelsModelList.refresh();
+    }
+  }
+
   // ─── Comments ──────────────────────────────────────────────────────────────
 
   void reelsComments(

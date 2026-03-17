@@ -163,11 +163,13 @@ class HomeView extends GetView<HomeController> {
                     (context, index) {
                     final int actualPostIndex = index;
 
-                    if (actualPostIndex < 0 || actualPostIndex >= posts.length) {
+                    // Per-item Obx: only this PostCard rebuilds when its data changes
+                    return Obx(() {
+                    if (actualPostIndex < 0 || actualPostIndex >= controller.edgeRankPosts.length) {
                       return const SizedBox.shrink();
                     }
 
-                    final PostModel postModel = posts[actualPostIndex];
+                    final PostModel postModel = controller.edgeRankPosts[actualPostIndex];
 
                       // Pre-compute video ad data outside the widget tree
                       int adIndex = 0;
@@ -327,6 +329,7 @@ class HomeView extends GetView<HomeController> {
                           const SizedBox(height: 2),
                         ],
                       );
+                  });
                   },
                   ),
                 );

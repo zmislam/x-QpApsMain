@@ -629,30 +629,35 @@ class OtherProfileView extends GetView<OthersProfileController> {
           // Friends section
           _buildFriendsSection(
               context, bgColor, textPrimary, textSecondary, dividerColor),
-          const SizedBox(height: 8),
 
           // All posts header
           Container(
             color: bgColor,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'All posts'.tr,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: textPrimary,
+                Divider(color: dividerColor, height: 1),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                  child: Text(
+                    'All posts'.tr,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: textPrimary,
+                    ),
                   ),
                 ),
+                Divider(color: dividerColor, height: 1),
               ],
             ),
           ),
-          Divider(color: dividerColor, height: 1),
 
           // Feed posts
-          OtherFeedComponent(controller: controller),
+          Container(
+            color: bgColor,
+            child: OtherFeedComponent(controller: controller),
+          ),
         ],
       ),
     );
@@ -1079,7 +1084,10 @@ class OtherProfileView extends GetView<OthersProfileController> {
 
                   return GestureDetector(
                     onTap: () => Get.toNamed(Routes.OTHERS_PROFILE,
-                        arguments: f.friend?.username),
+                        arguments: {
+                          'username': f.friend?.username ?? '',
+                          'isFromReels': 'false',
+                        }),
                     child: Container(
                       width: 80,
                       margin: const EdgeInsets.symmetric(horizontal: 4),

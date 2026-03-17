@@ -136,6 +136,9 @@ class FeedsRepository {
     if (response.isSuccessful) {
       try {
         final data = response.data as Map<String, dynamic>;
+        debugPrint('[Feeds-Pages-Repo] raw keys: ${data.keys}, '
+            'posts type: ${data['posts']?.runtimeType}, '
+            'posts length: ${(data['posts'] as List?)?.length}');
         final List<PostModel> posts = ((data['posts'] ?? []) as List)
             .map((e) => PostModel.fromMap(e as Map<String, dynamic>))
             .toList();
@@ -159,7 +162,7 @@ class FeedsRepository {
 
   /// Fetch explore feed with cursor-based pagination.
   Future<ApiResponse> getExploreFeed({
-    int limit = 15,
+    int limit = 10,
     String? cursor,
     int? sessionSeed,
   }) async {
@@ -197,8 +200,12 @@ class FeedsRepository {
 
         final pagination =
             data['pagination'] as Map<String, dynamic>? ?? {};
-        final nextCursor = pagination['cursor'] as String?;
+        // Backend returns 'nextCursor' (not 'cursor')
+        final nextCursor = pagination['nextCursor'] as String? ??
+            pagination['cursor'] as String?;
         final hasMore = pagination['hasMore'] as bool? ?? false;
+        debugPrint('[Feeds-Explore] pagination=$pagination, '
+            'nextCursor=$nextCursor, hasMore=$hasMore');
 
         return response.copyWith(data: {
           'posts': posts,

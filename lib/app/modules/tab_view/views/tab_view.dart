@@ -15,6 +15,7 @@ import '../../NAVIGATION_MENUS/notification/views/notification_view.dart';
 import '../../NAVIGATION_MENUS/user_menu/sub_menus/all_pages/pages/views/pages_view_tab.dart';
 import '../../NAVIGATION_MENUS/user_menu/views/user_menu_view.dart';
 import '../../NAVIGATION_MENUS/reels/views/reels_view.dart';
+import '../../NAVIGATION_MENUS/reels/controllers/reels_controller.dart';
 import '../../NAVIGATION_MENUS/home/controllers/home_controller.dart';
 import '../controllers/tab_view_controller.dart';
 import 'brand_design_preview.dart';
@@ -63,6 +64,9 @@ class TabView extends GetView<TabViewController> {
       final isPages = controller.loginCredential.getProfileSwitch()
           ? controller.tabIndex.value == 2
           : controller.tabIndex.value == 3;
+      final isNotifications = controller.loginCredential.getProfileSwitch()
+          ? controller.tabIndex.value == 4
+          : controller.tabIndex.value == 5;
       return AnnotatedRegion<SystemUiOverlayStyle>(
         value: isReels
             ? SystemUiOverlayStyle.light
@@ -70,12 +74,14 @@ class TabView extends GetView<TabViewController> {
                 ? SystemUiOverlayStyle.light
                 : SystemUiOverlayStyle.dark),
         child: Scaffold(
-          // ─── AppBar (hidden on Reels, Friends & Pages tabs) ───────────
-          appBar: (isReels || isFriends || isPages) ? null : _buildAppBar(context),
+          // ─── AppBar (hidden on Reels, Friends, Pages & Notifications tabs) ───────────
+          appBar: (isReels || isFriends || isPages || isNotifications) ? null : _buildAppBar(context),
           // ─── Body ─────────────────────────────────────────────────────
           body: _buildBody(context),
-          // ─── Bottom Navigation ────────────────────────────────────────
-          bottomNavigationBar: _buildBottomNav(context),
+          // ─── Bottom Navigation (slides away when reel is playing) ─────
+          bottomNavigationBar: isReels
+              ? _buildReelsBottomNav(context)
+              : _buildBottomNav(context),
           extendBody: isReels,
         ),
       );
@@ -99,11 +105,11 @@ class TabView extends GetView<TabViewController> {
       scrolledUnderElevation: 0.5,
       toolbarHeight: 56,
       titleSpacing: 0,
-      // ── Layout: [Hamburger] ---- [QP text ▾] ---- [Search] ──────────
+      // ── Layout: [QP Logo] ---- [QP text ▾] ---- [Search] ──────────
       title: Row(
         children: [
           const SizedBox(width: 4),
-          // ── Hamburger menu (left) ──────────────────────────────────
+          // ── QP Logo (left) — replaces hamburger, same tap action ───
           GestureDetector(
             onTap: () {
               // Navigate to the Profile/Menu tab (last tab)
@@ -116,64 +122,103 @@ class TabView extends GetView<TabViewController> {
             },
             child: Padding(
               padding: const EdgeInsets.all(8.0),
-              child: Icon(
-                Icons.menu,
-                size: 26,
-                color: iconColor,
+              child: Image.asset(
+                'assets/logo/logo.png',
+                width: 30,
+                height: 30,
               ),
             ),
           ),
-          // ── Centered brand text + dropdown arrow ───────────────────
+          // ── Brand text (Design 7: Stacked Two-Line) — left-aligned ─
           Expanded(
-            child: Center(
-              child: GestureDetector(
-                onTap: () => _showCreateBottomSheet(context),
-                onLongPress: () => showBrandDesignPreview(context), // TEMP — remove after approval
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // ── Design 25: Script Compact ─────────────────────
-                    ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: [Color(0xFF287070), Color(0xFF307777)],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ).createShader(bounds),
-                      child: Text(
-                        'quantum possibilities',
-                        style: TextStyle(
-                          fontFamily: 'GrandHotel',
-                          fontSize: brandFontSize * 0.91,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          letterSpacing: 0.3,
-                          height: 1.15,
-                        ),
+            child: GestureDetector(
+              onTap: () => _showCreateBottomSheet(context),
+              onLongPress: () => showBrandDesignPreview(context), // TEMP — remove after approval
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [Color(0xFF1E4F4F), Color(0xFF307777)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ).createShader(bounds),
+                    child: Text(
+                      'quantum',
+                      style: TextStyle(
+                        fontFamily: 'WorkSans',
+                        fontSize: brandFontSize * 0.95,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 1.0,
+                        height: 1.1,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    // ── Dropdown arrow (Instagram-style) ──────────────
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 22,
-                      color: iconColor.withValues(alpha: 0.7),
+                  ),
+                  Text(
+                    'POSSIBILITIES',
+                    style: TextStyle(
+                      fontFamily: 'WorkSans',
+                      fontSize: brandFontSize * 0.38,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
+                      letterSpacing: 5.0,
+                      height: 1.4,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
       ),
-      // ── Right-side: only Search icon ──────────────────────────────────
+      // ── Right-side: [+] Language Search Messenger ────────────────────
       actions: [
-        // ── Search button (Facebook-style: big circle, short handle) ───
+        // ── Create button ([+] in rounded square) ──────────────────────
+        GestureDetector(
+          onTap: () => _showCreateBottomSheet(context),
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: iconColor, width: 1.8),
+            ),
+            child: Icon(Icons.add, size: 17, color: iconColor),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // ── Language button ────────────────────────────────────────────
+        GestureDetector(
+          onTap: () => Get.toNamed(Routes.CHANGE_LANGUAGE),
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CustomPaint(painter: _FbLanguageIconPainter(color: iconColor)),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // ── Search button (Facebook-style) ─────────────────────────────
         GestureDetector(
           onTap: () => Get.toNamed(Routes.ADVANCE_SEARCH),
           child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CustomPaint(painter: _FbSearchIconPainter(color: iconColor)),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // ── Messenger button with badge ────────────────────────────────
+        GestureDetector(
+          onTap: () {
+            Get.snackbar('🎉 Almost Ready!',
+                'Get the messenger app and start amazing conversations with your friends! ✨');
+          },
+          child: SizedBox(
             width: 26,
             height: 26,
-            child: CustomPaint(painter: _FbSearchIconPainter(color: iconColor)),
+            child: CustomPaint(painter: _FbMessengerIconPainter(color: iconColor)),
           ),
         ),
         const SizedBox(width: 14),
@@ -361,6 +406,27 @@ class TabView extends GetView<TabViewController> {
   }
 
   // ═════════════════════════════════════════════════════════════════════════
+  //  BOTTOM NAV FOR REELS — animated hide/show based on play state
+  // ═════════════════════════════════════════════════════════════════════════
+
+  Widget _buildReelsBottomNav(BuildContext context) {
+    try {
+      final reelsController = Get.find<ReelsController>();
+      return Obx(() {
+        final hide = reelsController.isReelPlaying.value;
+        return AnimatedSlide(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          offset: hide ? const Offset(0, 1) : Offset.zero,
+          child: _buildBottomNav(context),
+        );
+      });
+    } catch (_) {
+      return _buildBottomNav(context);
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
   //  BOTTOM NAVIGATION BAR — Facebook-inspired, thumb-friendly
   // ═════════════════════════════════════════════════════════════════════════
 
@@ -497,6 +563,45 @@ class TabView extends GetView<TabViewController> {
 //  Custom Painters — Create icon, Search icon & Messenger icon
 // =============================================================================
 
+/// Facebook-style language/globe icon
+class _FbLanguageIconPainter extends CustomPainter {
+  final Color color;
+  _FbLanguageIconPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w * 0.5;
+    final cy = h * 0.5;
+    final r = w * 0.42;
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+
+    // Outer circle (globe)
+    canvas.drawCircle(Offset(cx, cy), r, paint);
+
+    // Horizontal line (equator)
+    canvas.drawLine(Offset(cx - r, cy), Offset(cx + r, cy), paint);
+
+    // Vertical ellipse (meridian)
+    final meridianRect = Rect.fromCenter(
+      center: Offset(cx, cy),
+      width: r * 1.0,
+      height: r * 2.0,
+    );
+    canvas.drawOval(meridianRect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FbLanguageIconPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
 /// Facebook-style search icon — large circle, short handle
 class _FbSearchIconPainter extends CustomPainter {
   final Color color;
@@ -530,8 +635,61 @@ class _FbSearchIconPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-// _CreateIconPainter and _FbMessengerIconPainter removed — create menu now
-// triggered via dropdown arrow next to brand text (Instagram-style).
+/// Facebook Messenger icon — round filled bubble, small tail bottom-left, white ~ wave
+class _FbMessengerIconPainter extends CustomPainter {
+  final Color color;
+  _FbMessengerIconPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // ── Chat bubble body (slightly squished circle) ──────────────────
+    final bubble = Path();
+    bubble.addOval(Rect.fromLTWH(w * 0.08, h * 0.04, w * 0.84, h * 0.78));
+
+    // ── Small curved tail at bottom-left ─────────────────────────────
+    final tail = Path();
+    tail.moveTo(w * 0.18, h * 0.70);
+    tail.quadraticBezierTo(w * 0.06, h * 0.88, w * 0.04, h * 0.96);
+    tail.quadraticBezierTo(w * 0.18, h * 0.86, w * 0.32, h * 0.78);
+    tail.close();
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(bubble, paint);
+    canvas.drawPath(tail, paint);
+
+    // ── White tilde (~) wave — the Messenger signature ───────────────
+    final wavePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.8
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final wave = Path();
+    // Start left-middle, curve up to center, curve down to right
+    wave.moveTo(w * 0.26, h * 0.50);
+    wave.cubicTo(
+      w * 0.34, h * 0.28, // control 1 — pulls up-left
+      w * 0.42, h * 0.28, // control 2 — pulls up-right
+      w * 0.50, h * 0.43, // end — center midpoint
+    );
+    wave.cubicTo(
+      w * 0.58, h * 0.58, // control 1 — pulls down-left
+      w * 0.66, h * 0.58, // control 2 — pulls down-right
+      w * 0.74, h * 0.36, // end — right side up
+    );
+    canvas.drawPath(wave, wavePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FbMessengerIconPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
 
 // =============================================================================
 //  Private Data — Bottom nav item definition

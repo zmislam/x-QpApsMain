@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../config/constants/feed_design_tokens.dart';
 import '../../../../models/notification.dart';
+import '../../../../routes/app_pages.dart';
+import '../../../tab_view/controllers/tab_view_controller.dart';
 import '../components/notification_item.dart';
 import '../controllers/notification_controller.dart';
 
@@ -10,141 +13,228 @@ class NotificationView extends GetView<NotificationController> {
 
   @override
   Widget build(BuildContext context) {
-    controller.getAllNotifications();
+    debugPrint('==== NotificationView build() START ====');
+    try {
+      controller.getAllNotifications();
+    } catch (e, stack) {
+      debugPrint('ERROR in getAllNotifications call: $e');
+      debugPrint('Stack: $stack');
+    }
+    debugPrint('==== NotificationView build() returning Scaffold ====');
 
-    return Scaffold(
-      // ========================== body section ===============================
-      body: RefreshIndicator(
-        onRefresh: () async {
-          controller.notificationList.value.clear(); // Clear the list
-          controller.skip.value = 0; // Reset pagination
-          controller.hasMoreData.value = true; // Reset more data flag
-          await controller.getAllNotifications(); // Reload notifications
-        },
-        child: Obx(() {
-          // Check if the notification list is empty
-          if (controller.notificationList.value.isEmpty) {
-            if (controller.isFetchingMore.value) {
-              return const SizedBox.shrink();
-            }
-            return Center(child: Text('No notifications available.'.tr));
-          }
-
-          return ListView.builder(
-            controller: controller.scrollController, // Attach the scroll controller
-            itemCount: controller.notificationList.value.length + (controller.hasMoreData.value ? 1 : 0), // Add a loading indicator item
-            itemBuilder: (context, index) {
-              if (index < controller.notificationList.value.length) {
-                NotificationModel notificationModel = controller.notificationList.value[index];
-
-                return InkWell(
-                  onTap: () {
-                    controller.handleNotificationTap(notificationModel);
-                  },
-                  child: NotificationItem(
-                    model: notificationModel,
-                  ),
-                );
-              } else {
-                // Show a loading indicator at the bottom if more data is being fetched
-                return const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                );
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back,
+                color: FeedDesignTokens.textPrimary(context)),
+            onPressed: () {
+              final tabController = Get.find<TabViewController>();
+              tabController.tabIndex.value = 0;
+              if (tabController.tabControllerInitComplete.value) {
+                tabController.tabController.animateTo(0);
               }
             },
+          ),
+          title: Text(
+            'Notifications'.tr,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 24,
+              color: FeedDesignTokens.textPrimary(context),
+            ),
+          ),
+          centerTitle: false,
+          actions: [
+            IconButton(
+              icon: Icon(Icons.search,
+                  color: FeedDesignTokens.textPrimary(context), size: 24),
+              onPressed: () => Get.toNamed(Routes.ADVANCE_SEARCH),
+            ),
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_horiz,
+                  color: FeedDesignTokens.textPrimary(context), size: 24),
+              onSelected: (value) {
+                if (value == 'mark_all_read') {
+                  controller.markAllAsRead();
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'mark_all_read',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.mark_email_read_outlined, size: 20),
+                      const SizedBox(width: 10),
+                      Text('Mark all as read'.tr),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+
+      body: RefreshIndicator(
+        onRefresh: () async {
+          controller.notificationList.value.clear();
+          controller.skip.value = 0;
+          controller.hasMoreData.value = true;
+          await controller.getAllNotifications();
+          await controller.getUnseenNotificationsCount();
+        },
+        child: Obx(() {
+          try {
+          final allNotifications = controller.notificationList.value;
+
+          if (allNotifications.isEmpty) {
+            if (controller.isFetchingMore.value) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.notifications_off_outlined,
+                      size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No notifications available.'.tr,
+                    style: TextStyle(color: Colors.grey[500], fontSize: 16),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final newNotifications = controller.newNotifications;
+          final earlierNotifications = controller.earlierNotifications;
+
+          return ListView(
+            controller: controller.scrollController,
+            children: [
+              // ── "New" Section ──
+              if (newNotifications.isNotEmpty) ...[
+                _SectionHeader(title: 'New'.tr),
+                ...newNotifications.map(
+                  (n) => _buildNotificationTile(context, n),
+                ),
+              ],
+
+              // ── "Earlier" Section ──
+              if (earlierNotifications.isNotEmpty) ...[
+                _SectionHeader(
+                  title: 'Earlier'.tr,
+                  showDivider: newNotifications.isNotEmpty,
+                ),
+                ...earlierNotifications.map(
+                  (n) => _buildNotificationTile(context, n),
+                ),
+              ],
+
+              // ── "See previous notifications" / Loading ──
+              if (controller.hasMoreData.value)
+                _SeePreviousButton(
+                  isLoading: controller.isFetchingMore.value,
+                  onTap: () => controller.loadMore(),
+                ),
+
+              const SizedBox(height: 20),
+            ],
           );
+          } catch (e, stack) {
+            debugPrint('ERROR in Obx builder: $e');
+            debugPrint('Stack: $stack');
+            return Center(child: Text('Error: $e'));
+          }
         }),
+      ),
       ),
     );
   }
 
-  // Function to handle notification tap
-  // void handleNotificationTap(NotificationModel notificationModel) {
-  //   if (notificationModel.notification_type == 'support_reply') {
-  //     Get.to(() => HelpSupportDetailsView(
-  //           notificationModel.resourceObject?.ticketId ?? '',
-  //         ));
-  //   } else if (notificationModel.notification_type == 'order_status' || notificationModel.notification_type == 'order_placed' || notificationModel.notification_type == 'order_refund') {
-  //     Get.to(() => const SellerOrderView());
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else if (notificationModel.notification_type == 'accept_friend_request') {
-  //     Get.toNamed(Routes.OTHERS_PROFILE, arguments: {
-  //       'username': notificationModel.notification_sender_id?.username,
-  //       'isFromReels': 'false',
-  //     });
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else if (notificationModel.notification_type == 'post_commented' || notificationModel.notification_type == 'reply_comment' || notificationModel.notification_type == 'comment_reaction') {
-  //     debugPrint('Action IS ON');
-  //     try {
-  //       Get.toNamed(
-  //         Routes.NOTIFICATION_POST,
-  //         arguments: {
-  //           'postId': notificationModel.notification_data!.postId!.id.toString(),
-  //           'commentId': notificationModel.notification_data!.commentId?.id,
-  //         },
-  //       );
-  //     } catch (error) {
-  //       showWarningSnackkbar(message: 'This post was not found');
-  //     }
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else if (notificationModel.notification_type == 'follow_request' || notificationModel.notification_type == 'friend_request') {
-  //     Get.toNamed(
-  //       Routes.OTHERS_PROFILE,
-  //       arguments: {
-  //         'username': notificationModel.notification_sender_id?.username,
-  //         'isFromReels': 'false',
-  //       },
-  //     );
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else if (notificationModel.notification_type == 'page_invitation') {
-  //     Get.toNamed(
-  //       Routes.PAGE_PROFILE,
-  //       arguments: notificationModel.resourceObject?.pageUserName,
-  //     );
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else if (notificationModel.notification_type == 'group_invitation' || notificationModel.notification_type == 'group_joined' || notificationModel.notification_type == 'group_joining' || notificationModel.notification_type == 'group_joining_accept') {
-  //     Get.toNamed(Routes.GROUP_PROFILE, arguments: {
-  //       'id': notificationModel.resourceObject?.groupId,
-  //       'group_type': '',
-  //     });
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else if (notificationModel.notification_type == 'role_invitation' && notificationModel.resourceObject?.groupId != null) {
-  //     Get.toNamed(Routes.GROUP_PROFILE, arguments: {
-  //       'id': notificationModel.resourceObject?.groupId,
-  //       'group_type': '',
-  //     });
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else if (notificationModel.notification_type == 'page' && notificationModel.resourceObject?.pageUserName != null) {
-  //     Get.toNamed(
-  //       Routes.PAGE_PROFILE,
-  //       arguments: notificationModel.resourceObject?.pageUserName,
-  //     );
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else if (notificationModel.notification_type == 'reel_post_reaction' || notificationModel.notification_type == 'reel_commented') {
-  //     Get.toNamed(Routes.VIDEO, arguments: notificationModel.notification_data?.reelId);
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else if (notificationModel.notification_type == 'campaign') {
-  //     UriUtils.launchUrlInBrowser('${ApiConstant.SERVER_IP}/manage-ads/single-ad/${notificationModel.resourceObject?.campaignId}');
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else if (notificationModel.notification_type == 'received_money') {
-  //     Get.toNamed(Routes.WALLET);
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   } else {
-  //     try {
-  //       Get.toNamed(
-  //         Routes.NOTIFICATION_POST,
-  //         arguments: {
-  //           'postId': notificationModel.notification_data!.postId!.id.toString(),
-  //           'commentId': null,
-  //         },
-  //       );
-  //     } catch (error) {
-  //       showWarningSnackkbar(message: 'Check Again later');
-  //     }
-  //     controller.updateNotificationSeenStatus(notificationModel.id.toString());
-  //   }
-  // }
+  Widget _buildNotificationTile(
+      BuildContext context, NotificationModel notificationModel) {
+    return InkWell(
+      onTap: () => controller.handleNotificationTap(notificationModel),
+      child: NotificationItem(model: notificationModel),
+    );
+  }
+}
+
+// ── Section Header ("New" / "Earlier") ──────────────────────────────
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final bool showDivider;
+
+  const _SectionHeader({required this.title, this.showDivider = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showDivider)
+          Divider(
+            height: 1,
+            thickness: 6,
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.08),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+          child: Text(
+            title,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── "See previous notifications" Button ─────────────────────────────
+class _SeePreviousButton extends StatelessWidget {
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  const _SeePreviousButton({required this.isLoading, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: InkWell(
+        onTap: isLoading ? null : onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    'See previous notifications'.tr,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
 }

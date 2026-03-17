@@ -160,6 +160,17 @@ class OtherReelsVideoView extends GetView<OtherReelsVideoController> {
                     carouselController: carouselController,
                     // controller: controller.videoPlayController,
                     reelsModel: item,
+
+                    //==========================On Tap Reaction =========================//
+                    onPressedReaction: (String reactionType) {
+                      final reelsIndex = controller.reelsModelList.value
+                          .indexWhere((reel) => reel.id == item.id);
+                      if (reelsIndex != -1) {
+                        controller.reelsReaction(
+                            item.id ?? '', reelsIndex, reactionType);
+                      }
+                    },
+
                     //==========================On Tap Like =========================//
 
                     onPressedLike: () {

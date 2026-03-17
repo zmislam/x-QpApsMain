@@ -676,13 +676,21 @@ class OthersProfileController extends GetxController {
     hasMoreReels.value = true;
     currentRepostSkip.value = 0;
     hasMoreRepostedReels.value = true;
-    await getOtherUserData();
-    await getFriends();
-    await isOtherUserFriendOrNot();
-    await isOtherUserFollowerOrNot();
-    await getPosts();
-    await getOtherPhotos();
-    await getProfilePictures();
+
+    try {
+      await getOtherUserData();
+    } catch (e) {
+      debugPrint('[OtherProfile] refresh getOtherUserData failed: $e');
+    }
+
+    await Future.wait([
+      _safeCall('getFriends', () => getFriends()),
+      _safeCall('isOtherUserFriendOrNot', () => isOtherUserFriendOrNot()),
+      _safeCall('isOtherUserFollowerOrNot', () => isOtherUserFollowerOrNot()),
+      _safeCall('getPosts', () => getPosts()),
+      _safeCall('getOtherPhotos', () => getOtherPhotos()),
+      _safeCall('getProfilePictures', () => getProfilePictures()),
+    ]);
   }
 
   // ====================================================== Friend, Follower, Following , Block related Function =========================================== //
@@ -1072,18 +1080,35 @@ class OthersProfileController extends GetxController {
     username = '${Get.arguments['username']}';
     isFromReels = '${Get.arguments['isFromReels']}';
     clearProfileLists();
-    await getOtherUserData();
+
+    // Step 1: Load profile first (required by subsequent calls)
+    try {
+      await getOtherUserData();
+    } catch (e) {
+      debugPrint('[OtherProfile] getOtherUserData failed: $e');
+    }
     getWidgetNumber();
 
-    await getFriends();
-    // await getOtherUserFriends();
-    await isOtherUserFriendOrNot();
-    await isOtherUserFollowerOrNot();
-    await getPosts();
-    await getOtherPhotos(); // Preload photos for highlights
-    await getProfilePictures();
+    // Step 2: Run independent calls in parallel with individual error handling
+    await Future.wait([
+      _safeCall('getFriends', () => getFriends()),
+      _safeCall('isOtherUserFriendOrNot', () => isOtherUserFriendOrNot()),
+      _safeCall('isOtherUserFollowerOrNot', () => isOtherUserFollowerOrNot()),
+      _safeCall('getPosts', () => getPosts()),
+      _safeCall('getOtherPhotos', () => getOtherPhotos()),
+      _safeCall('getProfilePictures', () => getProfilePictures()),
+    ]);
 
     super.onInit();
+  }
+
+  /// Wraps an async call with try-catch so one failure doesn't block others.
+  Future<void> _safeCall(String label, Future<void> Function() fn) async {
+    try {
+      await fn();
+    } catch (e) {
+      debugPrint('[OtherProfile] $label failed: $e');
+    }
   }
 
   @override

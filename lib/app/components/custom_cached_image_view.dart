@@ -13,6 +13,7 @@ class CustomCachedNetworkImage extends StatelessWidget {
   final double borderRadius;
   final Widget? errorWidget; // Custom error widget
   final VoidCallback? onTapPic; // Custom error widget
+  final int? memCacheWidth; // Constrain decoded image width for memory savings
 
   const CustomCachedNetworkImage({
     super.key,
@@ -25,10 +26,17 @@ class CustomCachedNetworkImage extends StatelessWidget {
     this.borderRadius = 0.0,
     this.errorWidget,
     this.onTapPic,
+    this.memCacheWidth,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Default memCacheWidth: screen width * pixel ratio (sharp on device, minimal memory)
+    final int effectiveMemCacheWidth = memCacheWidth ??
+        (MediaQuery.of(context).size.width *
+            MediaQuery.of(context).devicePixelRatio)
+            .toInt();
+
     return InkWell(
       onTap: onTapPic??() {
         Get.to(() => SingleImage(imgURL: imageUrl ?? ''));
@@ -38,6 +46,7 @@ class CustomCachedNetworkImage extends StatelessWidget {
         height: height,
         width: width,
         fit: fit,
+        memCacheWidth: effectiveMemCacheWidth,
         imageUrl: imageUrl ?? '',
         placeholder: (context, url) => Image.asset(
           alignment: alignment?? Alignment.topLeft,

@@ -645,9 +645,8 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
       postPrivacy: postPrivacy,
     );
 
-    await updatePostList(post_id);
-
     if (apiResponse.isSuccessful) {
+      await updatePostList(post_id);
       Get.back();
       showSuccessSnackkbar(message: 'Post bookmark successfully');
     }
@@ -671,31 +670,14 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
   Future<List<CommentModel>> getSinglePostsComments(String postID) async {
     isLoadingPostComment.value = true;
 
-    Rx<List<CommentModel>> commentList = Rx([]);
-
-    debugPrint(
-        '==================get SinglePosts Comments=========Start==========================');
-
     final apiResponse =
         await postRepository.getAllCommentsOfAPost(postID: postID);
     isLoadingPostComment.value = false;
 
-    debugPrint('invalid user code$apiResponse');
-
-    debugPrint(
-        '==================get SinglePosts Comments=========Api Call done==========================');
-
     if (apiResponse.isSuccessful) {
-      debugPrint(
-          '==================get SinglePosts Comments=========${apiResponse.data}==========================');
-
-      commentList.value.addAll(apiResponse.data as List<CommentModel>);
-
-      debugPrint(
-          '===================get SinglePosts Commentsn=================${commentList.value}===');
-
-      commentList.refresh();
-      return commentList.value;
+      final List<CommentModel> commentList =
+          apiResponse.data as List<CommentModel>;
+      return commentList;
     } else {
       return [];
     }
@@ -903,16 +885,8 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
 
       if (!apiResponse.isSuccessful) {
         debugPrint('⚠️ Failed to sync comment reaction, consider reverting');
-      } else {
-        // Optional: fetch updated comments from backend to stay synced
-        final updatedComments = await getSinglePostsComments(postId);
-        final syncIdx = edgeRankPosts.indexWhere((p) => p.id == postId);
-        if (syncIdx != -1) {
-          final syncPost = edgeRankPosts[syncIdx];
-          syncPost.comments = updatedComments;
-          edgeRankPosts[syncIdx] = syncPost;
-        }
       }
+      // Optimistic state is already correct — no need to re-fetch comments
     }
   }
 

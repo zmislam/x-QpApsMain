@@ -20,6 +20,7 @@ class LoginController extends GetxController {
   late final TextEditingController userIdController;
   late final TextEditingController passwordController;
   Rx<bool> obscureText = true.obs;
+  Rx<bool> rememberMe = true.obs;
   final GlobalKey<FormState> loginFormKey = GlobalKey();
   late ApiCommunication _apiCommunication;
   late LoginCredential _loginCredential;
@@ -46,6 +47,7 @@ class LoginController extends GetxController {
             response.data as Map<String, dynamic>;
         debugPrint(fullResponse.toString());
         _loginCredential.handleLoginCredential(fullResponse);
+        _loginCredential.saveRememberMe(rememberMe.value);
         await getDeviceInfo();
         Get.offAllNamed(Routes.TAB);
       } else {
@@ -134,6 +136,7 @@ class LoginController extends GetxController {
     passwordController = TextEditingController();
     _apiCommunication = ApiCommunication();
     _loginCredential = LoginCredential();
+    rememberMe.value = _loginCredential.getRememberMe();
   }
 
   @override

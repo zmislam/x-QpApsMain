@@ -49,6 +49,7 @@ dependencies:
   reaction_button: ^0.0.7 # Reaction button - View
   readmore: ^3.0.0 # Read more text - View
   shimmer: ^3.0.0 # Shimmer effect - View
+  fl_chart: ^0.70.2 # Charts - View
   story: ^1.1.0 # Story view - View
   app_links: ^6.4.0 # Wallet
 #  web3dart: ^3.0.0 # Wallet

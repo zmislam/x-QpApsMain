@@ -99,6 +99,18 @@ void main() async {
   // ========= Register memory pressure observer =========
   WidgetsBinding.instance.addObserver(_MemoryPressureObserver());
 
+  // ========= Capture Flutter framework errors with full stack trace =========
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('╔══════════════════════════════════════════════════════════════');
+    debugPrint('║ FLUTTER ERROR: ${details.exception}');
+    debugPrint('║ LIBRARY: ${details.library}');
+    debugPrint('║ CONTEXT: ${details.context}');
+    debugPrint('║ STACK TRACE:');
+    debugPrint('${details.stack}');
+    debugPrint('╚══════════════════════════════════════════════════════════════');
+    FlutterError.presentError(details);
+  };
+
   runApp(
     const QuantumPossibilities(),
   );

@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../extension/string/string_image_path.dart';
 import '../../../../config/constants/api_constant.dart';
 import '../../../../data/login_creadential.dart';
 import '../../../../data/post_local_data.dart';
@@ -46,6 +47,8 @@ class ExploreController extends GetxController {
 
   String? _nextCursor;
   int _sessionSeed = DateTime.now().millisecondsSinceEpoch;
+  int _emptyDedupCount = 0;
+  static const int _maxConsecutiveEmptyDedup = 10;
 
   // Legacy fallback state
   bool _useLegacy = false;
@@ -94,14 +97,21 @@ class ExploreController extends GetxController {
   void _scrollListener() {
     if (_scrollThrottle?.isActive ?? false) return;
     _scrollThrottle = Timer(const Duration(milliseconds: 200), () {
-      if (isLoadingMore.value || isLoadingNewsFeed.value) return;
-      if (feedExhausted.value || !hasMorePosts.value) return;
-
-      if (postScrollController.position.pixels >=
-          postScrollController.position.maxScrollExtent - 500) {
-        _fetchExplorePosts();
-      }
+      _checkAndLoadMore();
     });
+  }
+
+  /// Re-check scroll position and trigger load if near bottom.
+  /// Called from scroll listener AND after each fetch completes.
+  void _checkAndLoadMore() {
+    if (isLoadingMore.value || isLoadingNewsFeed.value) return;
+    if (feedExhausted.value || !hasMorePosts.value) return;
+    if (!postScrollController.hasClients) return;
+
+    if (postScrollController.position.pixels >=
+        postScrollController.position.maxScrollExtent - 500) {
+      _fetchExplorePosts();
+    }
   }
 
   // ============================ MAIN FETCH (CURSOR-BASED) =============================
@@ -137,13 +147,24 @@ class ExploreController extends GetxController {
     } finally {
       isLoadingNewsFeed.value = false;
       isLoadingMore.value = false;
+      // After new items render, re-check if still near bottom to continue loading
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkAndLoadMore();
+      });
     }
   }
 
   /// Fetch using cursor-based explore/feed API
-  Future<void> _fetchCursorBased({bool isInitial = false}) async {
+  Future<void> _fetchCursorBased({bool isInitial = false, int retryDepth = 0}) async {
+    // Hard recursion guard — prevent runaway retries
+    if (retryDepth > 5) {
+      debugPrint('[Explore] Max retry depth reached, stopping');
+      feedExhausted.value = true;
+      return;
+    }
+
     final response = await explorePageRepository.getExploreFeed(
-      limit: 15,
+      limit: 10,
       cursor: isInitial ? null : _nextCursor,
       sessionSeed: _sessionSeed,
       forceRecallAPI: isInitial ? true : null,
@@ -162,17 +183,81 @@ class ExploreController extends GetxController {
           .where((p) => p.id != null && !existingIds.contains(p.id))
           .toList();
 
-      postList.addAll(newPosts);
-      _prefetchPostImages(newPosts);
+      // Always advance cursor even when all posts are duplicates
       _nextCursor = feedData.nextCursor;
-      hasMorePosts.value = feedData.hasMore;
 
-      if (!feedData.hasMore && feedData.nextCursor == null) {
+      // ── Exhaustion detection (aligned with web behaviour) ──
+      // Web only exhausts when: hasMore=false AND posts.length === 0
+      // This ensures stage transitions (backend waterfall) are never
+      // prematurely stopped.
+      final bool apiReturnedPosts = feedData.posts.isNotEmpty;
+      final bool gotNewUniquePosts = newPosts.isNotEmpty;
+      final bool backendHasMore =
+          feedData.hasMore || feedData.nextCursor != null;
+
+      if (gotNewUniquePosts) {
+        // ── Normal: new unique posts added ──
+        _emptyDedupCount = 0;
+        postList.addAll(newPosts);
+        _prefetchPostImages(newPosts);
+        hasMorePosts.value = true; // keep scroll alive
+
+        // Web behaviour: if hasMore=false but posts returned, keep alive
+        // for one more attempt (stage transition)
+        if (!feedData.hasMore && feedData.nextCursor == null) {
+          // True exhaustion — all stages done, no cursor, last batch
+          feedExhausted.value = true;
+          debugPrint('[Explore] Feed exhausted — final batch served');
+        }
+      } else if (!apiReturnedPosts && !backendHasMore) {
+        // ── True exhaustion: backend returned 0 posts + no more ──
         feedExhausted.value = true;
+        debugPrint('[Explore] Feed exhausted — no posts, no more stages');
+      } else {
+        // ── Empty effective page (all duplicates or empty stage transition) ──
+        _emptyDedupCount++;
+        debugPrint('[Explore] Empty effective page '
+            '(apiPosts=${feedData.posts.length}, newAfterDedup=0, '
+            'consecutive=$_emptyDedupCount/$_maxConsecutiveEmptyDedup, '
+            'hasMore=${feedData.hasMore}, '
+            'cursor=${feedData.nextCursor != null})');
+
+        if (_emptyDedupCount >= _maxConsecutiveEmptyDedup) {
+          // Safety valve — but only if backend also says no more
+          if (!backendHasMore) {
+            feedExhausted.value = true;
+            debugPrint('[Explore] Feed exhausted — $_maxConsecutiveEmptyDedup '
+                'empty batches + backend done');
+          } else {
+            // Backend still has content — auto-retry with advanced cursor
+            debugPrint('[Explore] Auto-retrying with advanced cursor '
+                '(depth=${retryDepth + 1})');
+            hasMorePosts.value = true;
+            isLoadingMore.value = false;
+            await Future.delayed(const Duration(milliseconds: 300));
+            return _fetchCursorBased(retryDepth: retryDepth + 1);
+          }
+        } else if (backendHasMore) {
+          // Auto-retry: transparent fetch with advanced cursor
+          hasMorePosts.value = true;
+          isLoadingMore.value = false;
+          await Future.delayed(const Duration(milliseconds: 300));
+          return _fetchCursorBased(retryDepth: retryDepth + 1);
+        } else {
+          feedExhausted.value = true;
+          debugPrint('[Explore] Feed exhausted — backend done, '
+              'all posts were duplicates');
+        }
+      }
+
+      // Keep hasMore aligned with actual state
+      if (!feedExhausted.value) {
+        hasMorePosts.value = true;
       }
 
       debugPrint('[Explore] Loaded ${newPosts.length} new posts '
-          '(total: ${postList.length}, hasMore: ${feedData.hasMore})');
+          '(total: ${postList.length}, hasMore: ${hasMorePosts.value}, '
+          'exhausted: ${feedExhausted.value})');
     } else {
       throw Exception(response.message ?? 'Explore feed failed');
     }
@@ -207,6 +292,7 @@ class ExploreController extends GetxController {
   Future<void> refreshExplore() async {
     _nextCursor = null;
     _sessionSeed = DateTime.now().millisecondsSinceEpoch;
+    _emptyDedupCount = 0;
     hasMorePosts.value = true;
     feedExhausted.value = false;
     _useLegacy = false;
@@ -227,7 +313,7 @@ class ExploreController extends GetxController {
       reactionType: reaction,
     );
 
-    postList.refresh();
+    postList[index] = postModel;
 
     final apiResponse = await postRepository.reactOnPost(
       postModel: postModel,
@@ -253,16 +339,11 @@ class ExploreController extends GetxController {
       List<PostModel> postmodelList =
           (apiResponse.data as List).map((e) => PostModel.fromMap(e)).toList();
       postList[index] = postmodelList.first;
-      postList.refresh();
     }
   }
 
   // ============================ Comments Fetch =============================
   Future<List<CommentModel>> getSinglePostsComments(String postID) async {
-    isLoadingNewsFeed.value = true;
-
-    Rx<List<CommentModel>> commentList = Rx([]);
-
     debugPrint(
         '==================get SinglePosts Comments=========Start==========================');
 
@@ -270,16 +351,13 @@ class ExploreController extends GetxController {
       responseDataKey: ApiConstant.FULL_RESPONSE,
       apiEndPoint: 'get-all-comments-direct-post/$postID',
     );
-    isLoadingNewsFeed.value = false;
 
     if (apiResponse.isSuccessful) {
-      commentList.value.addAll(
+      final List<CommentModel> commentList =
         (((apiResponse.data as Map<String, dynamic>)['comments']) as List)
             .map((element) => CommentModel.fromMap(element))
-            .toList(),
-      );
-      commentList.refresh();
-      return commentList.value;
+            .toList();
+      return commentList;
     } else {
       return [];
     }
@@ -375,8 +453,9 @@ class ExploreController extends GetxController {
 
     if (apiResponse.isSuccessful) {
       List<CommentModel> comments = await getSinglePostsComments(post_id);
-      postList[postIndex].comments = comments;
-      postList.refresh();
+      final updatedPost = postList[postIndex];
+      updatedPost.comments = comments;
+      postList[postIndex] = updatedPost;
     }
   }
 
@@ -401,8 +480,9 @@ class ExploreController extends GetxController {
 
     if (apiResponse.isSuccessful) {
       List<CommentModel> comments = await getSinglePostsComments(post_id);
-      postList[postIndex].comments = comments;
-      postList.refresh();
+      final updatedPost = postList[postIndex];
+      updatedPost.comments = comments;
+      postList[postIndex] = updatedPost;
     }
   }
 
@@ -456,7 +536,6 @@ class ExploreController extends GetxController {
 
     if (apiResponse.isSuccessful) {
       postList.removeAt(postIndex);
-      postList.refresh();
       Get.back();
       // Track hide for explore algorithm
       explorePageRepository.trackEngagement('hide', postId: post_id);
@@ -474,10 +553,8 @@ class ExploreController extends GetxController {
       },
     );
 
-    updatePostList(post_id, index);
-    postList.refresh();
-
     if (apiResponse.isSuccessful) {
+      updatePostList(post_id, index);
       Get.back();
       showSuccessSnackkbar(message: 'Post bookmark successfully');
     }
@@ -493,7 +570,6 @@ class ExploreController extends GetxController {
     if (apiResponse.isSuccessful) {
       Get.back();
       updatePostList(post_id, index);
-      postList.refresh();
       showSuccessSnackkbar(message: 'remove bookmark');
     }
   }
@@ -545,7 +621,7 @@ class ExploreController extends GetxController {
         if (filename == null || filename.isEmpty) continue;
         if (!isImageUrl(filename)) continue;
 
-        final fullUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/posts/$filename';
+        final fullUrl = filename.formatedPostUrl;
         try {
           precacheImage(CachedNetworkImageProvider(fullUrl), context);
         } catch (_) {}

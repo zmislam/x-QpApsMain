@@ -219,14 +219,18 @@ class FeedsController extends GetxController with GetTickerProviderStateMixin {
       final nextCursor = data['nextCursor'] as String?;
       final hasMore = data['hasMore'] as bool? ?? false;
 
+      // Always advance cursor
+      _cursors[tab] = nextCursor;
+
       // Deduplicate
       final existingIds = posts[tab]!.map((p) => p.id).toSet();
       final unique = newPosts.where((p) => !existingIds.contains(p.id)).toList();
 
       posts[tab]!.addAll(unique);
-      _cursors[tab] = nextCursor;
 
-      if (!hasMore || unique.isEmpty) {
+      // Only exhaust when backend says no more AND no new posts
+      final backendHasMore = hasMore || nextCursor != null;
+      if (!backendHasMore && (unique.isEmpty || newPosts.isEmpty)) {
         exhausted[tab]!.value = true;
       }
     } else {
@@ -246,7 +250,14 @@ class FeedsController extends GetxController with GetTickerProviderStateMixin {
     if (response.isSuccessful && response.data is Map) {
       final data = response.data as Map<String, dynamic>;
       final newPosts = data['posts'] as List<PostModel>? ?? [];
-      final pageCount = data['pageCount'] as int? ?? 1;
+      final rawPageCount = data['pageCount'];
+      final pageCount = (rawPageCount is int)
+          ? rawPageCount
+          : (rawPageCount is double)
+              ? rawPageCount.ceil()
+              : (rawPageCount is num)
+                  ? rawPageCount.toInt()
+                  : 1;
 
       final existingIds = posts[tab]!.map((p) => p.id).toSet();
       final unique = newPosts.where((p) => !existingIds.contains(p.id)).toList();
@@ -255,7 +266,7 @@ class FeedsController extends GetxController with GetTickerProviderStateMixin {
       _pageCounts[tab] = pageCount;
       _pageNos[tab] = pageNo + 1;
 
-      if (pageNo >= pageCount || unique.isEmpty) {
+      if (pageNo >= pageCount || newPosts.isEmpty) {
         exhausted[tab]!.value = true;
       }
     } else {
@@ -271,11 +282,23 @@ class FeedsController extends GetxController with GetTickerProviderStateMixin {
     final pageNo = _pageNos[tab] ?? 1;
 
     final response = await _feedsRepo.getPagesFeed(pageNo: pageNo);
+    debugPrint('[Feeds-Pages] pageNo=$pageNo, isSuccessful=${response.isSuccessful}, '
+        'dataType=${response.data?.runtimeType}, data=${response.data}');
 
     if (response.isSuccessful && response.data is Map) {
       final data = response.data as Map<String, dynamic>;
       final newPosts = data['posts'] as List<PostModel>? ?? [];
-      final pageCount = data['pageCount'] as int? ?? 1;
+      final rawPageCount = data['pageCount'];
+      final pageCount = (rawPageCount is int)
+          ? rawPageCount
+          : (rawPageCount is double)
+              ? rawPageCount.ceil()
+              : (rawPageCount is num)
+                  ? rawPageCount.toInt()
+                  : 1;
+
+      debugPrint('[Feeds-Pages] parsed ${newPosts.length} posts, '
+          'pageCount=$pageCount (raw=$rawPageCount), totalPosts=${data['totalPosts']}');
 
       final existingIds = posts[tab]!.map((p) => p.id).toSet();
       final unique = newPosts.where((p) => !existingIds.contains(p.id)).toList();
@@ -284,17 +307,19 @@ class FeedsController extends GetxController with GetTickerProviderStateMixin {
       _pageCounts[tab] = pageCount;
       _pageNos[tab] = pageNo + 1;
 
-      if (pageNo >= pageCount || unique.isEmpty) {
+      if (pageNo >= pageCount || newPosts.isEmpty) {
         exhausted[tab]!.value = true;
       }
     } else {
+      debugPrint('[Feeds-Pages] API failed or bad data type: '
+          'message=${response.message}, dataType=${response.data?.runtimeType}');
       if (posts[tab]!.isEmpty) {
         exhausted[tab]!.value = true;
       }
     }
   }
 
-  // ─── Explore (cursor-based) ─────────────────────────────────────────────
+  // ─── Explore (cursor-based) — aligned with web exhaustion logic ──────────
 
   Future<void> _fetchExploreFeed(FeedsTab tab) async {
     final response = await _feedsRepo.getExploreFeed(
@@ -308,16 +333,32 @@ class FeedsController extends GetxController with GetTickerProviderStateMixin {
       final nextCursor = data['nextCursor'] as String?;
       final hasMore = data['hasMore'] as bool? ?? false;
 
+      // Always advance cursor
+      _cursors[tab] = nextCursor;
+
       final existingIds = posts[tab]!.map((p) => p.id).toSet();
       final unique = newPosts.where((p) => !existingIds.contains(p.id)).toList();
 
-      posts[tab]!.addAll(unique);
-      _cursors[tab] = nextCursor;
+      final bool backendHasMore = hasMore || nextCursor != null;
 
-      if (!hasMore || unique.isEmpty) {
+      if (unique.isNotEmpty) {
+        posts[tab]!.addAll(unique);
+        // Web behaviour: only exhaust when no more AND no cursor AND no posts
+        if (!hasMore && nextCursor == null) {
+          exhausted[tab]!.value = true;
+        }
+      } else if (newPosts.isEmpty && !backendHasMore) {
+        // True exhaustion: backend returned 0 posts and says no more
         exhausted[tab]!.value = true;
       }
+      // If all posts were duplicates but backend has more, do NOT exhaust
+      // The scroll listener will trigger another fetch with advanced cursor
+
+      debugPrint('[Feeds-Explore] unique=${unique.length}/${newPosts.length}, '
+          'cursor=$nextCursor, hasMore=$hasMore, '
+          'exhausted=${exhausted[tab]!.value}');
     } else {
+      debugPrint('[Feeds-Explore] API failed: ${response.message}');
       if (posts[tab]!.isEmpty) {
         exhausted[tab]!.value = true;
       }

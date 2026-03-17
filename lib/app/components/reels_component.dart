@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:gif/gif.dart';
+import 'package:quantum_possibilities_flutter/app/services/api_communication.dart';
 import 'package:quantum_possibilities_flutter/app/utils/logger/logger.dart';
 import 'smart_text.dart';
 import '../extension/string/string_image_path.dart';
 import 'package:video_player/video_player.dart';
 import '../config/constants/api_constant.dart';
+import '../config/constants/app_assets.dart';
 import '../data/app_settings_data.dart';
 import '../data/login_creadential.dart';
 import '../models/app_settings_model.dart';
@@ -30,6 +34,7 @@ class ReelsComponent extends StatefulWidget {
   final ReelsModel reelsModel;
   final LoginCredential loginCredentials;
   final VoidCallback onPressedLike;
+  final Function(String reactionType) onPressedReaction;
   final VoidCallback onPressedViewReact;
   final VoidCallback onPressedShareReels;
   final VoidCallback onPressedViewProfile;
@@ -47,6 +52,7 @@ class ReelsComponent extends StatefulWidget {
     required this.isLiked,
     required this.reelsModel,
     required this.onPressedLike,
+    required this.onPressedReaction,
     required this.onPressedViewReact,
     required this.onPressedShareReels,
     required this.onPressedReport,
@@ -72,6 +78,16 @@ class ReelsComponentState extends State<ReelsComponent>
   VideoPlayerController? get activeVideoController =>
       widget.externalController ?? videoPlayerControllerInternal;
 
+  /// Safe wrapper — silently no-ops if the element is already defunct.
+  void _safeSetState([VoidCallback? fn]) {
+    if (!mounted) return;
+    try {
+      setState(fn ?? () {});
+    } catch (_) {
+      // Element became defunct between mounted check and setState
+    }
+  }
+
   late GifController gifController;
   late final AppSettingsData appSettingsData;
   late AppSettingsModel appSettingsModel;
@@ -86,6 +102,29 @@ class ReelsComponentState extends State<ReelsComponent>
   bool isPlayingFlag = true;
   bool _wasPlayingBeforePause = false;
   VoidCallback? videoControllerListener;
+  bool _controllerWasInitialized = false;
+
+  // ─── Reaction Picker State ────────────────────────────────────────────────
+  bool _showReactionPicker = false;
+
+  // ─── Double-Tap Like Animation ────────────────────────────────────────────
+  bool _showDoubleTapHeart = false;
+  Offset _doubleTapPosition = Offset.zero;
+
+  // ─── Play/Pause Icon Fade ──────────────────────────────────────────────
+  bool _showPlayPauseIcon = false;
+  Timer? _playPauseTimer;
+
+  // ─── Follow State ─────────────────────────────────────────────────────
+  bool _isFollowing = false;
+  bool _followLoading = false;
+
+  // ─── Playback Speed ──────────────────────────────────────────────────────
+  double _playbackSpeed = 1.0;
+  static const List<double> _speedOptions = [0.5, 1.0, 1.5, 2.0];
+
+  // ─── GetX Worker (must be cancelled on dispose) ───────────────────────────
+  Worker? _pauseWorker;
 
   @override
   void initState() {
@@ -93,14 +132,16 @@ class ReelsComponentState extends State<ReelsComponent>
     gifController = GifController(vsync: this);
     appSettingsData = AppSettingsData();
     appSettingsModel = appSettingsData.getAppSettingsData();
+    _isFollowing = widget.reelsModel.is_from_friend == true ||
+        widget.reelsModel.is_from_followed_page == true;
 
-    ever(reelsController.shouldPauseReels, (shouldPause) {
+    _pauseWorker = ever(reelsController.shouldPauseReels, (shouldPause) {
       if (mounted) {
         if (shouldPause) {
           _wasPlayingBeforePause =
               activeVideoController?.value.isPlaying ?? false;
           _pauseEverything(callSetState: false);
-          setState(() {});
+          _safeSetState();
         } else {
           if (_wasPlayingBeforePause) {
             _resumePlayback();
@@ -112,6 +153,17 @@ class ReelsComponentState extends State<ReelsComponent>
 
     if (widget.externalController != null) {
       attachListenerToController(widget.externalController!);
+      // Auto-play the preloaded external controller
+      if (widget.externalController!.value.isInitialized) {
+        widget.externalController!
+          ..setLooping(true)
+          ..setVolume(appSettingsModel.reelsSoundEnable == true ? 1 : 0)
+          ..play();
+        // Defer reactive mutation to avoid "markNeedsBuild() called during build"
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) reelsController.isReelPlaying.value = true;
+        });
+      }
       maybeStartAudioForController(widget.externalController!);
     } else {
       createInternalNetworkController();
@@ -138,11 +190,14 @@ class ReelsComponentState extends State<ReelsComponent>
       // Attach listener AFTER initialize to avoid initialize-event race.
       attachListenerToController(controller);
 
-      setState(() {
+      _safeSetState(() {
         controller
           ..setLooping(true)
           ..setVolume(appSettingsData.getAppSettingsData().reelsSoundEnable == true ? 1 : 0)
           ..play();
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) reelsController.isReelPlaying.value = true;
 
         if (appSettingsData.getAppSettingsData().reelsSoundEnable == true) {
           final audioFile = widget.reelsModel.reelsDataModel?.audioModel?.audio_file;
@@ -186,13 +241,8 @@ class ReelsComponentState extends State<ReelsComponent>
       debugPrint('   ✗ Error stopping audio: $e');
     }
 
-    // Only call setState when caller explicitly allows it and widget is mounted.
-    if (callSetState && mounted) {
-      try {
-        setState(() {});
-      } catch (e) {
-        debugPrint('Ignored setState in _pauseEverything: $e');
-      }
+    if (callSetState) {
+      _safeSetState();
     }
   }
 
@@ -220,19 +270,24 @@ class ReelsComponentState extends State<ReelsComponent>
       debugPrint('   ✗ Error resuming audio: $e');
     }
 
-    if (mounted) {
-      try {
-        setState(() {});
-      } catch (e) {
-        debugPrint('Ignored setState in _resumePlayback: $e');
-      }
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) reelsController.isReelPlaying.value = true;
+    });
+
+    _safeSetState();
   }
 
 
   @override
   void didUpdateWidget(covariant ReelsComponent oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Sync follow state when the model is updated from outside
+    final newFollowing = widget.reelsModel.is_from_friend == true ||
+        widget.reelsModel.is_from_followed_page == true;
+    if (newFollowing != _isFollowing) {
+      _isFollowing = newFollowing;
+    }
 
     if (oldWidget.externalController != widget.externalController) {
       detachListenerFromController(oldWidget.externalController);
@@ -249,6 +304,17 @@ class ReelsComponentState extends State<ReelsComponent>
           createdInternalController = false;
         }
         attachListenerToController(widget.externalController!);
+        // Auto-play the new external controller
+        if (widget.externalController!.value.isInitialized) {
+          widget.externalController!
+            ..setLooping(true)
+            ..setVolume(appSettingsData.getAppSettingsData().reelsSoundEnable == true ? 1 : 0)
+            ..play();
+          // Defer reactive mutation to avoid "markNeedsBuild() called during build"
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) reelsController.isReelPlaying.value = true;
+          });
+        }
         maybeStartAudioForController(widget.externalController!);
       } else {
         // external removed -> create internal fallback
@@ -258,8 +324,15 @@ class ReelsComponentState extends State<ReelsComponent>
   }
 
   void attachListenerToController(VideoPlayerController controller) {
+    _controllerWasInitialized = controller.value.isInitialized;
     videoControllerListener = () {
-      if (mounted) setState(() {});
+      // Only rebuild when the controller first initializes (loading → video).
+      // VideoProgressIndicator handles its own per-frame updates internally.
+      // Play/pause icon is managed by togglePlayPause()'s own setState calls.
+      if (!_controllerWasInitialized && controller.value.isInitialized) {
+        _controllerWasInitialized = true;
+        _safeSetState();
+      }
     };
     controller.addListener(videoControllerListener!);
   }
@@ -271,6 +344,7 @@ class ReelsComponentState extends State<ReelsComponent>
       } catch (_) {}
     }
     videoControllerListener = null;
+    _controllerWasInitialized = false;
   }
 
 
@@ -287,7 +361,8 @@ class ReelsComponentState extends State<ReelsComponent>
   }
   @override
   void dispose() {
-    _pauseEverything();
+    _pauseWorker?.dispose();
+    _pauseEverything(callSetState: false);
 
     // detach listener from external AND internal controllers
     detachListenerFromController(widget.externalController);
@@ -305,6 +380,8 @@ class ReelsComponentState extends State<ReelsComponent>
     }
 
     audioPlayerService.stop();
+    _playPauseTimer?.cancel();
+    gifController.dispose();
     commentController.dispose();
     commentReplyController.dispose();
     super.dispose();
@@ -347,10 +424,35 @@ class ReelsComponentState extends State<ReelsComponent>
         );
     }
 
-    // fallback spinner
+    // fallback: show first image frame if available, else black
+    final firstImage = (widget.reelsModel.image != null && widget.reelsModel.image!.isNotEmpty)
+        ? widget.reelsModel.image!.first
+        : null;
+    if (firstImage != null && firstImage.isNotEmpty) {
+      return Positioned.fill(
+        child: DecoratedBox(
+          decoration: const BoxDecoration(color: Colors.black),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CachedNetworkImage(
+                imageUrl: '${ApiConstant.SERVER_IP_PORT}/uploads/reels/$firstImage',
+                fit: BoxFit.cover,
+                height: Get.height,
+                width: Get.width,
+              ),
+              const CircularProgressIndicator(color: Colors.white38, strokeWidth: 2),
+            ],
+          ),
+        ),
+      );
+    }
     return Positioned.fill(
       child: Container(
         color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white38, strokeWidth: 2),
+        ),
       ),
     );
   }
@@ -363,19 +465,58 @@ class ReelsComponentState extends State<ReelsComponent>
       try { c.pause(); } catch (_) {}
       try { gifController.stop(); } catch (_) {}
       try { audioPlayerService.stop(); } catch (_) {}
+      reelsController.isReelPlaying.value = false;
     } else {
       try { c.play(); } catch (_) {}
       try { gifController.repeat(period: const Duration(milliseconds: 800)); } catch (_) {}
       try { maybeStartAudioForController(c); } catch (_) {}
+      reelsController.isReelPlaying.value = true;
     }
 
-    if (mounted) setState(() {});
+    // Show play/pause icon briefly then fade out
+    _playPauseTimer?.cancel();
+    _safeSetState(() => _showPlayPauseIcon = true);
+    _playPauseTimer = Timer(const Duration(milliseconds: 600), () {
+      _safeSetState(() => _showPlayPauseIcon = false);
+    });
+  }
+
+  Future<void> _toggleFollow() async {
+    if (_followLoading) return;
+    final userId = widget.reelsModel.reel_user?.id ?? '';
+    if (userId.isEmpty) return;
+
+    _safeSetState(() => _followLoading = true);
+    final api = ApiCommunication();
+    final response = await api.doPostRequest(
+      apiEndPoint: 'follower-unfollow-request',
+      requestData: {
+        'follower_user_id': userId,
+        'follow_unfollow_status': _isFollowing ? 0 : 1,
+      },
+    );
+    if (response.isSuccessful && mounted) {
+      final newFollowing = !_isFollowing;
+      _safeSetState(() => _isFollowing = newFollowing);
+
+      // Persist follow state into reelsModelList so it survives widget rebuilds
+      final list = reelsController.reelsModelList.value;
+      final updatedList = List<ReelsModel>.from(list);
+      for (int i = 0; i < updatedList.length; i++) {
+        if (updatedList[i].reel_user?.id == userId) {
+          updatedList[i] = updatedList[i].copyWith(
+            is_from_friend: newFollowing,
+          );
+        }
+      }
+      reelsController.reelsModelList.value = updatedList;
+    }
+    _safeSetState(() => _followLoading = false);
   }
 
 
   @override
   Widget build(BuildContext context) {
-    final controller = activeVideoController;
     final emojiSrc = widget.reelsModel.reelsDataModel?.reelsEmojiModel?.emojiSrc;
     final isGif = emojiSrc != null && emojiSrc.toLowerCase().endsWith('.gif');
     final hasVideo = (widget.reelsModel.video != null && widget.reelsModel.video!.isNotEmpty);
@@ -383,17 +524,35 @@ class ReelsComponentState extends State<ReelsComponent>
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: togglePlayPause,
+      onDoubleTapDown: (details) {
+        _doubleTapPosition = details.localPosition;
+      },
+      onDoubleTap: () {
+        if (!widget.isLiked) {
+          widget.onPressedLike();
+        }
+        HapticFeedback.lightImpact();
+        _safeSetState(() => _showDoubleTapHeart = true);
+      },
       child: Stack(
         children: [
           buildVideoArea(),
+          // ── Play/Pause fade icon ──
           Center(
-            child: IconButton(
-              onPressed: togglePlayPause,
-              icon: Icon(
-                (activeVideoController?.value.isPlaying ?? false) ? Icons.pause : Icons.play_arrow,
-                // (activeVideoController?.value.isPlaying ?? false) ? Icons.pause : Icons.play_arrow,
-                size: 40,
-                color: (activeVideoController?.value.isPlaying ?? false) ? Colors.transparent :  Colors.transparent,
+            child: AnimatedOpacity(
+              opacity: _showPlayPauseIcon ? 1.0 : 0.0,
+              duration: Duration(milliseconds: _showPlayPauseIcon ? 0 : 300),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black45,
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Icon(
+                  (activeVideoController?.value.isPlaying ?? false) ? Icons.play_arrow : Icons.pause,
+                  size: 44,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
@@ -459,37 +618,39 @@ class ReelsComponentState extends State<ReelsComponent>
           ),
 
           Positioned(
-            top: 50,
-            left: Get.width - 120,
-            child: InkWell(
-                onTap: () {
-                  Get.toNamed(Routes.ADVANCE_SEARCH);
-                },
-                child: Icon(
-                  Icons.search,
-                  color: Colors.white.withValues(alpha: 0.7),
-                  size: 25,
-                )),
-          ),
-
-          Positioned(
-            top: 50,
-            left: Get.width - 60,
-            child: InkWell(
-                onTap: () {
-                  audioPlayerService.stop();
-                  if (activeVideoController != null) {
-                    try {
-                      activeVideoController!.setVolume(0);
-                    } catch (_) {}
-                  }
-                  Get.toNamed(Routes.CUSTOM_CAMERA);
-                },
-                child: Icon(
-                  Icons.photo_camera_outlined,
-                  color: Colors.white.withValues(alpha: 0.7),
-                  size: 25,
-                )),
+            top: 46,
+            right: 16,
+            child: Column(
+              children: [
+                InkWell(
+                  onTap: () {
+                    Get.toNamed(Routes.REELS_SEARCH);
+                  },
+                  child: Icon(
+                    Icons.search,
+                    color: Colors.white.withValues(alpha: 0.7),
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () {
+                    audioPlayerService.stop();
+                    if (activeVideoController != null) {
+                      try {
+                        activeVideoController!.setVolume(0);
+                      } catch (_) {}
+                    }
+                    Get.toNamed(Routes.CUSTOM_CAMERA);
+                  },
+                  child: Icon(
+                    Icons.photo_camera_outlined,
+                    color: Colors.white.withValues(alpha: 0.7),
+                    size: 26,
+                  ),
+                ),
+              ],
+            ),
           ),
 
           if (widget.reelsModel.reelsDataModel?.reelsTextModel?.reelsText != null)
@@ -643,12 +804,11 @@ class ReelsComponentState extends State<ReelsComponent>
                                 : (widget.reelsModel.reel_user?.profile_pic?.formatedProfileUrl ?? ''.formatedProfileUrl),
                           ),
                           const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(
-                                width: 180,
-                                child: RichText(
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                RichText(
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   text: TextSpan(children: [
@@ -660,34 +820,62 @@ class ReelsComponentState extends State<ReelsComponent>
                                         : TextSpan(text: ' is at ${widget.reelsModel.location ?? '.tr'}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Colors.white)),
                                   ]),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Text(
-                                    widget.reelsModel.reels_privacy == '' || widget.reelsModel.reels_privacy == null || widget.reelsModel.reels_privacy == 'null'
-                                        ? 'Public'
-                                        : '${widget.reelsModel.reels_privacy.toString().capitalizeFirst}',
-                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, color: Colors.white),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Icon(
-                                    widget.reelsModel.reels_privacy == 'public'
-                                        ? Icons.public
-                                        : widget.reelsModel.reels_privacy == 'null'
-                                        ? Icons.public
-                                        : widget.reelsModel.reels_privacy == 'friends'
-                                        ? Icons.group
-                                        : widget.reelsModel.reels_privacy == 'private'
-                                        ? Icons.lock
-                                        : Icons.public,
-                                    size: 15,
-                                    color: Colors.white,
-                                  ),
-                                ],
-                              )
-                            ],
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Text(
+                                      widget.reelsModel.reels_privacy == '' || widget.reelsModel.reels_privacy == null || widget.reelsModel.reels_privacy == 'null'
+                                          ? 'Public'
+                                          : '${widget.reelsModel.reels_privacy.toString().capitalizeFirst}',
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, color: Colors.white),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Icon(
+                                      widget.reelsModel.reels_privacy == 'public'
+                                          ? Icons.public
+                                          : widget.reelsModel.reels_privacy == 'null'
+                                          ? Icons.public
+                                          : widget.reelsModel.reels_privacy == 'friends'
+                                          ? Icons.group
+                                          : widget.reelsModel.reels_privacy == 'private'
+                                          ? Icons.lock
+                                          : Icons.public,
+                                      size: 15,
+                                      color: Colors.white,
+                                    ),
+                                  ],
+                                )
+                              ],
+                            ),
                           ),
+                          // Follow button — only show for other users' reels
+                          if (widget.reelsModel.reel_user?.id != widget.loginCredentials.getUserData().id)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: _followLoading
+                                  ? const SizedBox(
+                                      width: 20, height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : InkWell(
+                                      onTap: _toggleFollow,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: _isFollowing ? Colors.white24 : Colors.white,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          _isFollowing ? 'Following' : 'Follow',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: _isFollowing ? Colors.white : Colors.black,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                            ),
                         ],
                       ),
                     ),
@@ -730,9 +918,10 @@ class ReelsComponentState extends State<ReelsComponent>
               bottom: 40,
               child: Column(
                 children: [
+                  // ─── Sound Toggle ─────────────────────────────────────────
                   IconButton(
                     onPressed: () {
-                      setState(() {
+                      _safeSetState(() {
                         appSettingsModel.reelsSoundEnable = !appSettingsModel.reelsSoundEnable;
                         appSettingsData.saveAppSettingsData(appSettingsModel);
                         if (appSettingsData.getAppSettingsData().reelsSoundEnable == true) {
@@ -757,20 +946,31 @@ class ReelsComponentState extends State<ReelsComponent>
                       color: Colors.white.withValues(alpha: 0.7),
                     ),
                   ),
-                  const SizedBox(height: 15),
-                  IconButton(
-                    onPressed: widget.onPressedLike,
-                    icon: Icon(
-                      Icons.thumb_up_alt_outlined,
-                      size: 25,
-                      color: widget.isLiked == true ? Colors.blue : Colors.white.withValues(alpha: 0.7),
+                  const SizedBox(height: 10),
+                  // ─── Like Button (tap = like, long-press = reaction picker) ──
+                  GestureDetector(
+                    onTap: widget.onPressedLike,
+                    onLongPress: () {
+                      HapticFeedback.mediumImpact();
+                      _safeSetState(() => _showReactionPicker = true);
+                    },
+                    child: Column(
+                      children: [
+                        Icon(
+                          widget.isLiked ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
+                          size: 25,
+                          color: widget.isLiked ? Colors.blue : Colors.white.withValues(alpha: 0.7),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${widget.reelsModel.reaction_count}'.tr,
+                          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7)),
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    '${widget.reelsModel.reaction_count}'.tr,
-                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7)),
-                  ),
                   const SizedBox(height: 15),
+                  // ─── Comment ──────────────────────────────────────────────
                   IconButton(
                     onPressed: widget.onPressedComment,
                     icon: Icon(
@@ -783,7 +983,8 @@ class ReelsComponentState extends State<ReelsComponent>
                     '${widget.reelsModel.comment_count}'.tr,
                     style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7)),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 15),
+                  // ─── Share ────────────────────────────────────────────────
                   InkWell(
                       onTap: widget.onPressedShareReels,
                       child: Column(
@@ -792,47 +993,263 @@ class ReelsComponentState extends State<ReelsComponent>
                           Text('${widget.reelsModel.total_share_count ?? 0}'.tr, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
                         ],
                       )),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 15),
+                  // ─── Bookmark / Save ──────────────────────────────────────
+                  Obx(() {
+                    final isBookmarked = reelsController.bookmarkedReelIds.contains(widget.reelsModel.id);
+                    return GestureDetector(
+                      onTap: () => reelsController.toggleBookmark(widget.reelsModel.id ?? ''),
+                      child: Column(
+                        children: [
+                          Icon(
+                            isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                            color: isBookmarked ? Colors.amber : Colors.white.withValues(alpha: 0.7),
+                            size: 25,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isBookmarked ? 'Saved'.tr : 'Save'.tr,
+                            style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.7)),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 15),
+                  // ─── Views (Eye) ──────────────────────────────────────────
                   InkWell(onTap: widget.onPressedReelsEye, child: Image.asset('assets/icon/create_post/eye_tracking.png', height: 20, width: 20)),
                   const SizedBox(height: 10),
-                  PopupMenuButton<int>(
-                    color: Colors.transparent,
-                    offset: const Offset(-50, -100),
-                    iconColor: Colors.white,
-                    icon: const Icon(Icons.more_horiz),
-                    itemBuilder: (context) {
-                      return [
-                        if (widget.loginCredentials.getUserData().id == widget.reelsModel.reel_user?.id)
-                          PopupMenuItem<int>(
-                            value: 1,
-                            onTap: widget.onTapEditReel,
-                            child: Text('Edit'.tr, style: const TextStyle(color: Colors.white)),
-                          ),
-                        if (widget.loginCredentials.getUserData().id == widget.reelsModel.reel_user?.id)
-                          PopupMenuItem<int>(
-                            value: 1,
-                            onTap: widget.onTapDelete,
-                            child: Text('Delete'.tr, style: const TextStyle(color: Colors.white)),
-                          ),
-                        PopupMenuItem<int>(
-                          onTap: () {
-                            CopyToClipboardUtils.copyToClipboard('${ApiConstant.SERVER_IP}/reels?reels_id=${widget.reelsModel.id}', 'Link');
-                          },
-                          value: 3,
-                          child: Text('Copy Link'.tr, style: const TextStyle(color: Colors.white)),
-                        ),
-                        if (widget.loginCredentials.getUserData().id != widget.reelsModel.reel_user?.id)
-                          PopupMenuItem<int>(
-                            value: 3,
-                            onTap: widget.onPressedReport,
-                            child: Text('Report'.tr, style: const TextStyle(color: Colors.white)),
-                          ),
-                      ];
-                    },
+                  // ─── More Options ─────────────────────────────────────────
+                  IconButton(
+                    icon: const Icon(Icons.more_horiz, color: Colors.white),
+                    onPressed: () => _showMoreOptionsSheet(context),
                   ),
                 ],
-              ))
+              )),
+
+          // ─── Reaction Picker Overlay ──────────────────────────────────────
+          if (_showReactionPicker)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => _safeSetState(() => _showReactionPicker = false),
+                child: Container(
+                  color: Colors.transparent,
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 10, bottom: 160),
+                    child: _buildReactionPicker(),
+                  ),
+                ),
+              ),
+            ),
+
+          // ─── Double-Tap Heart Animation ───────────────────────────────────
+          if (_showDoubleTapHeart)
+            Positioned(
+              left: _doubleTapPosition.dx - 40,
+              top: _doubleTapPosition.dy - 40,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 600),
+                onEnd: () => _safeSetState(() => _showDoubleTapHeart = false),
+                builder: (context, value, child) {
+                  return Opacity(
+                    opacity: value < 0.7 ? 1.0 : (1.0 - value) / 0.3,
+                    child: Transform.scale(
+                      scale: 0.5 + value * 0.5,
+                      child: const Icon(Icons.favorite, color: Colors.red, size: 80),
+                    ),
+                  );
+                },
+              ),
+            ),
         ],
+      ),
+    );
+  }
+
+  // ═══════════════════════ Reaction Picker ═══════════════════════════════════
+
+  Widget _buildReactionPicker() {
+    final reactions = [
+      {'type': 'like', 'asset': AppAssets.LIKE_ICON},
+      {'type': 'love', 'asset': AppAssets.LOVE_ICON},
+      {'type': 'haha', 'asset': AppAssets.HAHA_ICON},
+      {'type': 'wow', 'asset': AppAssets.WOW_ICON},
+      {'type': 'sad', 'asset': AppAssets.SAD_ICON},
+      {'type': 'angry', 'asset': AppAssets.ANGRY_ICON},
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: reactions.map((r) {
+          return GestureDetector(
+            onTap: () {
+              _safeSetState(() => _showReactionPicker = false);
+              widget.onPressedReaction(r['type'] as String);
+              HapticFeedback.lightImpact();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Image.asset(r['asset'] as String, height: 36, width: 36),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ═══════════════════════ More Options Sheet ════════════════════════════════
+
+  void _showMoreOptionsSheet(BuildContext context) {
+    final isAuthor = widget.loginCredentials.getUserData().id == widget.reelsModel.reel_user?.id;
+    final reelId = widget.reelsModel.id ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // ─── Feedback Section ───────────────────────────────────
+                if (!isAuthor) ...[
+                  _moreOptionTile(
+                    ctx, Icons.add_circle_outline, 'Interested'.tr,
+                    subtitle: 'Show more like this'.tr,
+                    onTap: () { Navigator.pop(ctx); reelsController.sendFeedback(reelId, 'interested'); },
+                  ),
+                  _moreOptionTile(
+                    ctx, Icons.remove_circle_outline, 'Not interested'.tr,
+                    subtitle: 'Show less like this'.tr,
+                    onTap: () { Navigator.pop(ctx); reelsController.sendFeedback(reelId, 'not_interested'); },
+                  ),
+                  const Divider(height: 1),
+                ],
+                // ─── Actions Section ────────────────────────────────────
+                Obx(() {
+                  final isSaved = reelsController.bookmarkedReelIds.contains(reelId);
+                  return _moreOptionTile(
+                    ctx, isSaved ? Icons.bookmark : Icons.bookmark_border,
+                    isSaved ? 'Unsave reel'.tr : 'Save reel'.tr,
+                    onTap: () { Navigator.pop(ctx); reelsController.toggleBookmark(reelId); },
+                  );
+                }),
+                _moreOptionTile(
+                  ctx, Icons.collections_bookmark_outlined, 'View saved reels'.tr,
+                  onTap: () { Navigator.pop(ctx); Get.toNamed(Routes.SAVED_REELS); },
+                ),
+                _moreOptionTile(
+                  ctx, Icons.link, 'Copy link'.tr,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    CopyToClipboardUtils.copyToClipboard(
+                      '${ApiConstant.SERVER_IP}/reels?reels_id=$reelId', 'Link');
+                  },
+                ),
+                if (isAuthor)
+                  _moreOptionTile(
+                    ctx, Icons.edit, 'Edit'.tr,
+                    onTap: () { Navigator.pop(ctx); widget.onTapEditReel(); },
+                  ),
+                if (isAuthor)
+                  _moreOptionTile(
+                    ctx, Icons.delete_outline, 'Delete'.tr,
+                    onTap: () { Navigator.pop(ctx); widget.onTapDelete(); },
+                  ),
+                if (!isAuthor) ...[
+                  _moreOptionTile(
+                    ctx, Icons.flag_outlined, 'Report'.tr,
+                    onTap: () { Navigator.pop(ctx); widget.onPressedReport(); },
+                  ),
+                  _moreOptionTile(
+                    ctx, Icons.visibility_off_outlined, 'Hide reel'.tr,
+                    onTap: () { Navigator.pop(ctx); reelsController.hideReel(reelId); },
+                  ),
+                ],
+                const Divider(height: 1),
+                // ─── Playback Section ───────────────────────────────────
+                _moreOptionTile(
+                  ctx, Icons.speed, 'Playback speed'.tr,
+                  trailing: Text(
+                    '${_playbackSpeed}x',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                  ),
+                  onTap: () { Navigator.pop(ctx); _showPlaybackSpeedSheet(context); },
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _moreOptionTile(BuildContext ctx, IconData icon, String title, {
+    String? subtitle,
+    Widget? trailing,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      dense: true,
+      leading: Icon(icon, size: 22),
+      title: Text(title, style: const TextStyle(fontSize: 15)),
+      subtitle: subtitle != null ? Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)) : null,
+      trailing: trailing,
+      onTap: onTap,
+    );
+  }
+
+  // ═══════════════════════ Playback Speed Sheet ═════════════════════════════
+
+  void _showPlaybackSpeedSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Playback speed'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            ..._speedOptions.map((speed) => ListTile(
+              leading: speed == _playbackSpeed
+                  ? const Icon(Icons.check, color: Colors.blue)
+                  : const SizedBox(width: 24),
+              title: Text('${speed}x${speed == 1.0 ? " (Normal)" : ""}'),
+              onTap: () {
+                _safeSetState(() => _playbackSpeed = speed);
+                activeVideoController?.setPlaybackSpeed(speed);
+                Navigator.pop(ctx);
+              },
+            )),
+            const SizedBox(height: 10),
+          ],
+        ),
       ),
     );
   }

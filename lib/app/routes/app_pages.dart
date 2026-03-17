@@ -14,6 +14,12 @@ import '../modules/NAVIGATION_MENUS/feeds/bindings/feeds_binding.dart';
 import '../modules/NAVIGATION_MENUS/feeds/views/feeds_view.dart';
 import '../modules/NAVIGATION_MENUS/reels/sub_menu/suggested_reels/bindings/suggested_reels_binding.dart';
 import '../modules/NAVIGATION_MENUS/reels/sub_menu/suggested_reels/views/suggested_reels_view.dart';
+import '../modules/NAVIGATION_MENUS/reels/sub_menu/reels_search/bindings/reels_search_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels/sub_menu/reels_search/views/reels_search_view.dart';
+import '../modules/NAVIGATION_MENUS/reels/sub_menu/watched_reels/bindings/watched_reels_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels/sub_menu/watched_reels/views/watched_reels_view.dart';
+import '../modules/NAVIGATION_MENUS/reels/sub_menu/saved_reels/bindings/saved_reels_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels/sub_menu/saved_reels/views/saved_reels_view.dart';
 import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_dashboard/bindings/buyer_panel_dashboard_binding.dart';
 import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_dashboard/views/buyer_panel_dashboard_view.dart';
 import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_dashboard/views/complain_list_view.dart';
@@ -1085,6 +1091,21 @@ class AppPages {
       name: _Paths.SUGGESTED_REELS,
       page: () => const SuggestedReelsView(),
       binding: SuggestedReelsBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_SEARCH,
+      page: () => const ReelsSearchView(),
+      binding: ReelsSearchBinding(),
+    ),
+    GetPage(
+      name: _Paths.WATCHED_REELS,
+      page: () => const WatchedReelsView(),
+      binding: WatchedReelsBinding(),
+    ),
+    GetPage(
+      name: _Paths.SAVED_REELS,
+      page: () => const SavedReelsView(),
+      binding: SavedReelsBinding(),
     ),
     GetPage(
       name: _Paths.FEEDS,
