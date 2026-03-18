@@ -101,12 +101,25 @@ class _SuggestedReelsViewBodyState extends State<_SuggestedReelsViewBody> {
               PageView.builder(
                 controller: widget.controller.pageController,
                 scrollDirection: Axis.vertical,
-                itemCount: reelsList.length,
+                itemCount: reelsList.length + 1, // +1 for end card
                 onPageChanged: (int index) {
-                  final reel = reelsList[index];
-                  widget.controller.onReelViewed(reel.id ?? '', index);
+                  widget.controller.currentPageIndex = index;
+                  
+                  // If on the end card (last page)
+                  if (index == reelsList.length) {
+                    widget.controller.onEndCardViewed();
+                  } else {
+                    widget.controller.onLeftEndCard();
+                    final reel = reelsList[index];
+                    widget.controller.onReelViewed(reel.id ?? '', index);
+                  }
                 },
                 itemBuilder: (context, index) {
+                  // End card page
+                  if (index == reelsList.length) {
+                    return _buildEndCard(context);
+                  }
+                  
                   return Obx(() {
                     final reel = widget.controller.reelsModelList.value[index];
                     final myId =
@@ -443,32 +456,188 @@ class _SuggestedReelsViewBodyState extends State<_SuggestedReelsViewBody> {
                 ),
               ),
 
-              // ─── "Suggested Reels" label ─────────────────────────────
+              // ─── "Suggested Reels" label + Reels link ─────────────────
               Positioned(
                 top: MediaQuery.of(context).padding.top + 14,
                 left: 0,
                 right: 0,
-                child: const Center(
-                  child: Text(
-                    'Suggested Reels',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      shadows: [
-                        Shadow(
-                          offset: Offset(0, 1),
-                          blurRadius: 3,
-                          color: Colors.black54,
-                        ),
-                      ],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Suggested Reels',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        shadows: [
+                          Shadow(
+                            offset: Offset(0, 1),
+                            blurRadius: 3,
+                            color: Colors.black54,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () {
+                        Get.back();
+                        Get.toNamed(Routes.REELS);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Reels',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                shadows: [
+                                  Shadow(
+                                    offset: Offset(0, 1),
+                                    blurRadius: 3,
+                                    color: Colors.black54,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(width: 2),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              color: Colors.white,
+                              size: 11,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           );
         }),
+      ),
+    );
+  }
+
+  /// Build the end card shown after all suggested reels
+  Widget _buildEndCard(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Icon
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.movie_filter_outlined,
+                  color: Colors.white,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Title
+              const Text(
+                'Suggested Reels Complete',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+
+              // Subtitle
+              Text(
+                'Continue to discover more amazing reels',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 15,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+
+              // Countdown
+              Obx(() => Text(
+                'Continuing in ${widget.controller.autoForwardCountdown.value}s...',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 14,
+                ),
+              )),
+              const SizedBox(height: 20),
+
+              // Continue Button
+              GestureDetector(
+                onTap: () => widget.controller.continueToReels(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF405DE6), Color(0xFFC13584)],
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Continue to Reels',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Icon(
+                        Icons.arrow_forward,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Go Back option
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: Text(
+                  'Go Back',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

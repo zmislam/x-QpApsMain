@@ -346,12 +346,12 @@ class ReelsSearchView extends GetView<ReelsSearchController> {
   }
 
   Widget _buildReelThumbnail(dynamic reel) {
-    final firstImage = (reel.image != null && reel.image!.isNotEmpty)
-        ? reel.image!.first
-        : null;
-    final imageUrl = firstImage != null
-        ? '${ApiConstant.SERVER_IP_PORT}/uploads/reels/$firstImage'
-        : '';
+    String imageUrl = '';
+    if (reel.image != null && reel.image!.isNotEmpty) {
+      imageUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/reels/${reel.image!.first}';
+    } else if (reel.video_thumbnail != null && reel.video_thumbnail!.isNotEmpty) {
+      imageUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/reels/thumbnails/${reel.video_thumbnail}';
+    }
 
     return GestureDetector(
       onTap: () => Get.toNamed(Routes.OTHER_USER_VIDEO, arguments: {'reelsID': reel.id}),

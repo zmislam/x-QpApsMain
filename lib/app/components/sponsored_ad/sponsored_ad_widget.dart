@@ -21,6 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../config/constants/api_constant.dart';
 import '../../config/constants/feed_design_tokens.dart';
@@ -464,6 +465,9 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
   //  Cover Media
   // ─────────────────────────────────────────────────────────────────────────
   Widget _buildCoverMedia(String coverUrl, bool isDark) {
+    if (widget.ad.isVideo) {
+      return _AdVideoPlayer(videoUrl: coverUrl, isDark: isDark);
+    }
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: CachedNetworkImage(
@@ -1400,4 +1404,115 @@ class _TabDef {
   final int count;
   const _TabDef(
       {required this.type, required this.label, required this.count});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Ad Video Player — Inline auto-play video for sponsored ads
+// ─────────────────────────────────────────────────────────────────────────────
+class _AdVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+  final bool isDark;
+
+  const _AdVideoPlayer({required this.videoUrl, required this.isDark});
+
+  @override
+  State<_AdVideoPlayer> createState() => _AdVideoPlayerState();
+}
+
+class _AdVideoPlayerState extends State<_AdVideoPlayer> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+  bool _showPlayButton = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..initialize().then((_) {
+        if (mounted) {
+          setState(() => _initialized = true);
+          _controller.setLooping(true);
+          _controller.setVolume(0);
+          _controller.play();
+        }
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Container(
+          color: widget.isDark ? Colors.grey[800] : Colors.grey[200],
+          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
+
+    return AspectRatio(
+      aspectRatio: _controller.value.aspectRatio,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            if (_controller.value.isPlaying) {
+              _controller.pause();
+              _showPlayButton = true;
+            } else {
+              _controller.play();
+              _showPlayButton = false;
+            }
+          });
+        },
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(_controller),
+            if (_showPlayButton)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(12),
+                child: const Icon(Icons.play_arrow, color: Colors.white, size: 36),
+              ),
+            // Mute/unmute button bottom-right
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _controller.setVolume(
+                        _controller.value.volume > 0 ? 0 : 1);
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _controller.value.volume > 0
+                        ? Icons.volume_up
+                        : Icons.volume_off,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

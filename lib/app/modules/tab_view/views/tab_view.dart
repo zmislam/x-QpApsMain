@@ -133,8 +133,10 @@ class TabView extends GetView<TabViewController> {
           Expanded(
             child: GestureDetector(
               onTap: () => _showCreateBottomSheet(context),
-              onLongPress: () => showBrandDesignPreview(context), // TEMP — remove after approval
-              child: Column(
+              // onLongPress: () => showBrandDesignPreview(context), // TEMP — blocked for now, re-enable when needed
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -151,7 +153,7 @@ class TabView extends GetView<TabViewController> {
                         fontSize: brandFontSize * 0.95,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
-                        letterSpacing: 1.0,
+                        letterSpacing: 2.5,
                         height: 1.1,
                       ),
                     ),
@@ -163,11 +165,12 @@ class TabView extends GetView<TabViewController> {
                       fontSize: brandFontSize * 0.38,
                       fontWeight: FontWeight.w500,
                       color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
-                      letterSpacing: 5.0,
+                      letterSpacing: 4.2,
                       height: 1.4,
                     ),
                   ),
                 ],
+              ),
               ),
             ),
           ),
@@ -206,19 +209,6 @@ class TabView extends GetView<TabViewController> {
             width: 22,
             height: 22,
             child: CustomPaint(painter: _FbSearchIconPainter(color: iconColor)),
-          ),
-        ),
-        const SizedBox(width: 12),
-        // ── Messenger button with badge ────────────────────────────────
-        GestureDetector(
-          onTap: () {
-            Get.snackbar('🎉 Almost Ready!',
-                'Get the messenger app and start amazing conversations with your friends! ✨');
-          },
-          child: SizedBox(
-            width: 26,
-            height: 26,
-            child: CustomPaint(painter: _FbMessengerIconPainter(color: iconColor)),
           ),
         ),
         const SizedBox(width: 14),
@@ -377,6 +367,11 @@ class TabView extends GetView<TabViewController> {
       const UserMenuView(),
     ];
 
+    // Swipeable tab indices — follows bottom nav order, excludes Profile (route, not a tab)
+    final swipeableTabs = isPageProfile
+        ? _pageNavToTab.sublist(0, _pageNavToTab.length - 1)
+        : _normalNavToTab.sublist(0, _normalNavToTab.length - 1);
+
     return Builder(
       builder: (context) {
         controller.updateTabControllerAfterReelCreation();
@@ -389,12 +384,34 @@ class TabView extends GetView<TabViewController> {
           },
           child: Obx(() {
             return controller.tabControllerInitComplete.value
-                ? TabBarView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    controller: controller.tabController,
-                    children: isPageProfile
-                        ? tabBarViewsPageProfile
-                        : tabBarViewsForProfile,
+                ? GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragEnd: (details) {
+                      final velocity = details.primaryVelocity ?? 0;
+                      if (velocity.abs() < 300) return;
+
+                      final currentTab = controller.tabIndex.value;
+                      final currentSwipeIdx = swipeableTabs.indexOf(currentTab);
+                      if (currentSwipeIdx < 0) return;
+
+                      final nextSwipeIdx = velocity < 0
+                          ? currentSwipeIdx + 1  // swipe left → next tab
+                          : currentSwipeIdx - 1; // swipe right → prev tab
+
+                      if (nextSwipeIdx < 0 || nextSwipeIdx >= swipeableTabs.length) return;
+
+                      final nextTabIdx = swipeableTabs[nextSwipeIdx];
+                      controller.tabIndex.value = nextTabIdx;
+                      controller.tabController.animateTo(nextTabIdx);
+                      HapticFeedback.selectionClick();
+                    },
+                    child: TabBarView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      controller: controller.tabController,
+                      children: isPageProfile
+                          ? tabBarViewsPageProfile
+                          : tabBarViewsForProfile,
+                    ),
                   )
                 : Container(
                     color: Theme.of(context).scaffoldBackgroundColor,

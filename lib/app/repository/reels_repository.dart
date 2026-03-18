@@ -621,10 +621,19 @@ class ReelsRepository {
       responseDataKey: 'data',
     );
 
-    if (apiResponse.isSuccessful) {
-      final reelsList = (apiResponse.data as List)
-          .map((e) => ReelsModel.fromMap(e))
-          .toList();
+    if (apiResponse.isSuccessful && apiResponse.data != null) {
+      // Backend returns { reels: [...] } inside data
+      final rawData = apiResponse.data;
+      final List reelsList;
+      if (rawData is Map && rawData['reels'] != null) {
+        reelsList = (rawData['reels'] as List)
+            .map((e) => ReelsModel.fromMap(e))
+            .toList();
+      } else if (rawData is List) {
+        reelsList = rawData.map((e) => ReelsModel.fromMap(e)).toList();
+      } else {
+        reelsList = [];
+      }
       return apiResponse.copyWith(data: reelsList);
     }
     return apiResponse;

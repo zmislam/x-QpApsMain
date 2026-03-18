@@ -1053,8 +1053,10 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
       if (_isLoadingMore) return;
       if (feedExhausted.value) return;
       if (!hasMorePosts.value) return;
+      // Trigger at 1500px from bottom so content loads well before
+      // the user reaches the end — eliminates visible loading gaps.
       if (postScrollController.position.pixels >=
-          postScrollController.position.maxScrollExtent - 800) {
+          postScrollController.position.maxScrollExtent - 1500) {
         _triggerLoadMore();
       }
     });

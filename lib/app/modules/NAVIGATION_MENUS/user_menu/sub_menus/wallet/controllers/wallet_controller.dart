@@ -55,6 +55,8 @@ class WalletController extends GetxController {
   TextEditingController cardExpiryController = TextEditingController();
   TextEditingController postCodeController = TextEditingController();
 
+  final secrectKey = ''; // Stripe key removed for security
+
   createPaymentIntent() async {
     final apiResponse = await _apiCommunication.doPostRequest(
       apiEndPoint: 'wallet/create-payment-intent',

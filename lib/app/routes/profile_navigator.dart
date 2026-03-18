@@ -4,6 +4,7 @@
 // // //_|_|                                                                          |_|
 // // //_|_|                                                                          |_|
 
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:quantum_possibilities_flutter/app/repository/page_repository.dart';
 import '../data/login_creadential.dart';
@@ -16,9 +17,17 @@ class ProfileNavigator {
       {required String username,
       String? isFromReels,
       String? isFromPageReels}) async {
+    if (username.isEmpty) {
+      debugPrint('[ProfileNavigator] Empty username, skipping navigation');
+      return;
+    }
     try {
-      final response =
-          await PageRepository().getPageDetailsByName(name: username);
+      final response = await PageRepository()
+          .getPageDetailsByName(name: username)
+          .timeout(const Duration(seconds: 5), onTimeout: () {
+        debugPrint('[ProfileNavigator] Page check timed out for: $username');
+        return ApiResponse(isSuccessful: false);
+      });
 
       if (_isValidPageResponse(response)) {
         _navigateToPageProfile(response.data as Map<String, dynamic>, username,
@@ -28,6 +37,7 @@ class ProfileNavigator {
             userName: username, isFromReels: isFromReels ?? 'false');
       }
     } catch (e) {
+      debugPrint('[ProfileNavigator] Error checking page: $e');
       navigateToIndividualProfile(
           userName: username, isFromReels: isFromReels ?? 'false');
     }
@@ -54,6 +64,10 @@ class ProfileNavigator {
 
   static void navigateToIndividualProfile(
       {required String userName, required String isFromReels}) {
+    if (userName.isEmpty) {
+      debugPrint('[ProfileNavigator] Empty username, skipping navigation');
+      return;
+    }
     final isSelfProfile =
         userName == LoginCredential().getUserData().username &&
             !LoginCredential().getProfileSwitch();
@@ -61,6 +75,7 @@ class ProfileNavigator {
     Get.toNamed(
       isSelfProfile ? Routes.PROFILE : Routes.OTHERS_PROFILE,
       arguments: {'username': userName, 'isFromReels': isFromReels},
+      preventDuplicates: false,
     );
   }
 }

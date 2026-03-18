@@ -72,7 +72,7 @@ mixin EdgeRankFeedMixin on GetxController {
 
     try {
       final response = await _edgeRankRepo.getEdgeRankFeed(
-        limit: 10,
+        limit: 20,
         cursor: isInitial ? null : _nextCursor,
         feedMode: currentFeedMode.value,
         sessionSeed: isInitial ? _sessionSeed : null,
@@ -296,29 +296,42 @@ mixin EdgeRankFeedMixin on GetxController {
 
   // ─── Image Pre-fetching ──────────────────────────────────
 
-  /// Pre-fetch the first image of each new post into the CachedNetworkImage
+  /// Pre-fetch images of each new post into the CachedNetworkImage
   /// disk & memory cache so they display instantly when scrolled into view.
   void _prefetchPostImages(List<PostModel> posts) {
     final context = Get.context;
     if (context == null) return;
 
     for (final post in posts) {
+      // Prefetch author profile pic
+      final profilePic = post.user_id?.profile_pic;
+      if (profilePic != null && profilePic.isNotEmpty) {
+        try {
+          precacheImage(
+            CachedNetworkImageProvider(profilePic.formatedProfileUrl),
+            context,
+          );
+        } catch (_) {}
+      }
+
       final mediaList = post.media;
       if (mediaList == null || mediaList.isEmpty) continue;
 
-      // Find the first image in the post's media list
+      // Prefetch up to 2 images per post for faster rendering
+      int prefetched = 0;
       for (final media in mediaList) {
+        if (prefetched >= 2) break;
         final filename = media.media;
         if (filename == null || filename.isEmpty) continue;
         if (!isImageUrl(filename)) continue;
 
-        final fullUrl = filename.formatedPostUrl;
         try {
-          precacheImage(CachedNetworkImageProvider(fullUrl), context);
-        } catch (_) {
-          // Silently ignore pre-fetch failures
-        }
-        break; // Only pre-fetch the first image per post
+          precacheImage(
+            CachedNetworkImageProvider(filename.formatedPostUrl),
+            context,
+          );
+          prefetched++;
+        } catch (_) {}
       }
     }
   }

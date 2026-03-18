@@ -46,10 +46,44 @@ class SponsoredAdModel {
   String? get websiteUrl => data['websiteUrl'] as String?;
 
   /// Campaign cover images/media.
+  /// Supports both V1 (campaignCoverPic) and V2 (media array with media_type).
   List<String> get coverMedia {
+    // V2 format: media: [{media: "filename", media_type: "image"|"video"}]
+    final v2Media = data['media'] as List?;
+    if (v2Media != null && v2Media.isNotEmpty) {
+      return v2Media
+          .map((e) {
+            if (e is Map) return (e['media'] ?? '').toString();
+            return e.toString();
+          })
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+    // V1 format: campaignCoverPic: ["filename1", "filename2"]
     final raw = data['campaignCoverPic'] as List?;
     if (raw == null) return [];
     return raw.map((e) => e.toString()).toList();
+  }
+
+  /// Media type of the first cover media item ("image" or "video").
+  String get coverMediaType {
+    final v2Media = data['media'] as List?;
+    if (v2Media != null && v2Media.isNotEmpty) {
+      final first = v2Media.first;
+      if (first is Map) {
+        return (first['media_type'] ?? 'image').toString();
+      }
+    }
+    return 'image';
+  }
+
+  /// Whether the cover media is a video.
+  bool get isVideo {
+    if (coverMediaType == 'video') return true;
+    final media = coverMedia;
+    if (media.isEmpty) return false;
+    final ext = media.first.split('.').last.toLowerCase();
+    return ['mp4', 'webm', 'mov', 'avi', 'm4v'].contains(ext);
   }
 
   /// Ad/campaign ID.

@@ -101,6 +101,7 @@ android {
 
         jniLibs {
             useLegacyPackaging = false
+            keepDebugSymbols += "**/lib*.so"
         }
     }
 }

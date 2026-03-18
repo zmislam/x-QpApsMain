@@ -139,17 +139,23 @@ class OthersProfileController extends GetxController {
   // ====================================================== Other Profile Info =========================================== //
 
   Future getOtherUserData() async {
+    if (username == null || username!.isEmpty) {
+      debugPrint('[OtherProfile] Empty username, cannot fetch profile');
+      isLoadingNewsFeed.value = false;
+      return;
+    }
     ApiResponse apiResponse = await _apiCommunication.doPostRequest(
       apiEndPoint: 'get-other-user-info',
       requestData: {'username': username},
       responseDataKey: 'userInfo',
     );
     if (apiResponse.isSuccessful) {
-      debugPrint('Response success');
+      debugPrint('[OtherProfile] Response success for: $username');
       profileModel.value =
           ProfileModel.fromMap(apiResponse.data as Map<String, dynamic>);
-
-      debugPrint('Response success');
+    } else {
+      debugPrint('[OtherProfile] Failed to load profile for: $username');
+      isLoadingNewsFeed.value = false;
     }
   }
 

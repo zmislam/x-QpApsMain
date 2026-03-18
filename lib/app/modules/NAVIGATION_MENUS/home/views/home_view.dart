@@ -47,7 +47,7 @@ class HomeView extends GetView<HomeController> {
       },
       child: CustomScrollView(
         key: const PageStorageKey<String>('home_feed'),
-        cacheExtent: 1200, // Pre-build cards 1200px beyond viewport for smoother scroll
+        cacheExtent: 2000, // Pre-build cards 2000px beyond viewport for smoother scroll
         controller: controller.postScrollController,
         slivers: [
           // ===================== Do Post Section =========================

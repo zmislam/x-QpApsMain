@@ -11,6 +11,7 @@ class ReelsModel {
   String? description;
   String? user_id;
   String? video;
+  String? video_thumbnail;
   String? reels_privacy;
   String? status;
   String? ipAddress;
@@ -52,6 +53,7 @@ class ReelsModel {
     this.description,
     this.user_id,
     this.video,
+    this.video_thumbnail,
     this.reels_privacy,
     this.status,
     this.ipAddress,
@@ -96,6 +98,7 @@ class ReelsModel {
       'description': description,
       'user_id': user_id,
       'video': video,
+      'video_thumbnail': video_thumbnail,
       'reels_privacy': reels_privacy,
       'status': status,
       'ip_address': ipAddress,
@@ -145,6 +148,7 @@ class ReelsModel {
           ? (map['user_id'] is Map ? map['user_id']['_id'] as String : map['user_id'] as String)
           : null,
       video: map['video'] != null ? map['video'] as String : null,
+      video_thumbnail: map['video_thumbnail'] != null ? map['video_thumbnail'] as String : null,
       reels_privacy:
       map['reels_privacy'] != null ? map['reels_privacy'] as String : null,
       status: map['status'] != null ? map['status'] as String : null,

@@ -130,7 +130,15 @@ class _ReelSuggestionCardState extends State<ReelSuggestionCard> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => Get.toNamed(Routes.REELS),
+                  onTap: () {
+                    final allIds = suggestions.map((s) => (s['_id'] ?? '').toString()).where((id) => id.isNotEmpty).toList();
+                    if (allIds.isNotEmpty) {
+                      Get.toNamed(Routes.SUGGESTED_REELS, arguments: {
+                        'reelIds': allIds,
+                        'startReelId': allIds.first,
+                      });
+                    }
+                  },
                   child: Text(
                     'See All'.tr,
                     style: TextStyle(
@@ -169,7 +177,19 @@ class _ReelSuggestionCardState extends State<ReelSuggestionCard> {
               itemCount: suggestions.length,
               itemBuilder: (context, index) {
                 final item = suggestions[index];
-                return _ReelCard(item: item);
+                return _ReelCard(
+                  item: item,
+                  onTap: () {
+                    final allIds = suggestions.map((s) => (s['_id'] ?? '').toString()).where((id) => id.isNotEmpty).toList();
+                    final tappedId = (item['_id'] ?? '').toString();
+                    if (allIds.isNotEmpty && tappedId.isNotEmpty) {
+                      Get.toNamed(Routes.SUGGESTED_REELS, arguments: {
+                        'reelIds': allIds,
+                        'startReelId': tappedId,
+                      });
+                    }
+                  },
+                );
               },
             ),
           ),
@@ -188,9 +208,10 @@ class _ReelSuggestionCardState extends State<ReelSuggestionCard> {
 }
 
 class _ReelCard extends StatelessWidget {
-  const _ReelCard({required this.item});
+  const _ReelCard({required this.item, required this.onTap});
 
   final Map<String, dynamic> item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -207,20 +228,19 @@ class _ReelCard extends StatelessWidget {
 
     // Thumbnail: prefer dedicated thumbnail, fall back to video URL
     final thumbnail = (item['thumbnail'] ?? item['video_thumbnail'] ?? '').toString();
+    final thumbType = (item['thumbnail_type'] ?? 'video_thumbnail').toString();
     final videoUrl = (item['video_url'] ?? item['video'] ?? '').toString();
-    final thumbSrc = thumbnail.isNotEmpty
-        ? thumbnail.formatedProfileReelUrl
-        : videoUrl.isNotEmpty
-            ? videoUrl.formatedReelUrl
-            : '';
+    String thumbSrc = '';
+    if (thumbnail.isNotEmpty) {
+      thumbSrc = thumbType == 'image'
+          ? thumbnail.formatedReelUrl
+          : thumbnail.formatedProfileReelUrl;
+    } else if (videoUrl.isNotEmpty) {
+      thumbSrc = videoUrl.formatedReelUrl;
+    }
 
     return GestureDetector(
-      onTap: () {
-        final reelId = item['_id'] ?? '';
-        if (reelId.isNotEmpty) {
-          Get.toNamed(Routes.REELS, arguments: {'reel_id': reelId});
-        }
-      },
+      onTap: onTap,
       child: Container(
         width: 130,
         margin: const EdgeInsets.only(right: 8),

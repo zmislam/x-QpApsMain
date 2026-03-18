@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../../../config/constants/api_constant.dart';
+import '../../../../../../routes/app_pages.dart';
 import '../../../../../../data/login_creadential.dart';
 import '../../../../../../models/api_response.dart';
 import '../../../../../../repository/reels_repository.dart';
@@ -50,6 +53,71 @@ class SuggestedReelsController extends GetxController {
   // The reel ID the user tapped on (to start at that index)
   String startReelId = '';
 
+  // Track current page index for end-of-queue detection
+  int currentPageIndex = 0;
+
+  /// Whether we already triggered the transition to regular reels
+  bool _hasTransitioned = false;
+
+  /// Whether the user is currently viewing the end card
+  RxBool isOnEndCard = false.obs;
+
+  /// Auto-forward countdown seconds
+  RxInt autoForwardCountdown = 3.obs;
+
+  /// Timer for auto-forward countdown
+  Timer? _autoForwardTimer;
+
+  /// Called when user lands on the end card page
+  void onEndCardViewed() {
+    if (_hasTransitioned) return;
+    isOnEndCard.value = true;
+    autoForwardCountdown.value = 3;
+    _startAutoForwardTimer();
+  }
+
+  /// Start the auto-forward countdown timer
+  void _startAutoForwardTimer() {
+    _cancelAutoForwardTimer();
+    _autoForwardTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_hasTransitioned) {
+        timer.cancel();
+        return;
+      }
+      if (autoForwardCountdown.value > 1) {
+        autoForwardCountdown.value--;
+      } else {
+        timer.cancel();
+        _triggerTransition();
+      }
+    });
+  }
+
+  /// Cancel auto-forward timer (e.g. if user swipes back)
+  void _cancelAutoForwardTimer() {
+    _autoForwardTimer?.cancel();
+    _autoForwardTimer = null;
+  }
+
+  /// Reset end card state when navigating away from it
+  void onLeftEndCard() {
+    isOnEndCard.value = false;
+    _cancelAutoForwardTimer();
+  }
+
+  /// Manually trigger transition to main reels
+  void continueToReels() {
+    _triggerTransition();
+  }
+
+  void _triggerTransition() {
+    if (_hasTransitioned) return;
+    _hasTransitioned = true;
+    _cancelAutoForwardTimer();
+    Get.back();
+    Get.toNamed(Routes.REELS);
+  }
+
   // ─── View Tracking ─────────────────────────────────────────────────────────
   final Map<String, int> _viewStartTimes = {};
   final List<Map<String, dynamic>> _pendingViewTracks = [];
@@ -82,6 +150,9 @@ class SuggestedReelsController extends GetxController {
 
   @override
   void onClose() {
+    // Cancel auto-forward timer
+    _cancelAutoForwardTimer();
+
     // Flush any pending view tracks
     _flushPendingViewTracks();
 

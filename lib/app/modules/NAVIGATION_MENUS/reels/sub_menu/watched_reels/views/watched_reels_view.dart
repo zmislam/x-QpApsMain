@@ -96,12 +96,12 @@ class WatchedReelsView extends GetView<WatchedReelsController> {
   }
 
   Widget _buildWatchedReelItem(ReelsModel reel) {
-    final firstImage = (reel.image != null && reel.image!.isNotEmpty)
-        ? reel.image!.first
-        : null;
-    final imageUrl = firstImage != null
-        ? '${ApiConstant.SERVER_IP_PORT}/uploads/reels/$firstImage'
-        : '';
+    String imageUrl = '';
+    if (reel.image != null && reel.image!.isNotEmpty) {
+      imageUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/reels/${reel.image!.first}';
+    } else if (reel.video_thumbnail != null && reel.video_thumbnail!.isNotEmpty) {
+      imageUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/reels/thumbnails/${reel.video_thumbnail}';
+    }
 
     final creatorName = reel.reel_user != null
         ? '${reel.reel_user!.first_name ?? ''} ${reel.reel_user!.last_name ?? ''}'.trim()
