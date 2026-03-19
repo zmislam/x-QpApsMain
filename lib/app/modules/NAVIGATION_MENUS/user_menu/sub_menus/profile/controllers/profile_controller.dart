@@ -36,10 +36,13 @@ import '../models/profile_cover_albums_model.dart';
 import '../models/story_model.dart';
 import '../models/user_profile_model.dart';
 import '../provider/profile_provider.dart';
+import '../../../../reels/model/reels_model.dart';
+import '../../../../../../repository/reels_repository.dart';
 
 class ProfileController extends GetxController {
   // Global Usecases
   late final ApiCommunication _apiCommunication;
+  final ReelsRepository _reelsRepository = ReelsRepository();
 
   // Post Related Variables
   final PostRepository postRepository = PostRepository();
@@ -75,6 +78,7 @@ class ProfileController extends GetxController {
   RxBool isLoadingUserStory = false.obs;
   RxBool isLoadingUserReels = false.obs;
   RxBool isLoadingUserSharedReels = false.obs;
+  RxBool isLoadingSavedReels = false.obs;
   RxBool isLoadingProfilePhoto = false.obs;
   Rx<List<PostModel>> postList = Rx([]);
   Rx<List<PostModel>> pinnedPostList = Rx([]);
@@ -87,6 +91,7 @@ class ProfileController extends GetxController {
   Rx<List<PhotoModel>> photoList = Rx([]);
   Rx<List<ProfilrStoryModel>> storyList = Rx([]);
   Rx<List<VideoReel>> reelsList = Rx([]);
+  Rx<List<ReelsModel>> savedReelsList = Rx([]);
   // Rx<List<SharedReelDetails>> sharedReelsList = Rx([]);
 
   late TextEditingController descriptionController;
@@ -1332,6 +1337,38 @@ class ProfileController extends GetxController {
       showSuccessSnackkbar(message: response.message ?? '');
     } else {
       showErrorSnackkbar(message: response.message ?? '');
+    }
+  }
+
+//======================================================== Saved Reels Functions ===============================================//
+  final RxInt currentSavedSkip = 0.obs;
+  final int savedLimit = 10;
+  final RxBool hasMoreSavedReels = true.obs;
+
+  Future getSavedReels() async {
+    if (isLoadingSavedReels.value || !hasMoreSavedReels.value) return;
+    isLoadingSavedReels.value = true;
+    try {
+      ApiResponse apiResponse = await _reelsRepository.getMyBookmarkedReels(
+        limit: savedLimit,
+        skip: currentSavedSkip.value,
+      );
+
+      if (apiResponse.isSuccessful && apiResponse.data != null) {
+        List<ReelsModel> newSavedReels = apiResponse.data as List<ReelsModel>;
+        savedReelsList.value.addAll(newSavedReels);
+        savedReelsList.refresh();
+        // Check if there are more items to load
+        if (newSavedReels.length < savedLimit) {
+          hasMoreSavedReels.value = false;
+        } else {
+          currentSavedSkip.value += savedLimit;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading saved reels: $e');
+    } finally {
+      isLoadingSavedReels.value = false;
     }
   }
 

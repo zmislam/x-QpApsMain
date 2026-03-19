@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:image_picker/image_picker.dart';
 
 import '../models/api_response.dart';
@@ -707,6 +709,60 @@ class ReelsRepository {
       apiEndPoint: 'reels/bookmark-ids',
       responseDataKey: 'ids',
     );
+    return apiResponse;
+  }
+
+// *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+// *┃  USER/CREATOR REELS                                                   ┃
+// *┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  /// Fetch all reels from a specific user/creator by username
+  /// GET /api/profile/reels/:username?limit=20&skip=0
+  Future<ApiResponse> getUserReels({
+    required String username,
+    String? userId,
+    int limit = 20,
+    int skip = 0,
+  }) async {
+    // Use the profile endpoint which is more stable
+    String endpoint = 'profile/reels/$username?limit=$limit&skip=$skip';
+
+    final apiResponse = await _apiCommunication.doGetRequest(
+      apiEndPoint: endpoint,
+      responseDataKey: 'results',
+    );
+
+    if (apiResponse.isSuccessful && apiResponse.data != null) {
+      final reelsList = (apiResponse.data as List?)?.map((e) {
+        return ReelsModel.fromMap(e as Map<String, dynamic>);
+      }).toList() ?? [];
+      
+      return apiResponse.copyWith(data: reelsList);
+    }
+    return apiResponse;
+  }
+
+  /// Fetch all reposted reels from a specific user by username
+  /// GET /api/get-reels-re-post-list/:username?limit=20&skip=0
+  Future<ApiResponse> getUserRepostReels({
+    required String username,
+    int limit = 20,
+    int skip = 0,
+  }) async {
+    String endpoint = 'get-reels-re-post-list/$username?limit=$limit&skip=$skip';
+
+    final apiResponse = await _apiCommunication.doGetRequest(
+      apiEndPoint: endpoint,
+      responseDataKey: 'results',
+    );
+
+    if (apiResponse.isSuccessful && apiResponse.data != null) {
+      final reelsList = (apiResponse.data as List?)?.map((e) {
+        return ReelsModel.fromMap(e as Map<String, dynamic>);
+      }).toList() ?? [];
+      
+      return apiResponse.copyWith(data: reelsList);
+    }
     return apiResponse;
   }
 

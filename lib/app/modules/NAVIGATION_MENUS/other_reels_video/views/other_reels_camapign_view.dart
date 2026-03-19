@@ -203,9 +203,14 @@ class OtherReelsCampaignView extends GetView<OtherReelsVideoController> {
                         )));
                   },
                   onPressedReelsEye: () {
-                    ProfileNavigator.navigateToProfile(
-                      username: reelsCampaignModel.reelUser?.username ?? '',
-                      isFromReels: 'true',
+                    Get.toNamed(
+                      Routes.USER_REELS,
+                      arguments: {
+                        'userId': reelsCampaignModel.reelUser?.id ?? '',
+                        'username': reelsCampaignModel.reelUser?.username ?? '',
+                        'userFullName': '${reelsCampaignModel.reelUser?.firstName ?? ''} ${reelsCampaignModel.reelUser?.lastName ?? ''}'.trim(),
+                        'userProfilePic': reelsCampaignModel.reelUser?.profilePic ?? '',
+                      },
                     );
                   },
 

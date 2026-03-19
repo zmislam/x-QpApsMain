@@ -101,6 +101,12 @@ class WatchedReelsView extends GetView<WatchedReelsController> {
       imageUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/reels/${reel.image!.first}';
     } else if (reel.video_thumbnail != null && reel.video_thumbnail!.isNotEmpty) {
       imageUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/reels/thumbnails/${reel.video_thumbnail}';
+    } else if (reel.video != null && reel.video!.isNotEmpty) {
+      // Derive thumbnail from video name: {videoBasename}-thumbnail.png
+      final videoName = reel.video!;
+      final dotIndex = videoName.lastIndexOf('.');
+      final baseName = dotIndex > 0 ? videoName.substring(0, dotIndex) : videoName;
+      imageUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/reels/thumbnails/$baseName-thumbnail.png';
     }
 
     final creatorName = reel.reel_user != null

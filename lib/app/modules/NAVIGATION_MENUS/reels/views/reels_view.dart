@@ -511,10 +511,15 @@ class _ReelsViewBodyState extends State<ReelsViewBody>
                         },
 
                         onPressedReelsEye: () {
-                          ProfileNavigator.navigateToProfile(
-                              username: item.reel_user?.username ?? '',
-                              isFromPageReels: 'true',
-                              isFromReels: 'true');
+                          Get.toNamed(
+                            Routes.USER_REELS,
+                            arguments: {
+                              'userId': item.reel_user?.id ?? '',
+                              'username': item.reel_user?.username ?? '',
+                              'userFullName': '${item.reel_user?.first_name ?? ''} ${item.reel_user?.last_name ?? ''}'.trim(),
+                              'userProfilePic': item.reel_user?.profile_pic ?? '',
+                            },
+                          );
                         },
 
                         onTapEditReel: () {

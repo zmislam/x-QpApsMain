@@ -5,6 +5,8 @@ import 'package:timeago/timeago.dart' as timeago;
 
 import '../../../../../../config/constants/api_constant.dart';
 import '../../../../../../config/constants/color.dart';
+import '../../../../../../routes/app_pages.dart';
+import '../../../../../../routes/profile_navigator.dart';
 import '../../../model/reels_model.dart';
 import '../controllers/saved_reels_controller.dart';
 
@@ -146,12 +148,19 @@ class SavedReelsView extends GetView<SavedReelsController> {
   }
 
   Widget _buildSavedReelItem(ReelsModel reel) {
-    final firstImage = (reel.image != null && reel.image!.isNotEmpty)
-        ? reel.image!.first
-        : null;
-    final imageUrl = firstImage != null
-        ? '${ApiConstant.SERVER_IP_PORT}/uploads/reels/$firstImage'
-        : '';
+    // Build thumbnail URL - check image first, then video_thumbnail, then derive from video name
+    String thumbnailUrl = '';
+    if (reel.image != null && reel.image!.isNotEmpty) {
+      thumbnailUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/reels/${reel.image!.first}';
+    } else if (reel.video_thumbnail != null && reel.video_thumbnail!.isNotEmpty) {
+      thumbnailUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/reels/thumbnails/${reel.video_thumbnail}';
+    } else if (reel.video != null && reel.video!.isNotEmpty) {
+      // Derive thumbnail from video name: {videoBasename}-thumbnail.png
+      final videoName = reel.video!;
+      final dotIndex = videoName.lastIndexOf('.');
+      final baseName = dotIndex > 0 ? videoName.substring(0, dotIndex) : videoName;
+      thumbnailUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/reels/thumbnails/$baseName-thumbnail.png';
+    }
 
     final creatorName = reel.reel_user != null
         ? '${reel.reel_user!.first_name ?? ''} ${reel.reel_user!.last_name ?? ''}'.trim()
@@ -169,7 +178,7 @@ class SavedReelsView extends GetView<SavedReelsController> {
     }
 
     return InkWell(
-      onTap: () => Get.back(result: reel.id),
+      onTap: () => _openReel(reel),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -181,9 +190,9 @@ class SavedReelsView extends GetView<SavedReelsController> {
               child: SizedBox(
                 width: 140,
                 height: 90,
-                child: imageUrl.isNotEmpty
+                child: thumbnailUrl.isNotEmpty
                     ? CachedNetworkImage(
-                        imageUrl: imageUrl,
+                        imageUrl: thumbnailUrl,
                         fit: BoxFit.cover,
                         placeholder: (_, __) => Container(color: Colors.grey[200]),
                         errorWidget: (_, __, ___) => Container(
@@ -249,13 +258,89 @@ class SavedReelsView extends GetView<SavedReelsController> {
             // 3-dot menu
             IconButton(
               icon: Icon(Icons.more_horiz, color: Colors.grey.shade600, size: 22),
-              onPressed: () {},
+              onPressed: () => _showReelOptions(reel),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _openReel(ReelsModel reel) {
+    Get.toNamed(Routes.REELS, arguments: {'reel_id': reel.id});
+  }
+
+  void _showReelOptions(ReelsModel reel) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Unsave option
+              ListTile(
+                leading: const Icon(Icons.bookmark_remove_outlined, color: Colors.black87),
+                title: const Text(
+                  'Unsave',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                onTap: () {
+                  Get.back();
+                  controller.unsaveReel(reel.id ?? '');
+                },
+              ),
+              // View Reel option
+              ListTile(
+                leading: const Icon(Icons.play_circle_outline, color: Colors.black87),
+                title: const Text(
+                  'View Reel',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                onTap: () {
+                  Get.back();
+                  _openReel(reel);
+                },
+              ),
+              // View creator profile
+              if (reel.reel_user?.username != null && reel.reel_user!.username!.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.person_outline, color: Colors.black87),
+                  title: const Text(
+                    'View Creator Profile',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
+                  onTap: () {
+                    Get.back();
+                    ProfileNavigator.navigateToProfile(
+                      username: reel.reel_user!.username!,
+                    );
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
     );
   }
 }

@@ -76,10 +76,14 @@ class PersonalRepostReelComponent extends StatelessWidget {
       onTap: () {
         Future.delayed(Duration.zero, () {
           Get.toNamed(
-            Routes.OTHER_USER_VIDEO,
+            Routes.USER_REELS,
             arguments: {
-              'reelsID': reel.id,
-              'username': controller.loginCredential.getUserData().username,
+              'userId': controller.userModel.id ?? '',
+              'username': controller.userModel.username ?? '',
+              'userFullName': '${controller.userModel.first_name ?? ''} ${controller.userModel.last_name ?? ''}'.trim(),
+              'userProfilePic': controller.userModel.profile_pic ?? '',
+              'startIndex': index,
+              'reelType': 'repost',
             },
           );
         });

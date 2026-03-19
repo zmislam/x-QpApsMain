@@ -37,13 +37,23 @@ class SponsoredAdModel {
   }
 
   /// Campaign name from ad data.
-  String? get campaignName => data['campaignName'] as String?;
+  String? get campaignName => data['campaignName'] ?? data['campaign_name'] as String?;
 
   /// Campaign description.
   String? get description => data['description'] as String?;
 
-  /// Website URL for the ad CTA.
-  String? get websiteUrl => data['websiteUrl'] as String?;
+  /// Website URL for the ad CTA - check multiple possible field names.
+  String? get websiteUrl => 
+    data['website_url'] as String? ?? 
+    data['websiteUrl'] as String? ??
+    (data['creative'] as Map?)?['website_url'] as String? ??
+    (data['creative'] as Map?)?['websiteUrl'] as String?;
+  
+  /// CTA button label (e.g., "Learn More", "Shop Now").
+  String get ctaLabel => 
+    data['cta_label'] as String? ?? 
+    data['ctaLabel'] as String? ?? 
+    'Learn More';
 
   /// Campaign cover images/media.
   /// Supports both V1 (campaignCoverPic) and V2 (media array with media_type).

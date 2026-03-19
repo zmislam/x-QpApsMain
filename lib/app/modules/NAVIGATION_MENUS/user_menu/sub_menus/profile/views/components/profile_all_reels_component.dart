@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'personal_reels_component.dart';
 import 'personal_repost_reels_compoent.dart';
+import 'personal_saved_reels_component.dart';
 import '../../../../../../../config/constants/color.dart';
 
 import '../../controllers/profile_controller.dart';
@@ -14,7 +15,8 @@ class ProfileReelsComponent extends StatelessWidget {
   Widget build(BuildContext context) {
     List<Widget> widgetList = [
       PersonalReelComponent(controller: controller),
-      PersonalRepostReelComponent(controller: controller)
+      PersonalRepostReelComponent(controller: controller),
+      PersonalSavedReelComponent(controller: controller),
     ];
     return SliverList(
       delegate: SliverChildListDelegate([
@@ -53,6 +55,27 @@ class ProfileReelsComponent extends StatelessWidget {
                     () => Text('My Repost Reels'.tr,
                       style: TextStyle(
                         color: controller.viewReelsTabNumber.value == 1
+                            ? PRIMARY_COLOR
+                            : Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(
+                width: 20,
+              ),
+              InkWell(
+                onTap: () {
+                  controller.viewReelsTabNumber.value = 2;
+                  controller.getSavedReels();
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Obx(
+                    () => Text('Saved Reels'.tr,
+                      style: TextStyle(
+                        color: controller.viewReelsTabNumber.value == 2
                             ? PRIMARY_COLOR
                             : Colors.black,
                       ),

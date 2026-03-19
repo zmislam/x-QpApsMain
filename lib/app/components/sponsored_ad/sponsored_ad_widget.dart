@@ -245,6 +245,14 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
         ? _formatMediaUrl(widget.ad.coverMedia.first)
         : null;
     final description = widget.ad.description ?? '';
+    
+    // Debug logging for sponsored ad data
+    debugPrint('[SponsoredAd] Ad ID: ${widget.ad.adId}');
+    debugPrint('[SponsoredAd] Raw coverMedia: ${widget.ad.coverMedia}');
+    debugPrint('[SponsoredAd] Formatted coverUrl: $coverUrl');
+    debugPrint('[SponsoredAd] isVideo: ${widget.ad.isVideo}');
+    debugPrint('[SponsoredAd] websiteUrl: ${widget.ad.websiteUrl}');
+    debugPrint('[SponsoredAd] ctaLabel: ${widget.ad.ctaLabel}');
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -491,22 +499,24 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
     final url = widget.ad.websiteUrl!;
     final hostname = _getHostname(url);
 
-    return InkWell(
-      onTap: () => _launchUrl(url),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(FeedDesignTokens.cardPaddingH, 10,
-            FeedDesignTokens.cardPaddingH, 10),
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: FeedDesignTokens.divider(context),
-              width: 0.5,
-            ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(FeedDesignTokens.cardPaddingH, 12,
+          FeedDesignTokens.cardPaddingH, 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF242526) : Colors.grey[50],
+        border: Border(
+          top: BorderSide(
+            color: FeedDesignTokens.divider(context),
+            width: 0.5,
           ),
         ),
-        child: Row(
-          children: [
-            Expanded(
+      ),
+      child: Row(
+        children: [
+          // Left side - website & campaign info
+          Expanded(
+            child: InkWell(
+              onTap: () => _launchUrl(url),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -522,38 +532,45 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   if (widget.ad.campaignName != null)
-                    Text(
-                      widget.ad.campaignName!,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: FeedDesignTokens.textPrimary(context),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        widget.ad.campaignName!,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: FeedDesignTokens.textPrimary(context),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1b74e4),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'Learn More',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+          ),
+          const SizedBox(width: 12),
+          // CTA Button - more prominent
+          Material(
+            color: const Color(0xFF1877F2),
+            borderRadius: BorderRadius.circular(6),
+            child: InkWell(
+              onTap: () => _launchUrl(url),
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Text(
+                  widget.ad.ctaLabel,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1031,7 +1048,12 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
   String _formatMediaUrl(String path) {
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
     final cleanPath = path.startsWith('/') ? path.substring(1) : path;
-    return '${ApiConstant.SERVER_IP_PORT}/$cleanPath';
+    // If the path already includes 'uploads/', just prepend server
+    if (cleanPath.contains('uploads/')) {
+      return '${ApiConstant.SERVER_IP_PORT}/$cleanPath';
+    }
+    // Otherwise assume it's just a filename in adsStorage
+    return '${ApiConstant.SERVER_IP_PORT}/uploads/adsStorage/$cleanPath';
   }
 
   String _getHostname(String url) {
@@ -1423,10 +1445,13 @@ class _AdVideoPlayerState extends State<_AdVideoPlayer> {
   late VideoPlayerController _controller;
   bool _initialized = false;
   bool _showPlayButton = false;
+  bool _hasError = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
+    debugPrint('[SponsoredAd] Video URL: ${widget.videoUrl}');
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
       ..initialize().then((_) {
         if (mounted) {
@@ -1435,7 +1460,26 @@ class _AdVideoPlayerState extends State<_AdVideoPlayer> {
           _controller.setVolume(0);
           _controller.play();
         }
+      }).catchError((error) {
+        debugPrint('[SponsoredAd] Video initialization error: $error');
+        if (mounted) {
+          setState(() {
+            _hasError = true;
+            _errorMessage = error.toString();
+          });
+        }
       });
+    
+    // Listen for errors during playback
+    _controller.addListener(() {
+      if (_controller.value.hasError && !_hasError && mounted) {
+        debugPrint('[SponsoredAd] Video playback error: ${_controller.value.errorDescription}');
+        setState(() {
+          _hasError = true;
+          _errorMessage = _controller.value.errorDescription;
+        });
+      }
+    });
   }
 
   @override
@@ -1446,6 +1490,34 @@ class _AdVideoPlayerState extends State<_AdVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    // Show error state if video failed to load
+    if (_hasError) {
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Container(
+          color: widget.isDark ? Colors.grey[800] : Colors.grey[200],
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.videocam_off, 
+                  color: widget.isDark ? Colors.grey[500] : Colors.grey[400], 
+                  size: 40),
+                const SizedBox(height: 8),
+                Text(
+                  'Video unavailable',
+                  style: TextStyle(
+                    color: widget.isDark ? Colors.grey[400] : Colors.grey[600],
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
     if (!_initialized) {
       return AspectRatio(
         aspectRatio: 16 / 9,

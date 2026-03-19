@@ -413,10 +413,14 @@ class _SuggestedReelsViewBodyState extends State<_SuggestedReelsViewBody> {
 
                       // ── Profile Eye ──
                       onPressedReelsEye: () {
-                        ProfileNavigator.navigateToProfile(
-                          username: reel.reel_user?.username ?? '',
-                          isFromPageReels: 'true',
-                          isFromReels: 'true',
+                        Get.toNamed(
+                          Routes.USER_REELS,
+                          arguments: {
+                            'userId': reel.reel_user?.id ?? '',
+                            'username': reel.reel_user?.username ?? '',
+                            'userFullName': '${reel.reel_user?.first_name ?? ''} ${reel.reel_user?.last_name ?? ''}'.trim(),
+                            'userProfilePic': reel.reel_user?.profile_pic ?? '',
+                          },
                         );
                       },
 

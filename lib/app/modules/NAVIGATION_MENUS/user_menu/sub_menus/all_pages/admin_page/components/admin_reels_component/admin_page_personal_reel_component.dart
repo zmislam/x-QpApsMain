@@ -99,13 +99,17 @@ class AdminPagePersonalReelComponent extends StatelessWidget {
   }
 
   Widget _buildReelCard(BuildContext context, dynamic reel, int index) {
+    final pageDetails = controller.pageProfileModel.value?.pageDetails;
     return GestureDetector(
       onTap: () {
         Get.toNamed(
-          Routes.OTHER_USER_VIDEO,
+          Routes.USER_REELS,
           arguments: {
-            'reelsID': controller.reelsList.value[index].id,
-            'username': controller.pageUserName,
+            'userId': pageDetails?.id ?? '',
+            'username': pageDetails?.pageUserName ?? controller.pageUserName ?? '',
+            'userFullName': pageDetails?.pageName ?? '',
+            'userProfilePic': pageDetails?.profilePic ?? '',
+            'startIndex': index,
           },
         );
       },

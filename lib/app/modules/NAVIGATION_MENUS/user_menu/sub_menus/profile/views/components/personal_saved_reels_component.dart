@@ -7,28 +7,41 @@ import '../../../../../../../components/simmar_loader.dart';
 import '../../../../../../../config/constants/app_assets.dart';
 import '../../controllers/profile_controller.dart';
 
-class PersonalReelComponent extends StatelessWidget {
-  const PersonalReelComponent({super.key, required this.controller});
+class PersonalSavedReelComponent extends StatelessWidget {
+  const PersonalSavedReelComponent({super.key, required this.controller});
   final ProfileController controller;
-  // final List<dynamic> reelsList;
-  // final bool isLoading;
-  // final Function(dynamic reel) onReelTap;
 
   @override
   Widget build(BuildContext context) {
-    controller.getPersonalReels();
+    controller.getSavedReels();
     return Obx(() {
-      if (controller.isLoadingUserReels.value == true) {
+      if (controller.isLoadingSavedReels.value == true &&
+          controller.savedReelsList.value.isEmpty) {
         return ShimmarLoadingView();
-      } else if (controller.reelsList.value.isEmpty) {
+      } else if (controller.savedReelsList.value.isEmpty) {
         return Center(
-          child: Text(
-            'You have no posted reels'.tr,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.bookmark_border, color: Colors.grey.shade400, size: 48),
+              const SizedBox(height: 12),
+              Text(
+                'No saved reels yet'.tr,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Tap the bookmark icon on a reel to save it'.tr,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade400,
+                ),
+              ),
+            ],
           ),
         );
       } else {
@@ -37,7 +50,7 @@ class PersonalReelComponent extends StatelessWidget {
             GridView.builder(
               physics: const ScrollPhysics(),
               shrinkWrap: true,
-              itemCount: controller.reelsList.value.length,
+              itemCount: controller.savedReelsList.value.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 mainAxisSpacing: 3,
                 crossAxisSpacing: 3,
@@ -45,26 +58,22 @@ class PersonalReelComponent extends StatelessWidget {
                 childAspectRatio: 0.7,
               ),
               itemBuilder: (BuildContext context, int index) {
-                final reel = controller.reelsList.value[index];
+                final reel = controller.savedReelsList.value[index];
                 return buildReelItem(context, reel, index);
               },
             ),
-            const SizedBox(
-              height: 10,
-            ),
-            controller.hasMoreReels.value == true
+            const SizedBox(height: 10),
+            controller.hasMoreSavedReels.value == true
                 ? PrimaryButton(
                     onPressed: () {
-                      controller.getPersonalReels();
+                      controller.getSavedReels();
                     },
                     text: 'Show More'.tr,
                     fontSize: 12,
                     verticalPadding: 10,
                   )
                 : const SizedBox.shrink(),
-            const SizedBox(
-              height: 10,
-            ),
+            const SizedBox(height: 10),
           ],
         );
       }
@@ -76,13 +85,15 @@ class PersonalReelComponent extends StatelessWidget {
     return InkWell(
       onTap: () {
         Future.delayed(Duration.zero, () {
-          // Navigate to user-specific reels viewer starting at tapped index
+          // Navigate to user-specific reels viewer (saved mode) starting at tapped index
           Get.toNamed(Routes.USER_REELS, arguments: {
             'userId': userData.id ?? '',
             'username': userData.username ?? '',
-            'userFullName': '${userData.first_name ?? ''} ${userData.last_name ?? ''}'.trim(),
+            'userFullName':
+                '${userData.first_name ?? ''} ${userData.last_name ?? ''}'.trim(),
             'userProfilePic': userData.profile_pic ?? '',
             'startIndex': index,
+            'reelType': 'saved',
           });
         });
       },
@@ -110,27 +121,48 @@ class PersonalReelComponent extends StatelessWidget {
               ),
             ),
           ),
+          // Bookmark badge
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(
+                Icons.bookmark,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+          // View count and description
           Positioned(
             bottom: 5,
             left: 10,
             child: SizedBox(
-              width: 60,
+              width: 70,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '${reel.description ?? ''}',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                  if (reel.description != null && reel.description!.isNotEmpty)
+                    Text(
+                      '${reel.description}',
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: const TextStyle(color: Colors.white, fontSize: 11),
+                    ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      const Icon(Icons.visibility, color: Colors.white),
-                      const SizedBox(width: 5),
+                      const Icon(Icons.visibility, color: Colors.white, size: 14),
+                      const SizedBox(width: 4),
                       Text(
-                        '${reel.viewCount ?? 0}'.tr,
+                        '${reel.view_count ?? 0}',
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ],
                   ),
@@ -145,10 +177,10 @@ class PersonalReelComponent extends StatelessWidget {
 
   Widget ShimmarLoadingView() {
     return SizedBox(
-      height: Get.height,
+      height: Get.height * 0.5,
       child: GridView.builder(
-        physics: const ScrollPhysics(),
-        itemCount: 12,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 9,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           childAspectRatio: 0.7,
@@ -156,13 +188,12 @@ class PersonalReelComponent extends StatelessWidget {
         itemBuilder: (BuildContext context, index) {
           return ShimmerLoader(
             child: Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(3.0),
               child: Container(
-                width: Get.width / 3,
-                height: 157,
+                height: 200,
                 decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(10),
-                  color: Colors.grey.withValues(alpha: 0.9),
                 ),
               ),
             ),

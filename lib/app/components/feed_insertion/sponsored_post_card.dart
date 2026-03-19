@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 import '../../config/constants/api_constant.dart';
 import '../../config/constants/app_assets.dart';
 import '../../config/constants/feed_design_tokens.dart';
@@ -34,6 +35,9 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
   final ApiCommunication _api = ApiCommunication();
   bool _liked = false;
   bool _hidden = false;
+  VideoPlayerController? _videoController;
+  bool _videoInitialized = false;
+  bool _videoFailed = false;
 
   // ── Derived fields ──
   late final String _campaignId;
@@ -43,6 +47,8 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
   late final String _websiteUrl;
   late final String _createdAt;
   late final String _coverImageUrl;
+  late final String _videoUrl;
+  late final bool _isVideo;
 
   // Poster info — mutable because it may be fetched async
   String _posterName = '';
@@ -56,44 +62,132 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
     super.initState();
     final data = widget.data;
 
+    // Debug: Log the FULL received data structure
+    debugPrint('[SponsoredPostCard] ========== FULL DATA ==========');
+    debugPrint('[SponsoredPostCard] $data');
+    debugPrint('[SponsoredPostCard] ========== END DATA ==========');
+    debugPrint('[SponsoredPostCard] media: ${data['media']}');
+    debugPrint('[SponsoredPostCard] creative: ${data['creative']}');
+    debugPrint('[SponsoredPostCard] campaign_cover_pic: ${data['campaign_cover_pic']}');
+    debugPrint('[SponsoredPostCard] website_url: ${data['website_url']}');
+    debugPrint('[SponsoredPostCard] destination: ${data['destination']}');
+    debugPrint('[SponsoredPostCard] call_to_action: ${data['call_to_action']}');
+
     _campaignId = (data['_id'] ?? '').toString();
+    // Web: const campaignName = data.campaign_name || data.creative?.headline || "";
     _headline =
-        (data['headline'] ?? data['campaign_name'] ?? '').toString();
-    _description = (data['description'] ?? '').toString();
+        (data['campaign_name'] ?? 
+         (data['creative'] is Map ? data['creative']['headline'] : null) ?? 
+         '').toString();
+    // Web: const description = data.description || data.creative?.primary_text || data.creative?.description || "";
+    _description = (data['description'] ?? 
+        (data['creative'] is Map ? data['creative']['primary_text'] : null) ?? 
+        (data['creative'] is Map ? data['creative']['description'] : null) ??
+        '').toString();
+    // Web: const ctaLabel = data.call_to_action || "Learn More";
     _ctaLabel =
-        (data['cta_button'] ?? data['call_to_action'] ?? 'Learn More')
+        (data['call_to_action'] ?? 'Learn More')
             .toString();
-    _websiteUrl = (data['website_url'] ?? '').toString();
+    // Web: const websiteUrl = data.website_url || data.destination?.website_url || data.destination?.app_store_url || "";
+    final destination = data['destination'] is Map 
+        ? data['destination'] as Map 
+        : {};
+    _websiteUrl = (data['website_url'] ?? 
+        destination['website_url'] ?? 
+        destination['app_store_url'] ?? 
+        '').toString();
     _createdAt = (data['createdAt'] ?? '').toString();
 
-    // Cover image — campaign_cover_pic is an array of filenames
-    final List coverPics = data['campaign_cover_pic'] is List
-        ? data['campaign_cover_pic'] as List
+    debugPrint('[SponsoredPostCard] Extracted websiteUrl: $_websiteUrl, ctaLabel: $_ctaLabel');
+
+    // Check media array first (like web version) for video/image
+    // Web: const mediaItem = data.media?.[0];
+    // Web: const mediaUrl = mediaItem?.media
+    //        ? mediaItem.media.startsWith("http")
+    //           ? mediaItem.media
+    //           : `${host}/uploads/adsStorage/${mediaItem.media}`
+    //        : null;
+    // Web: const isVideo = mediaItem?.media_type === "video" || mediaItem?.media?.includes?.(".mp4");
+    final List mediaList = data['media'] is List
+        ? data['media'] as List
         : [];
-    _coverImageUrl = coverPics.isNotEmpty
-        ? '${ApiConstant.SERVER_IP_PORT}/uploads/adsStorage/${coverPics[0]}'
-        : '';
+    
+    String mediaUrl = '';
+    bool isVideo = false;
+    
+    if (mediaList.isNotEmpty) {
+      final mediaItem = mediaList[0] is Map 
+          ? Map<String, dynamic>.from(mediaList[0] as Map)
+          : <String, dynamic>{};
+      final mediaFile = (mediaItem['media'] ?? '').toString();
+      final mediaType = (mediaItem['media_type'] ?? '').toString();
+      
+      if (mediaFile.isNotEmpty) {
+        // Check if it's a video by media_type or file extension (like web)
+        isVideo = mediaType == 'video' || mediaFile.contains('.mp4');
+        
+        // Build URL same as web: if starts with http use as-is, else prepend server path
+        if (mediaFile.startsWith('http')) {
+          mediaUrl = mediaFile;
+        } else {
+          mediaUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/adsStorage/$mediaFile';
+        }
+      }
+    }
+    
+    // Fallback to campaign_cover_pic if no media array
+    if (mediaUrl.isEmpty) {
+      final List coverPics = data['campaign_cover_pic'] is List
+          ? data['campaign_cover_pic'] as List
+          : [];
+      if (coverPics.isNotEmpty) {
+        final coverFile = coverPics[0].toString();
+        // Check file extension for video (like web)
+        isVideo = coverFile.contains('.mp4');
+        
+        // Build URL same as web
+        if (coverFile.startsWith('http')) {
+          mediaUrl = coverFile;
+        } else {
+          mediaUrl = '${ApiConstant.SERVER_IP_PORT}/uploads/adsStorage/$coverFile';
+        }
+      }
+    }
+    
+    _coverImageUrl = isVideo ? '' : mediaUrl;
+    _videoUrl = isVideo ? mediaUrl : '';
+    _isVideo = isVideo;
+    
+    debugPrint('[SponsoredPostCard] Final media: isVideo=$_isVideo, coverImageUrl=$_coverImageUrl, videoUrl=$_videoUrl');
+    
+    // Initialize video controller if we have a video
+    if (_isVideo && _videoUrl.isNotEmpty) {
+      _initializeVideo();
+    }
 
-    // Try to use poster data from backend (if available)
-    final Map<String, dynamic> poster = data['poster'] is Map
-        ? Map<String, dynamic>.from(data['poster'] as Map)
-        : {};
+    // Try to use poster/owner data from backend (if available)
+    // V2 API uses 'campaign_owner', older API uses 'poster'
+    final Map<String, dynamic> owner = data['campaign_owner'] is Map
+        ? Map<String, dynamic>.from(data['campaign_owner'] as Map)
+        : (data['poster'] is Map
+            ? Map<String, dynamic>.from(data['poster'] as Map)
+            : {});
 
-    if (poster.isNotEmpty && poster['first_name'] != null) {
+    if (owner.isNotEmpty && owner['first_name'] != null) {
       _posterName =
-          '${poster['first_name'] ?? ''} ${poster['last_name'] ?? ''}'
+          '${owner['first_name'] ?? ''} ${owner['last_name'] ?? ''}'
               .trim();
-      _posterProfilePic = (poster['profile_pic'] ?? '').toString();
-      _isVerified = poster['is_verified'] == true;
-      _posterUsername = (poster['username'] ?? '').toString();
+      _posterProfilePic = (owner['profile_pic'] ?? '').toString();
+      _isVerified = owner['isProfileVerified'] == true || owner['is_verified'] == true;
+      _posterUsername = (owner['username'] ?? '').toString();
       _posterLoaded = true;
     } else {
-      // Poster not available — fallback to campaign_name while we fetch
+      // Owner not available — fallback to campaign_name while we fetch
       _posterName = (data['campaign_name'] ?? 'Sponsored').toString();
       _posterLoaded = false;
 
       // Fetch poster info using campaign's user_id
-      final String userId = (data['user_id'] ?? '').toString();
+      final String userId = (data['user_id'] ?? data['campaign_user_id'] ?? '').toString();
       if (userId.isNotEmpty) {
         _fetchPosterInfo(userId);
       } else {
@@ -139,6 +233,35 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
       debugPrint('[SponsoredPostCard] Failed to fetch poster: $e');
       if (mounted) setState(() => _posterLoaded = true);
     }
+  }
+
+  /// Initialize video player for campaign video
+  Future<void> _initializeVideo() async {
+    try {
+      debugPrint('[SponsoredPostCard] Initializing video: $_videoUrl');
+      _videoController = VideoPlayerController.networkUrl(
+        Uri.parse(_videoUrl),
+      );
+      await _videoController!.initialize();
+      _videoController!.setLooping(true);
+      _videoController!.setVolume(0); // Start muted
+      _videoController!.play();
+      if (mounted) {
+        setState(() => _videoInitialized = true);
+      }
+    } catch (e) {
+      debugPrint('[SponsoredPostCard] Video init error: $e');
+      // Video failed to load - show placeholder instead
+      if (mounted) {
+        setState(() => _videoFailed = true);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
   }
 
   // ───────────────────────────────────────────────────────
@@ -454,9 +577,127 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
             ),
 
           // ═══════════════════════════════════════════════════
-          // COVER IMAGE — taps to open URL
+          // MEDIA SECTION — VIDEO or IMAGE or PLACEHOLDER
           // ═══════════════════════════════════════════════════
-          if (_coverImageUrl.isNotEmpty)
+          if (_isVideo && _videoUrl.isNotEmpty && !_videoFailed)
+            GestureDetector(
+              onTap: () {
+                _trackClick();
+                _openUrl(_websiteUrl);
+              },
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: _videoInitialized && _videoController != null
+                    ? Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          VideoPlayer(_videoController!),
+                          // Play/Pause overlay
+                          Positioned(
+                            bottom: 12,
+                            right: 12,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  if (_videoController!.value.isPlaying) {
+                                    _videoController!.pause();
+                                  } else {
+                                    _videoController!.play();
+                                  }
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Icon(
+                                  _videoController!.value.isPlaying
+                                      ? Icons.pause
+                                      : Icons.play_arrow,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Mute/Unmute overlay
+                          Positioned(
+                            bottom: 12,
+                            left: 12,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  if (_videoController!.value.volume > 0) {
+                                    _videoController!.setVolume(0);
+                                  } else {
+                                    _videoController!.setVolume(1);
+                                  }
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Icon(
+                                  _videoController!.value.volume > 0
+                                      ? Icons.volume_up
+                                      : Icons.volume_off,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Container(
+                        color: FeedDesignTokens.inputBg(context),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: FeedDesignTokens.brand(context),
+                          ),
+                        ),
+                      ),
+              ),
+            )
+          // Video failed to load — show placeholder with video icon
+          else if (_isVideo && _videoFailed)
+            GestureDetector(
+              onTap: () {
+                _trackClick();
+                _openUrl(_websiteUrl);
+              },
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Container(
+                  color: FeedDesignTokens.inputBg(context),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.videocam_off_outlined,
+                        size: 48,
+                        color: FeedDesignTokens.textSecondary(context),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Video unavailable',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: FeedDesignTokens.textSecondary(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else if (_coverImageUrl.isNotEmpty)
             GestureDetector(
               onTap: () {
                 _trackClick();
@@ -496,6 +737,40 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
                       size: 48,
                       color: FeedDesignTokens.textSecondary(context),
                     ),
+                  ),
+                ),
+              ),
+            )
+          // No media available — show compact placeholder
+          else if (!_isVideo && _coverImageUrl.isEmpty)
+            GestureDetector(
+              onTap: () {
+                _trackClick();
+                _openUrl(_websiteUrl);
+              },
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Container(
+                  color: FeedDesignTokens.inputBg(context),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.campaign_outlined,
+                        size: 48,
+                        color: FeedDesignTokens.brand(context).withOpacity(0.5),
+                      ),
+                      if (_websiteUrl.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap to visit',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: FeedDesignTokens.textSecondary(context),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),

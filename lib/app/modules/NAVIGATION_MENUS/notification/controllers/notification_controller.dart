@@ -14,6 +14,7 @@ import '../../../../utils/snackbar.dart';
 import '../../../../utils/url_utils.dart';
 import '../../seller_panel/views/seller_order_view.dart';
 import '../../user_menu/sub_menus/help_support/views/help_support_details_view.dart';
+import '../../../shared/modules/post_comment_page/views/post_comment_page_view.dart';
 
 class NotificationController extends GetxController {
   late ApiCommunication _apiCommunication;
@@ -301,17 +302,36 @@ class NotificationController extends GetxController {
 
       case NotificationTypeEnum.SHARED_POST:
       case NotificationTypeEnum.POST_REACTION:
-      case NotificationTypeEnum.POST_COMMENTED:
-      case NotificationTypeEnum.REPLY_COMMENT:
-      case NotificationTypeEnum.COMMENT_REACTION:
       case NotificationTypeEnum.POST_TAGS:
+        // Non-comment notifications: go to post page
         try {
           final postId = notificationModel.notification_data?.postId?.id;
           if (postId != null) {
             Get.toNamed(Routes.NOTIFICATION_POST, arguments: {
               'postId': postId,
-              'commentId': notificationModel.notification_data?.commentId?.id,
             });
+          } else {
+            showWarningSnackkbar(message: 'This post is no longer available'.tr);
+          }
+        } catch (_) {
+          showWarningSnackkbar(message: 'This post was not found'.tr);
+        }
+        break;
+
+      case NotificationTypeEnum.POST_COMMENTED:
+      case NotificationTypeEnum.REPLY_COMMENT:
+      case NotificationTypeEnum.COMMENT_REACTION:
+        // Comment notifications: go directly to comments page (single back to notifications)
+        try {
+          final postId = notificationModel.notification_data?.postId?.id;
+          if (postId != null) {
+            Get.to(
+              () => PostCommentPageView(
+                postId: postId,
+              ),
+              transition: Transition.rightToLeft,
+              duration: const Duration(milliseconds: 250),
+            );
           } else {
             showWarningSnackkbar(message: 'This post is no longer available'.tr);
           }

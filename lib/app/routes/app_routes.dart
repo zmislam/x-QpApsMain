@@ -198,6 +198,7 @@ abstract class Routes {
   static const REELS_SEARCH = _Paths.REELS_SEARCH;
   static const WATCHED_REELS = _Paths.WATCHED_REELS;
   static const SAVED_REELS = _Paths.SAVED_REELS;
+  static const USER_REELS = _Paths.USER_REELS;
   static const FEEDS = _Paths.FEEDS;
   static const ADVANCE_SEARCH = _Paths.ADVANCE_SEARCH;
   static const BIRTHDAYS = _Paths.BIRTHDAYS;
@@ -385,6 +386,7 @@ abstract class _Paths {
   static const REELS_SEARCH = '/reels-search';
   static const WATCHED_REELS = '/watched-reels';
   static const SAVED_REELS = '/saved-reels';
+  static const USER_REELS = '/user-reels';
   static const FEEDS = '/feeds';
   static const ADVANCE_SEARCH = '/advance-search';
   static const BIRTHDAYS = '/birthdays-page';

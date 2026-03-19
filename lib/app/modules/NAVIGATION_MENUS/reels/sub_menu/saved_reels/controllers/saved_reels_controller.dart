@@ -65,4 +65,20 @@ class SavedReelsController extends GetxController {
     _hasMore = true;
     await _loadSavedReels();
   }
+
+  /// Unsave (remove bookmark from) a reel
+  Future<void> unsaveReel(String reelId) async {
+    if (reelId.isEmpty) return;
+    
+    try {
+      final response = await _reelsRepository.toggleBookmark(reelId: reelId);
+      if (response.isSuccessful) {
+        // Remove from local list
+        savedReels.value = savedReels.value.where((r) => r.id != reelId).toList();
+        savedReels.refresh();
+      }
+    } catch (e) {
+      print('[SavedReels] Error unsaving reel: $e');
+    }
+  }
 }

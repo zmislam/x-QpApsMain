@@ -20,6 +20,8 @@ import '../modules/NAVIGATION_MENUS/reels/sub_menu/watched_reels/bindings/watche
 import '../modules/NAVIGATION_MENUS/reels/sub_menu/watched_reels/views/watched_reels_view.dart';
 import '../modules/NAVIGATION_MENUS/reels/sub_menu/saved_reels/bindings/saved_reels_binding.dart';
 import '../modules/NAVIGATION_MENUS/reels/sub_menu/saved_reels/views/saved_reels_view.dart';
+import '../modules/NAVIGATION_MENUS/reels/sub_menu/user_reels/bindings/user_reels_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels/sub_menu/user_reels/views/user_reels_view.dart';
 import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_dashboard/bindings/buyer_panel_dashboard_binding.dart';
 import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_dashboard/views/buyer_panel_dashboard_view.dart';
 import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_dashboard/views/complain_list_view.dart';
@@ -1106,6 +1108,11 @@ class AppPages {
       name: _Paths.SAVED_REELS,
       page: () => const SavedReelsView(),
       binding: SavedReelsBinding(),
+    ),
+    GetPage(
+      name: _Paths.USER_REELS,
+      page: () => const UserReelsView(),
+      binding: UserReelsBinding(),
     ),
     GetPage(
       name: _Paths.FEEDS,

@@ -317,9 +317,15 @@ class OtherReelsVideoView extends GetView<OtherReelsVideoController> {
                           )));
                     },
                     onPressedReelsEye: () {
-                      ProfileNavigator.navigateToProfile(
-                          username: item.reel_user?.username ?? '',
-                          isFromReels: 'true');
+                      Get.toNamed(
+                        Routes.USER_REELS,
+                        arguments: {
+                          'userId': item.reel_user?.id ?? '',
+                          'username': item.reel_user?.username ?? '',
+                          'userFullName': '${item.reel_user?.first_name ?? ''} ${item.reel_user?.last_name ?? ''}'.trim(),
+                          'userProfilePic': item.reel_user?.profile_pic ?? '',
+                        },
+                      );
                     },
                     onTapEditReel: () {},
                   );
@@ -331,9 +337,15 @@ class OtherReelsVideoView extends GetView<OtherReelsVideoController> {
 
                   return ReelsCampaignComponent(
                     onPressedReelsEye: () {
-                      ProfileNavigator.navigateToProfile(
-                          username: item.reelUser?.username ?? '',
-                          isFromReels: 'true');
+                      Get.toNamed(
+                        Routes.USER_REELS,
+                        arguments: {
+                          'userId': item.reelUser?.id ?? '',
+                          'username': item.reelUser?.username ?? '',
+                          'userFullName': '${item.reelUser?.firstName ?? ''} ${item.reelUser?.lastName ?? ''}'.trim(),
+                          'userProfilePic': item.reelUser?.profilePic ?? '',
+                        },
+                      );
                     },
                     onPressedMessanger: () {},
 

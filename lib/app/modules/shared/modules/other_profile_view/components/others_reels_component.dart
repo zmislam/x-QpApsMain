@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../../config/constants/feed_design_tokens.dart';
 import '../../../../../components/simmar_loader.dart';
 import 'other_personal_reels_compoent.dart';
 import 'other_personal_shared_reels_compoent.dart';
@@ -13,90 +12,64 @@ class OthersProfileReelsComponent extends StatelessWidget {
   final OthersProfileController controller;
   @override
   Widget build(BuildContext context) {
-    final bgColor = FeedDesignTokens.cardBg(context);
-    final textPrimary = FeedDesignTokens.textPrimary(context);
-    final textSecondary = FeedDesignTokens.textSecondary(context);
-
     List<Widget> widgetList = [
       OtherPersonalReelComponent(controller: controller),
       OtherPersonalSharedReelComponent(controller: controller)
     ];
-    return Container(
-      color: bgColor,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-      child: Column(
-        children: [
-          // Sub-tab chips for reels
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Text-based sub-tabs for reels
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildReelSubTab(
-                context: context,
-                label:
-                    '${controller.profileModel.value?.first_name ?? 'User'}\'s Reels',
-                isSelected: controller.viewReelsTabNumber.value == 0,
+              InkWell(
                 onTap: () {
                   controller.viewReelsTabNumber.value = 0;
                 },
-                textPrimary: textPrimary,
-                textSecondary: textSecondary,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Obx(
+                    () => Text(
+                      '${controller.profileModel.value?.first_name ?? 'User'}\'s Reels',
+                      style: TextStyle(
+                        color: controller.viewReelsTabNumber.value == 0
+                            ? PRIMARY_COLOR
+                            : Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(width: 8),
-              _buildReelSubTab(
-                context: context,
-                label:
-                    '${controller.profileModel.value?.first_name?.toString().split(' ')[0] ?? 'User'}\'s Reposts',
-                isSelected: controller.viewReelsTabNumber.value == 1,
+              const SizedBox(width: 20),
+              InkWell(
                 onTap: () {
                   controller.viewReelsTabNumber.value = 1;
                   controller.getOtherRepostVideo();
                 },
-                textPrimary: textPrimary,
-                textSecondary: textSecondary,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Obx(
+                    () => Text(
+                      '${controller.profileModel.value?.first_name?.toString().split(' ')[0] ?? 'User'}\'s Reposts',
+                      style: TextStyle(
+                        color: controller.viewReelsTabNumber.value == 1
+                            ? PRIMARY_COLOR
+                            : Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Obx(() => widgetList[controller.viewReelsTabNumber.value]),
-        ],
-      ),
+        ),
+        Obx(() => widgetList[controller.viewReelsTabNumber.value]),
+      ],
     );
-  }
-
-  Widget _buildReelSubTab({
-    required BuildContext context,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required Color textPrimary,
-    required Color textSecondary,
-  }) {
-    return Obx(() => GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: (controller.viewReelsTabNumber.value == 0 && label.contains('Reels')) ||
-                      (controller.viewReelsTabNumber.value == 1 && label.contains('Reposts'))
-                  ? PRIMARY_COLOR
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-              border: (controller.viewReelsTabNumber.value == 0 && label.contains('Reels')) ||
-                      (controller.viewReelsTabNumber.value == 1 && label.contains('Reposts'))
-                  ? null
-                  : Border.all(color: FeedDesignTokens.divider(context)),
-            ),
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Colors.white : textSecondary,
-              ),
-            ),
-          ),
-        ));
   }
 
   Widget ShimmarLoadingView() {

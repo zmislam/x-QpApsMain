@@ -32,13 +32,10 @@ class NotificationPostController extends GetxController {
     _loginCredential = LoginCredential();
     userModel = _loginCredential.getUserData();
     postId = Get.arguments['postId'];
+    // Note: commentId is no longer used - comment notifications now navigate directly to PostCommentPageView
     commentId = Get.arguments['commentId'];
 
     await getPosts(postId ?? '');
-    if (commentId != null) {
-      openCommentComponent(Get.context!);
-    }
-//  commentOnPost(postModel)
     commentController = TextEditingController();
     super.onInit();
   }

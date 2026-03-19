@@ -70,6 +70,12 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
 
   /// True when we injected the post ourselves and must remove it on dispose.
   bool _wasInjected = false;
+  
+  /// Loading state when fetching post from API
+  final RxBool _isLoadingPost = false.obs;
+  
+  /// Error message if post fetch fails
+  final RxString _errorMessage = ''.obs;
 
   PostModel get postModel {
     final idx = controller.edgeRankPosts.indexWhere((p) => p.id == widget.postId);
@@ -87,8 +93,53 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
     if (existingIdx == -1 && widget.initialPostModel != null) {
       controller.edgeRankPosts.add(widget.initialPostModel!);
       _wasInjected = true;
+      _initializePostState();
+    } else if (existingIdx == -1 && widget.initialPostModel == null) {
+      // Post not in list and no initialPostModel provided - fetch from API
+      _fetchPostFromApi();
+    } else {
+      _initializePostState();
     }
 
+    // Listen for text changes to toggle send button
+    controller.commentController.addListener(_onTextChanged);
+  }
+  
+  /// Fetch post from API when not available locally
+  Future<void> _fetchPostFromApi() async {
+    _isLoadingPost.value = true;
+    _errorMessage.value = '';
+    
+    try {
+      final api = ApiCommunication();
+      final response = await api.doGetRequest(
+        responseDataKey: ApiConstant.FULL_RESPONSE,
+        apiEndPoint: 'view-single-main-post-with-comments/${widget.postId}',
+      );
+      
+      if (response.isSuccessful && response.data != null) {
+        final postList = ((response.data as Map<String, dynamic>)['post']) as List?;
+        if (postList != null && postList.isNotEmpty) {
+          final fetchedPost = PostModel.fromMap(postList.first);
+          controller.edgeRankPosts.add(fetchedPost);
+          _wasInjected = true;
+          _initializePostState();
+        } else {
+          _errorMessage.value = 'Post not found';
+        }
+      } else {
+        _errorMessage.value = 'Failed to load post';
+      }
+    } catch (e) {
+      debugPrint('[PostCommentPageView] Error fetching post: $e');
+      _errorMessage.value = 'Post not found';
+    } finally {
+      _isLoadingPost.value = false;
+    }
+  }
+  
+  /// Initialize post-dependent state (comments, follow status, etc.)
+  void _initializePostState() {
     // Load comments if not already loaded
     if (postModel.id != null) {
       controller.getSinglePostsComments(postModel.id!);
@@ -97,8 +148,6 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
     _isFollowingPage.value = postModel.isFollowingPage == true;
     _isGroupMember.value = postModel.isGroupMember == true;
     _isFriendRequestSent.value = postModel.isFriendRequestSended == true;
-    // Listen for text changes to toggle send button
-    controller.commentController.addListener(_onTextChanged);
   }
 
   void _onTextChanged() {
@@ -215,10 +264,55 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
             // ─── Scrollable content: Post + Comments ───
             Expanded(
               child: Obx(() {
+                // Show loading state while fetching post
+                if (_isLoadingPost.value) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+                
+                // Show error state if fetch failed
+                if (_errorMessage.value.isNotEmpty) {
+                  return CustomScrollView(slivers: [
+                    SliverToBoxAdapter(
+                      child: _buildErrorHeader(context),
+                    ),
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _errorMessage.value,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ]);
+                }
+                
                 final idx = controller.edgeRankPosts.indexWhere((p) => p.id == widget.postId);
                 if (idx == -1) {
-                  return const CustomScrollView(slivers: [
-                    SliverFillRemaining(child: Center(child: Text('Post not found')))
+                  return CustomScrollView(slivers: [
+                    SliverToBoxAdapter(
+                      child: _buildErrorHeader(context),
+                    ),
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: Text('Post not found')),
+                    ),
                   ]);
                 }
                 final post = controller.edgeRankPosts[idx];
@@ -271,6 +365,21 @@ class _PostCommentPageViewState extends State<PostCommentPageView> {
             _buildInputBar(context),
           ],
         ),
+      ),
+    );
+  }
+  
+  /// Simple header with back button for error/loading states
+  Widget _buildErrorHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Get.back(),
+          ),
+        ],
       ),
     );
   }

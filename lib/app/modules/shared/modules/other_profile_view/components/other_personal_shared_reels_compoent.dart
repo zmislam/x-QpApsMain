@@ -82,14 +82,19 @@ class OtherPersonalSharedReelComponent extends StatelessWidget {
   }
 
   Widget _buildReelItem(BuildContext context, dynamic reel, int index) {
+    final profile = controller.profileModel.value;
     return GestureDetector(
       onTap: () {
         Future.delayed(Duration.zero, () {
           Get.toNamed(
-            Routes.OTHER_USER_VIDEO,
+            Routes.USER_REELS,
             arguments: {
-              'reelsID': controller.repostList.value[index].id,
-              'username': controller.profileModel.value?.username,
+              'userId': profile?.id ?? '',
+              'username': profile?.username ?? '',
+              'userFullName': '${profile?.first_name ?? ''} ${profile?.last_name ?? ''}'.trim(),
+              'userProfilePic': profile?.profile_pic ?? '',
+              'startIndex': index,
+              'reelType': 'repost',
             },
           );
         });
