@@ -1,240 +1,236 @@
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../../../repository/market_place_repository.dart';
-
-import '../../../../../data/market_place_data.dart';
 import '../../../../../models/api_response.dart';
-import '../../../../../models/product_brand.dart';
-import '../../../../../models/product_category.dart';
-import '../../../../../services/api_communication.dart';
+import '../../../../../services/recently_visited_service.dart';
 import '../../marketplace_products/controllers/marketplace_controller.dart';
 import '../models/product_details_model.dart';
 import '../models/product_review_model.dart';
 import '../models/related_product_model.dart';
+import '../models/product_question_model.dart';
 
-class ProductDetailsController extends GetxController {
-  late ApiCommunication _apiCommunication;
-  late MarketPlaceData _marketPlaceData;
+class ProductDetailsController extends GetxController
+    with GetSingleTickerProviderStateMixin {
+  final MarketPlaceRepository marketPlaceRepository = MarketPlaceRepository();
+  MarketplaceController get marketPlaceController =>
+      Get.find<MarketplaceController>();
+
+  // ─── Core State ────────────────────────────────────────
+  RxBool isLoading = true.obs;
+  RxBool isLoadingRelatedProduct = true.obs;
+  RxString pId = ''.obs;
+  Rx<ProductDetails?> product = Rx<ProductDetails?>(null);
+  // Keep backward compat — old widgets use productDetailsList
+  Rx<List<ProductDetails>> productDetailsList = Rx([]);
+  Rx<List<AllRelatedProducts>> relatedProductList = Rx([]);
+  Rx<List<ProductReviewDetails>> productReviewDetailsList = Rx([]);
   Rx<ReviewData?> reviewData = Rx<ReviewData?>(null);
 
-  RxBool isLoadingMarketplaceProduct = true.obs;
-  Rx<List<AllRelatedProducts>> relatedProductList = Rx([]);
-  Rx<List<ProductDetails>> productDetailsList = Rx([]);
-  Rx<List<ProductReviewDetails>> productReviewDetailsList = Rx([]);
-  Rx<List<ProductData>> categoryList = Rx([]);
-  Rx<List<ProductBrand>> brandList = Rx([]);
-  TextEditingController searchController = TextEditingController();
-  TextEditingController maxPriceController = TextEditingController();
-  TextEditingController minPriceController = TextEditingController();
-  MarketplaceController marketPlaceController = Get.find();
-  var tabTitles = <String>[].obs;
-  var tabContents = <Widget>[].obs;
-  RxString categoryName = ''.obs;
-  RxString brandName = ''.obs;
-  RxString price = ''.obs;
-  RxString pId = ''.obs;
-  final selectedProductVariantId = ''.obs;
+  // ─── Variant Selection ─────────────────────────────────
   final selectedAttributes = <String, String>{}.obs;
   final RxString selectedColorId = ''.obs;
+  final RxString selectedProductVariantId = ''.obs;
   RxDouble currentPrice = 0.0.obs;
+  RxDouble originalPrice = 0.0.obs;
   final RxInt productQuantity = 1.obs;
-  final RxInt stock = 1.obs;
+  final RxInt stock = 0.obs;
 
-  final MarketPlaceRepository marketPlaceRepository = MarketPlaceRepository();
+  // ─── Image Carousel ────────────────────────────────────
+  final RxInt currentImageIndex = 0.obs;
+  late PageController imagePageController;
 
-  //================================================= Get Product Variant Price ========================================//
+  // ─── Tab Bar ───────────────────────────────────────────
+  late TabController tabController;
+  final RxInt currentTabIndex = 0.obs;
+
+  // ─── Q&A ───────────────────────────────────────────────
+  RxList<ProductQuestion> questions = <ProductQuestion>[].obs;
+  RxBool isLoadingQuestions = false.obs;
+  final questionTextController = TextEditingController();
+
+  // ─── Follow ────────────────────────────────────────────
+  RxBool isFollowingStore = false.obs;
+
+  // ─── Quick Message ─────────────────────────────────────
+  final messageTextController = TextEditingController();
+
+  bool _isInitialized = false;
+
+  @override
+  void onInit() {
+    super.onInit();
+    imagePageController = PageController();
+    tabController = TabController(length: 4, vsync: this);
+    tabController.addListener(() {
+      currentTabIndex.value = tabController.index;
+    });
+    initializeApiCalling();
+  }
+
+  @override
+  void onClose() {
+    imagePageController.dispose();
+    tabController.dispose();
+    questionTextController.dispose();
+    messageTextController.dispose();
+    super.onClose();
+  }
+
+  // ─── Initialize ────────────────────────────────────────
+  Future<void> initializeApiCalling() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
+    final args = Get.arguments;
+    if (args != null) {
+      pId.value = args is String ? args : args.toString();
+      _resetState();
+      await _fetchAllData();
+    }
+  }
+
+  void _resetState() {
+    product.value = null;
+    productDetailsList.value = [];
+    relatedProductList.value = [];
+    productReviewDetailsList.value = [];
+    reviewData.value = null;
+    questions.clear();
+    productQuantity.value = 1;
+    selectedAttributes.clear();
+    selectedColorId.value = '';
+    selectedProductVariantId.value = '';
+    currentPrice.value = 0.0;
+    originalPrice.value = 0.0;
+    stock.value = 0;
+    currentImageIndex.value = 0;
+    isFollowingStore.value = false;
+  }
+
+  Future<void> _fetchAllData() async {
+    isLoading.value = true;
+    await getProductDetails();
+    // Record recently visited
+    _recordRecentlyVisited();
+    // Fire these in parallel
+    getRelatedMarketPlaceProduct();
+    getProductReviews();
+    getProductQuestions();
+    trackProductView();
+    isLoading.value = false;
+  }
+
+  void _recordRecentlyVisited() {
+    final p = product.value;
+    if (p == null || pId.value.isEmpty) return;
+    RecentlyVisitedService.instance.recordVisit(
+      productId: pId.value,
+      productName: p.productName,
+      image: p.media?.isNotEmpty == true ? p.media!.first : null,
+      sellPrice: p.productVariant?.isNotEmpty == true
+          ? p.productVariant!.first.sellPrice
+          : null,
+    );
+  }
+
+  // ─── Navigate to another product ──────────────────────
+  Future<void> navigateToProduct(String productId) async {
+    pId.value = productId;
+    _resetState();
+    currentImageIndex.value = 0;
+    if (imagePageController.hasClients) {
+      imagePageController.jumpToPage(0);
+    }
+    tabController.animateTo(0);
+    await _fetchAllData();
+  }
+
+  // ─── Product Details ───────────────────────────────────
+  Future<void> getProductDetails() async {
+    final apiResponse = await marketPlaceRepository.getProductDetailsById(
+        productId: pId.value);
+    if (apiResponse.isSuccessful) {
+      final p = ProductDetails.fromMap(apiResponse.data as Map<String, dynamic>);
+      product.value = p;
+      productDetailsList.value = [p];
+      productDetailsList.refresh();
+      _initializePricing();
+    }
+  }
+
+  void _initializePricing() {
+    final p = product.value;
+    if (p?.productVariant != null && p!.productVariant!.isNotEmpty) {
+      final firstVariant = p.productVariant!.first;
+      currentPrice.value = firstVariant.sellPrice ?? 0.0;
+      originalPrice.value = firstVariant.mainPrice ?? 0.0;
+      stock.value = firstVariant.stock ?? 0;
+      selectedProductVariantId.value = firstVariant.id ?? '';
+    }
+  }
+
+  // ─── Related Products ─────────────────────────────────
+  Future<void> getRelatedMarketPlaceProduct() async {
+    isLoadingRelatedProduct.value = true;
+    final apiResponse = await marketPlaceRepository
+        .getRelatedMarketPlaceProductById(productId: pId.value);
+    isLoadingRelatedProduct.value = false;
+    if (apiResponse.isSuccessful) {
+      relatedProductList.value = apiResponse.data as List<AllRelatedProducts>;
+      relatedProductList.refresh();
+    }
+  }
+
+  // ─── Product Reviews ──────────────────────────────────
+  Future<void> getProductReviews() async {
+    final apiResponse =
+        await marketPlaceRepository.getProductReviewById(productId: pId.value);
+    if (apiResponse.isSuccessful) {
+      reviewData.value =
+          ReviewData.fromMap(apiResponse.data as Map<String, dynamic>);
+      productReviewDetailsList.value = reviewData.value?.review ?? [];
+      productReviewDetailsList.refresh();
+    }
+  }
+
+  // ─── Variant Price Fetch ──────────────────────────────
   Future<void> fetchPriceBasedOnAttributes() async {
     try {
-      String? selectedColorIdValue = selectedColorId.value;
-
       List<Map<String, String>> filters = selectedAttributes.entries
           .where((entry) => entry.key != 'Color')
           .map((entry) => {'name': entry.key, 'value': entry.value})
           .toList();
 
-      Map<String, dynamic> requestData = {
-        'color_id': selectedColorIdValue,
-        'filter': filters,
-      };
-
-      //
-
       final ApiResponse response =
           await marketPlaceRepository.getProductPriceBasedOnAttributesById(
-              productId: productDetailsList.value.first.id.toString(),
-              requestData: requestData);
+        productId: pId.value,
+        requestData: {
+          'color_id': selectedColorId.value,
+          'filter': filters,
+        },
+      );
 
       if (response.isSuccessful) {
-        var productVariant =
+        var variant =
             (response.data as Map<String, dynamic>)['product_variant']?[0];
-        stock.value = (response.data as Map<String, dynamic>)['product_variant']
-            ?[0]['stock'];
-        debugPrint('Product Variant Id ::::::::::::::::::::$productVariant');
-        debugPrint('Stock Value ::::::::::::::::::::${stock.value}');
-        double newPrice = productVariant?['sell_price']?.toDouble() ?? 0.0;
-        currentPrice.value = newPrice;
-
-        selectedProductVariantId.value = productVariant?['_id'] ?? '';
-      } else {
-        debugPrint('Failed to fetch price: ${response.message}');
+        if (variant != null) {
+          currentPrice.value =
+              (variant['sell_price'] as num?)?.toDouble() ?? 0.0;
+          originalPrice.value =
+              (variant['main_price'] as num?)?.toDouble() ?? 0.0;
+          stock.value = variant['stock'] as int? ?? 0;
+          selectedProductVariantId.value = variant['_id'] ?? '';
+        }
       }
     } catch (e) {
       debugPrint('Error fetching price: $e');
     }
   }
 
-  //===============================================Get All Related Product List ========================================//
-  RxBool isLoadingRelatedProduct = true.obs;
-  Future<void> getRelatedMarketPlaceProduct({String? productId}) async {
-    productId = productId ?? pId.value;
-
-    relatedProductList.refresh();
-
-    debugPrint('Fetching related products for productId: $productId');
-
-    isLoadingRelatedProduct.value = true;
-
-    final apiResponse = await marketPlaceRepository
-        .getRelatedMarketPlaceProductById(productId: productId);
-    isLoadingRelatedProduct.value = false;
-
-    if (apiResponse.isSuccessful) {
-      relatedProductList.value
-          .addAll(apiResponse.data as List<AllRelatedProducts>);
-
-      relatedProductList.refresh();
-
-      debugPrint(
-          'Related products fetched: ${relatedProductList.value.length}');
-    } else {
-      debugPrint('Error fetching related products: ${apiResponse.message}');
-    }
-  }
-
-  //===============================================Get Product details ========================================//
-  Future<void> getProductDetails({String? productId}) async {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-      productDetailsList.value.clear();
-      productDetailsList.refresh();
-    });
-
-    productId == null ? productId = pId.value : productId = productId;
-
-    debugPrint('market call..........');
-
-    isLoadingMarketplaceProduct.value = true;
-    update();
-
-    final apiResponse =
-        await marketPlaceRepository.getProductDetailsById(productId: productId);
-    isLoadingMarketplaceProduct.value = false;
-    update();
-
-    debugPrint('product Details call..........${apiResponse.statusCode}');
-
-    if (apiResponse.isSuccessful) {
-      productDetailsList.value = [
-        ProductDetails.fromMap(apiResponse.data as Map<String, dynamic>)
-      ];
-
-      debugPrint(
-          'status code from market list..........${productDetailsList.value}');
-      // debugPrint(
-      //     'Stock Quantity:::::::::..........${productDetailsList.value.first.productVariant?.first.stock}');
-    } else {
-      debugPrint('Api Error..........${apiResponse.message}');
-    }
-  }
-
-//================================================= Get Product Review details ========================================//
-  Future<void> getProductReviews({String? productId}) async {
-    productId = pId.value;
-
-    debugPrint('market call..........');
-
-    isLoadingMarketplaceProduct.value = true;
-    update();
-
-    // Making the API call
-    final apiResponse =
-        await marketPlaceRepository.getProductReviewById(productId: productId);
-
-    isLoadingMarketplaceProduct.value = false;
-    update();
-
-    debugPrint('product Details call..........${apiResponse.statusCode}');
-
-    if (apiResponse.isSuccessful) {
-      reviewData.value =
-          ReviewData.fromMap(apiResponse.data as Map<String, dynamic>);
-
-      productReviewDetailsList.value.addAll(reviewData.value?.review ?? []);
-
-      debugPrint(
-          'Product review list..........${productReviewDetailsList.value.length}');
-    } else {
-      debugPrint('Api Error..........${apiResponse.message}');
-    }
-  }
-
-//=================================================Add To Cart ========================================//
-
-  // Future<void> addToCartPost(
-  //     {String? productId,
-  //     String? storeId,
-  //     String? productVariantId,
-  //     int? quantity}) async {
-  //   productId = pId.value;
-  //   final apiResponse = await _apiCommunication.doPostRequest(
-  //     responseDataKey: ApiConstant.FULL_RESPONSE,
-  //     apiEndPoint: 'market-place/save-cart',
-  //     requestData: {
-  //       'product_id': productId,
-  //       'store_id': storeId,
-  //       'product_variant_id': productVariantId,
-  //       'quantity': quantity,
-  //     },
-  //   );
-
-  //   debugPrint('api delete response.....${apiResponse.statusCode}');
-
-  //   if (apiResponse.isSuccessful) {
-  //     showSuccessSnackkbar(message: 'Added to cart successfully');
-  //   } else {
-  //     showErrorSnackkbar(message: 'Sorry! Product is out of stock');
-  //   }
-
-  //   debugPrint('-post-home controller---------------------------$apiResponse');
-  // }
-  // Future<void> addToCartForRelatedPost(
-  //     {String? productId,
-  //     String? storeId,
-  //     String? productVariantId,
-  //     int? quantity}) async {
-  //   final apiResponse = await _apiCommunication.doPostRequest(
-  //     responseDataKey: ApiConstant.FULL_RESPONSE,
-  //     apiEndPoint: 'market-place/save-cart',
-  //     requestData: {
-  //       'product_id': productId,
-  //       'store_id': storeId,
-  //       'product_variant_id': productVariantId,
-  //       'quantity': quantity,
-  //     },
-  //   );
-
-  //   debugPrint('api delete response.....${apiResponse.statusCode}');
-
-  //   if (apiResponse.isSuccessful) {
-  //     showSuccessSnackkbar(message: 'Added to cart successfully');
-  //   } else {
-  //     showErrorSnackkbar(message: 'Sorry! Product is out of stock');
-  //   }
-
-  //   debugPrint('-post-home controller---------------------------$apiResponse');
-  // }
-
+  // ─── Quantity Controls ────────────────────────────────
   void incrementQuantity() {
-    if (stock.value != 0 && stock.value >= productQuantity.value) {
+    if (stock.value > 0 && productQuantity.value < stock.value) {
       productQuantity.value++;
     }
   }
@@ -245,51 +241,99 @@ class ProductDetailsController extends GetxController {
     }
   }
 
-  //=================================================Initialize Product Calling for details and others ========================================//
-  void initializeApiCalling() async {
-    if (Get.arguments != null) {
-      pId.value = Get.arguments;
-      // productDetailsList.value.clear();
-      // productReviewDetailsList.value.clear();
-      // relatedProductList.value.clear();
-      await getProductDetails(productId: pId.value);
-       getRelatedMarketPlaceProduct(productId: pId.value);
-      await getProductReviews(productId: pId.value);
-    } else {
-      debugPrint('No arguments passed to the controller.');
+  // ─── View Count Tracking ──────────────────────────────
+  Future<void> trackProductView() async {
+    await marketPlaceRepository.incrementProductViewCount(
+        productId: pId.value);
+  }
+
+  // ─── Share Product ────────────────────────────────────
+  Future<void> shareProduct() async {
+    final p = product.value;
+    if (p == null) return;
+    final text =
+        '${p.productName ?? 'Check out this product'}\n€${currentPrice.value.toStringAsFixed(2)}';
+    await SharePlus.instance.share(ShareParams(text: text));
+    await marketPlaceRepository.incrementProductShareCount(
+        productId: pId.value);
+  }
+
+  // ─── Store Follow Toggle ──────────────────────────────
+  Future<void> toggleStoreFollow() async {
+    final storeId = product.value?.store?.id;
+    if (storeId == null) return;
+    final response =
+        await marketPlaceRepository.toggleStoreFollow(storeId: storeId);
+    if (response.isSuccessful) {
+      isFollowingStore.value = !isFollowingStore.value;
     }
   }
 
-  @override
-  void onClose() {
-    super.onClose();
-    if (searchController.text.isNotEmpty) {
-      searchController.clear();
-    }
-    if (maxPriceController.text.isNotEmpty) {
-      maxPriceController.clear();
-    }
-    if (minPriceController.text.isNotEmpty) {
-      minPriceController.clear();
+  // ─── Product Q&A ──────────────────────────────────────
+  Future<void> getProductQuestions() async {
+    isLoadingQuestions.value = true;
+    final response = await marketPlaceRepository.getProductQuestions(
+        productId: pId.value);
+    isLoadingQuestions.value = false;
+    if (response.isSuccessful && response.data is List) {
+      questions.value = (response.data as List)
+          .map((e) => ProductQuestion.fromMap(e as Map<String, dynamic>))
+          .toList();
     }
   }
 
-  @override
-  void onInit() async {
-    _apiCommunication = ApiCommunication();
-
-    pId.value = Get.arguments;
-    getRelatedMarketPlaceProduct(productId: pId.value);
-
-    getProductDetails(productId: pId.value);
-    getProductReviews(productId: pId.value);
-
-    super.onInit();
+  Future<void> submitQuestion() async {
+    final text = questionTextController.text.trim();
+    if (text.isEmpty) return;
+    final response = await marketPlaceRepository.askProductQuestion(
+      productId: pId.value,
+      question: text,
+    );
+    if (response.isSuccessful) {
+      questionTextController.clear();
+      getProductQuestions();
+    }
   }
-  // @override
-  // void onReady() {
-  //   pId.value= Get.arguments;
-  //  getProductDetails(productId: pId.value);
-  //   super.onReady();
-  // }
+
+  // ─── Quick Message ────────────────────────────────────
+  Future<void> sendQuickMessage() async {
+    final text = messageTextController.text.trim();
+    if (text.isEmpty) return;
+    final response = await marketPlaceRepository.sendQuickMessage(
+      productId: pId.value,
+      message: text,
+    );
+    if (response.isSuccessful) {
+      messageTextController.clear();
+      Get.snackbar('Sent', 'Message sent to seller',
+          snackPosition: SnackPosition.BOTTOM);
+    }
+  }
+
+  // ─── Computed Helpers ─────────────────────────────────
+  bool get hasDiscount =>
+      originalPrice.value > 0 && originalPrice.value > currentPrice.value;
+
+  int get discountPercent {
+    if (!hasDiscount) return 0;
+    return (((originalPrice.value - currentPrice.value) /
+                originalPrice.value) *
+            100)
+        .round();
+  }
+
+  bool get isInStock => stock.value > 0;
+
+  bool get hasVariants {
+    final variants = product.value?.productVariant;
+    if (variants == null || variants.isEmpty) return false;
+    final first = variants.first;
+    return (first.attribute != null && first.attribute!.isNotEmpty) ||
+        (first.color?.value != null && first.color!.value!.isNotEmpty);
+  }
+
+  double get vatInclusivePrice {
+    final vat = product.value?.vat ?? 0;
+    return currentPrice.value * (1 + vat / 100);
+  }
 }

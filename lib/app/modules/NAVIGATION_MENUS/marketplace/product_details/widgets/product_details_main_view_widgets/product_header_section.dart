@@ -1,105 +1,163 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../../../config/constants/marketplace_design_tokens.dart';
+import '../../../../../../utils/currency_helper.dart';
 import '../../controllers/product_details_controller.dart';
 
-import '../../../../../../config/constants/color.dart';
-import 'package:get/get.dart';
-
-class ProductHeaderInfo extends StatelessWidget {
-  final ProductDetailsController controller;
-
-  const ProductHeaderInfo({super.key, required this.controller});
+class ProductHeaderSection extends GetView<ProductDetailsController> {
+  const ProductHeaderSection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 10.0),
-          child: Text(
-            controller.productDetailsList.value.first.productName.toString(),
-            textAlign: TextAlign.start,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(
-          height: 10,
-        ),
-        // ============================================================== Product Price ==============================================================
-        Row(
-          mainAxisAlignment: MainAxisAlignment.start,
+    return Obx(() {
+      final p = controller.product.value;
+      if (p == null) return const SizedBox.shrink();
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: MarketplaceDesignTokens.spacingMd),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 10.0),
-              child: controller.productDetailsList.value.first.productVariant !=
-                          null &&
-                      controller.productDetailsList.value.first.productVariant!
-                          .isNotEmpty
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('\$${controller.productDetailsList.value.first.productVariant?.first.mainPrice}'.tr,
-                          textAlign: TextAlign.start,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 16,
-                              decoration: TextDecoration.lineThrough,
-                              decorationThickness: 3,
-                              decorationColor: Color.fromARGB(255, 196, 20, 7),
-                              color: Colors.red,
-                              fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(
-                          width: 20,
-                        ),
-                        Text('\$${controller.productDetailsList.value.first.productVariant?.first.sellPrice}'.tr,
-                          textAlign: TextAlign.start,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 16,
-                              color: PRIMARY_COLOR,
-                              fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    )
-                  : const SizedBox(),
+            // ─── Badges Row ─────────────────────────
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                if (controller.isInStock)
+                  _badge('IN STOCK', MarketplaceDesignTokens.inStock)
+                else
+                  _badge('OUT OF STOCK', MarketplaceDesignTokens.outOfStock),
+                if (p.productCondition != null &&
+                    p.productCondition!.isNotEmpty)
+                  _badge(p.productCondition!.toUpperCase(),
+                      MarketplaceDesignTokens.sellerBadge),
+                if (p.trustedSeller?.id != null)
+                  _badge('TRUSTED SELLER', MarketplaceDesignTokens.buyerBadge),
+              ],
             ),
-            // const Spacer(),
+            const SizedBox(height: MarketplaceDesignTokens.spacingSm),
+
+            // ─── Product Name ───────────────────────
+            Text(
+              p.productName ?? '',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: MarketplaceDesignTokens.textPrimary(context),
+              ),
+            ),
+            const SizedBox(height: MarketplaceDesignTokens.spacingSm),
+
+            // ─── Price Section ──────────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  CurrencyHelper.formatPrice(controller.currentPrice.value),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: MarketplaceDesignTokens.pricePrimary,
+                  ),
+                ),
+                if (controller.hasDiscount) ...[
+                  const SizedBox(width: 10),
+                  Text(
+                    CurrencyHelper.formatPrice(controller.originalPrice.value),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      decoration: TextDecoration.lineThrough,
+                      decorationThickness: 2,
+                      color: MarketplaceDesignTokens.priceOriginal,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: MarketplaceDesignTokens.priceDiscount
+                          .withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '-${controller.discountPercent}%',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: MarketplaceDesignTokens.priceDiscount,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+
+            // ─── VAT Info ───────────────────────────
+            if (p.vat != null && p.vat! > 0) ...[
+              const SizedBox(height: 4),
+              Text(
+                '${'Price including'.tr} ${p.vat}% ${'VAT:'.tr} ${CurrencyHelper.formatPrice(controller.vatInclusivePrice)}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: MarketplaceDesignTokens.textSecondary(context),
+                ),
+              ),
+            ],
+
+            // ─── Stock + Sold Info ──────────────────
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                if (controller.stock.value > 0 &&
+                    controller.stock.value <= 5)
+                  Text(
+                    'Only ${controller.stock.value} left!',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: MarketplaceDesignTokens.lowStock,
+                    ),
+                  ),
+                if (p.sold != null && p.sold! > 0) ...[
+                  if (controller.stock.value > 0 &&
+                      controller.stock.value <= 5)
+                    const SizedBox(width: 12),
+                  Text(
+                    '${p.sold} sold',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: MarketplaceDesignTokens.textSecondary(context),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
+      );
+    });
+  }
 
-        const SizedBox(
-          height: 5,
+  Widget _badge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+          letterSpacing: 0.5,
         ),
-        // ==============================================================  Vat ==============================================================
-        Padding(
-            padding: const EdgeInsets.only(left: 10.0),
-            child: Row(
-              children: [
-                if (controller.productDetailsList.value.isNotEmpty &&
-                    (controller.productDetailsList.value.first.productVariant
-                            ?.isNotEmpty ??
-                        false))
-                  Text(
-                    '${'Price including'.tr} ${controller.productDetailsList.value.first.vat}% ${'VAT:'.tr} '
-                        '\$${((controller.productDetailsList.value.first.productVariant?.first.sellPrice ?? 0) * (1 + (controller.productDetailsList.value.first.vat ?? 0) / 100)).toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: PRIMARY_COLOR,
-                    ),
-                  )
-                else
-                  const SizedBox.shrink(),
-                const SizedBox(width: 5),
-                const Icon(
-                  Icons.error_outline_outlined,
-                  size: 20,
-                  color: PRIMARY_COLOR,
-                ),
-              ],
-            )),
-      ],
+      ),
     );
   }
 }

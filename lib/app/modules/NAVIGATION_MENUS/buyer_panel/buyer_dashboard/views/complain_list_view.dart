@@ -46,35 +46,35 @@ class BuyerComplaintListView extends GetView<BuyerPanelDashboardController> {
             iconPath: AppAssets.DASHBOARD_ICON,
             title: 'Dashboard'.tr,
             onTap: () {
-              Get.toNamed(Routes.BUYER_DASHBOARD);
+              Get.offNamed(Routes.MARKETPLACE_BUYER_PANEL);
             },
           ),
           DrawerItem(
             iconPath: AppAssets.ORDER_ICON,
             title: 'Order'.tr,
             onTap: () {
-              Get.toNamed(Routes.BUYER_ORDER_LIST);
+              Get.offNamed(Routes.MARKETPLACE_BUYER_PANEL, arguments: {'tab': 1});
             },
           ),
           DrawerItem(
             iconPath: AppAssets.REVIEW_LIST_ICON,
             title: 'Review List'.tr,
             onTap: () {
-              Get.toNamed(Routes.BUYER_REVIEW);
+              Get.offNamed(Routes.MARKETPLACE_BUYER_PANEL, arguments: {'tab': 2});
             },
           ),
           DrawerItem(
             iconPath: AppAssets.COMPLAIN_LIST_ICON,
             title: 'Complain List'.tr,
             onTap: () {
-              Get.toNamed(Routes.BUYER_COMPLAINT);
+              Get.offNamed(Routes.MARKETPLACE_BUYER_PANEL, arguments: {'tab': 3});
             },
           ),
           DrawerItem(
             iconPath: AppAssets.COMPLAIN_LIST_ICON,
             title: 'Refund Details List'.tr,
             onTap: () {
-              Get.toNamed(Routes.BUYER_RETURN_REFUND_LIST);
+              Get.offNamed(Routes.MARKETPLACE_BUYER_PANEL, arguments: {'tab': 3});
             },
           ),
         ],

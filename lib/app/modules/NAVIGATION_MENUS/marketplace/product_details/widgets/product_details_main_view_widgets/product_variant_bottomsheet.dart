@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../../../components/custom_cached_image_view.dart';
 import '../../../../../../extension/string/string_image_path.dart';
 import '../../../../../../config/constants/app_assets.dart';
 import '../../controllers/product_details_controller.dart';
@@ -109,16 +110,14 @@ void showProductVariantBottomSheet() {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(15.0),
-                      child: Image.network(
-                        (controller
+                      child: CustomCachedNetworkImage(
+                        imageUrl: (controller
                                 .productDetailsList.value.first.media?.first ??
                             '').formatedProductUrlLive,
                         width: 80,
                         height: 80,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.error, size: 50);
-                        },
+                        placeholderImage: AppAssets.DEFAULT_IMAGE,
                       ),
                     ),
                   ),

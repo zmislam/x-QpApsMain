@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../../repository/market_place_repository.dart';
+import '../../../../../services/recently_visited_service.dart';
 
 import '../../../../../models/product_brand.dart';
 import '../../../../../repository/cart_repository.dart';
@@ -46,6 +48,17 @@ class MarketplaceController extends GetxController {
 
   final MarketPlaceRepository marketPlaceRepository = MarketPlaceRepository();
   final CartRepository cartRepository = CartRepository();
+
+  // ─── Homepage Section Data ───────────────────────────────
+  RxList<AllProducts> newForYouList = <AllProducts>[].obs;
+  RxList<AllProducts> featuredProductList = <AllProducts>[].obs;
+  RxList<dynamic> flashDealsList = <dynamic>[].obs;
+  RxList<dynamic> featuredStoresList = <dynamic>[].obs;
+  RxList<dynamic> categoryList = <dynamic>[].obs;
+  RxBool isLoadingHomepage = true.obs;
+  RxString selectedChip = 'All'.obs;
+  RxList<AllProducts> sponsoredProductList = <AllProducts>[].obs;
+  RxList<Map<String, dynamic>> recentlyVisitedList = <Map<String, dynamic>>[].obs;
 
   // // Additional properties for category and brand lists
 
@@ -165,8 +178,9 @@ class MarketplaceController extends GetxController {
         productList.value.clear();
       }
       productList.value.addAll(fetchedProducts);
+      productList.refresh();
       // Check if more data is available
-      hasMoreData = totalCount > limit;
+      hasMoreData = productList.value.length < totalCount;
     } else {
       debugPrint('Failed to fetch products: ${apiResponse.message}');
     }
@@ -181,12 +195,16 @@ class MarketplaceController extends GetxController {
 //=================================================Get Suggested Products ========================================//
 // In MarketplaceController
   Rx<List<AllProducts>> suggestedProductList = Rx([]);
+  RxBool isLoadingSuggestions = false.obs;
+
   Future<void> getSuggestedProducts() async {
+    isLoadingSuggestions.value = true;
     final apiResponse = await marketPlaceRepository.getAllProductSuggestionList(
       queryParameters: {
         'search': searchController.text,
       },
     );
+    isLoadingSuggestions.value = false;
 
     if (apiResponse.isSuccessful) {
       final data = apiResponse.data as List<dynamic>;
@@ -199,6 +217,8 @@ class MarketplaceController extends GetxController {
     }
   }
   //=================================================Add To Cart ========================================//
+  RxBool isAddingToCart = false.obs;
+  RxString addingToCartProductId = ''.obs;
 
   Future<bool> addToCartPost(
       {String? productId,
@@ -206,13 +226,16 @@ class MarketplaceController extends GetxController {
       String? productVariantId,
       int? quantity}) async {
     productId == null ? productId = pId.value : productId = productId;
+    isAddingToCart.value = true;
+    addingToCartProductId.value = productId;
     final apiResponse = await cartRepository.addProductToOnlineCart(
         productId: productId,
         storeId: storeId,
         productVariantId: productVariantId,
         quantity: quantity);
 
-    debugPrint('api delete response.....${apiResponse.statusCode}');
+    isAddingToCart.value = false;
+    addingToCartProductId.value = '';
 
     if (apiResponse.isSuccessful) {
       cartCount.value += 1;
@@ -227,11 +250,16 @@ class MarketplaceController extends GetxController {
 
   //=================================================Add To Wishlist ========================================//
   RxString wishListType = ''.obs;
+  RxBool isTogglingWishlist = false.obs;
+  RxString togglingWishlistProductId = ''.obs;
+
   Future<bool> addToWishlist({
     required String productId,
     required String storeId,
     required String productVariantId,
   }) async {
+    isTogglingWishlist.value = true;
+    togglingWishlistProductId.value = productId;
     final apiResponse =
         await marketPlaceRepository.postAddToWishlist(requestData: {
       'product_id': productId,
@@ -256,11 +284,15 @@ class MarketplaceController extends GetxController {
       }).toList();
       productList.refresh();
 
+      isTogglingWishlist.value = false;
+      togglingWishlistProductId.value = '';
       wishListType.value == 'add'
           ? showSuccessSnackkbar(message: 'Added to wishlist successfully'.tr)
           : showSuccessSnackkbar(message: 'Removed from wishlist successfully'.tr);
       return true;
     } else {
+      isTogglingWishlist.value = false;
+      togglingWishlistProductId.value = '';
       showErrorSnackkbar(message: 'Sorry! somthing went wrong'.tr);
       return false;
     }
@@ -289,9 +321,138 @@ class MarketplaceController extends GetxController {
     }
   }
 
-  void debounce(void Function() callback) {
-    Future.delayed(debounceDuration, callback);
+  //===========================================Homepage Sections=================================//
+
+  Future<void> loadHomepageSections() async {
+    isLoadingHomepage.value = true;
+    try {
+      await Future.wait([
+        fetchCategories(),
+        fetchNewForYou(),
+        fetchFeaturedProducts(),
+        fetchFlashDeals(),
+        fetchFeaturedStores(),
+        fetchSponsoredProducts(),
+      ]);
+      loadRecentlyVisited();
+    } catch (e) {
+      debugPrint('Error loading homepage sections: $e');
+    } finally {
+      isLoadingHomepage.value = false;
+    }
   }
+
+  Future<void> fetchCategories() async {
+    try {
+      final response = await marketPlaceRepository.getCategoryTree();
+      if (response.isSuccessful && response.data != null) {
+        categoryList.value = response.data is List ? response.data as List : [];
+      }
+    } catch (e) {
+      debugPrint('Error fetching categories: $e');
+    }
+  }
+
+  Future<void> fetchNewForYou() async {
+    try {
+      final response = await marketPlaceRepository.getNewForYou();
+      if (response.isSuccessful && response.data != null) {
+        final data = response.data is List ? response.data as List : [];
+        newForYouList.value = data
+            .map((e) => AllProducts.fromMap(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching new for you: $e');
+    }
+  }
+
+  Future<void> fetchFeaturedProducts() async {
+    try {
+      final response = await marketPlaceRepository.getFeaturedProducts();
+      if (response.isSuccessful && response.data != null) {
+        final data = response.data is List ? response.data as List : [];
+        featuredProductList.value = data
+            .map((e) => AllProducts.fromMap(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching featured products: $e');
+    }
+  }
+
+  Future<void> fetchFlashDeals() async {
+    try {
+      final response = await marketPlaceRepository.getFlashDeals();
+      if (response.isSuccessful && response.data != null) {
+        flashDealsList.value = response.data is List ? response.data as List : [];
+      }
+    } catch (e) {
+      debugPrint('Error fetching flash deals: $e');
+    }
+  }
+
+  Future<void> fetchFeaturedStores() async {
+    try {
+      final response = await marketPlaceRepository.getFeaturedStores();
+      if (response.isSuccessful && response.data != null) {
+        featuredStoresList.value = response.data is List ? response.data as List : [];
+      }
+    } catch (e) {
+      debugPrint('Error fetching featured stores: $e');
+    }
+  }
+
+  Future<void> fetchSponsoredProducts() async {
+    try {
+      final response = await marketPlaceRepository.getSponsoredProducts();
+      if (response.isSuccessful && response.data != null) {
+        final data = response.data is List ? response.data as List : [];
+        sponsoredProductList.value = data
+            .map((e) => AllProducts.fromMap(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching sponsored products: $e');
+    }
+  }
+
+  void loadRecentlyVisited() {
+    recentlyVisitedList.value =
+        RecentlyVisitedService.instance.getRecentProducts(limit: 10);
+  }
+
+  /// Fire beacon impression event for a sponsored product.
+  void trackImpression(AllProducts product) {
+    final promoId = product.activePromotionId;
+    if (promoId == null || promoId.isEmpty) return;
+    marketPlaceRepository.sendBeaconEvent(
+      promotionId: promoId,
+      eventType: 'impression',
+      productId: product.id,
+    );
+  }
+
+  /// Fire beacon click event for a sponsored product.
+  void trackClick(AllProducts product) {
+    final promoId = product.activePromotionId;
+    if (promoId == null || promoId.isEmpty) return;
+    marketPlaceRepository.sendBeaconEvent(
+      promotionId: promoId,
+      eventType: 'click',
+      productId: product.id,
+    );
+  }
+
+  Timer? _debounceTimer;
+
+  void _debounce(void Function() callback) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(debounceDuration, callback);
+  }
+
+  /// Public debounce wrapper for use by external widgets
+  void debounceSearch(void Function() callback) => _debounce(callback);
 
   @override
   void onInit() {
@@ -309,7 +470,7 @@ class MarketplaceController extends GetxController {
 
     // Listener for searchController
     searchController.addListener(() {
-      debounce(() {
+      _debounce(() {
         // if (searchController.text.isNotEmpty ||
         //     categorySearchController.text.isNotEmpty ||
         //     brandSearchController.text.isNotEmpty) {
@@ -344,7 +505,7 @@ class MarketplaceController extends GetxController {
     // });
     // Listener for categorySearchController
     categorySearchController.addListener(() {
-      debounce(() {
+      _debounce(() {
         if (searchController.text.isNotEmpty ||
             categorySearchController.text.isNotEmpty ||
             brandSearchController.text.isNotEmpty) {
@@ -361,7 +522,7 @@ class MarketplaceController extends GetxController {
 
     // Listener for brandSearchController
     brandSearchController.addListener(() {
-      debounce(() {
+      _debounce(() {
         if (searchController.text.isNotEmpty ||
             categorySearchController.text.isNotEmpty ||
             brandSearchController.text.isNotEmpty) {
@@ -377,13 +538,26 @@ class MarketplaceController extends GetxController {
     });
 
     getWishListCount();
+    loadHomepageSections();
     super.onInit();
+  }
+
+  @override
+  void onClose() {
+    _debounceTimer?.cancel();
+    scrollController.dispose();
+    searchController.dispose();
+    searchFilterController.dispose();
+    categorySearchController.dispose();
+    brandSearchController.dispose();
+    maxPriceController.dispose();
+    minPriceController.dispose();
+    super.onClose();
   }
 
   @override
   void onReady() {
     pId.value = Get.arguments ?? '';
-    //  getProductDetails(productId: pId.value);
     super.onReady();
   }
 }

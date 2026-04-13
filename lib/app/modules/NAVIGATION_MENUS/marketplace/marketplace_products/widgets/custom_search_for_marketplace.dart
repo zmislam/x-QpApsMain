@@ -56,7 +56,7 @@ class CustomSearchField extends StatelessWidget {
   }
 
   void _handleSearchChange(String value) {
-    controller.debounce(() {
+    controller.debounceSearch(() {
       if (showSuggestions) {
         // Only handle suggestions for the suggestion-enabled field
         if (value.isNotEmpty) {

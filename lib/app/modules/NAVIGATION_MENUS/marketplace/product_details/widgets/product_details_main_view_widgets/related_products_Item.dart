@@ -3,7 +3,9 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:get/get.dart';
 
 import '../../../../../../config/constants/app_assets.dart';
+import '../../../../../../components/custom_cached_image_view.dart';
 import '../../../../../../config/constants/color.dart';
+import '../../../../../../utils/currency_helper.dart';
 import '../../../../../../extension/string/string_image_path.dart';
 import '../../../components/wishlist_icon_button.dart';
 import '../../controllers/product_details_controller.dart';
@@ -19,7 +21,7 @@ class RelatedProductComponent extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        controller.getProductDetails(productId: relatedProduct.id);
+        controller.navigateToProduct(relatedProduct.id ?? '');
       },
       child: Container(
         height: Get.height,
@@ -38,26 +40,21 @@ class RelatedProductComponent extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: FadeInImage(
-                      placeholder: const AssetImage(AppAssets.DEFAULT_IMAGE),
-                      image: relatedProduct.media != null &&
+                    child: CustomCachedNetworkImage(
+                      imageUrl: relatedProduct.media != null &&
                               relatedProduct.media!.isNotEmpty
-                          ? NetworkImage(
-                              (relatedProduct.media!.first)
-                                  .formatedProductUrlLive,
-                            )
-                          : const AssetImage(AppAssets.DEFAULT_IMAGE)
-                              as ImageProvider,
+                          ? (relatedProduct.media!.first).formatedProductUrlLive
+                          : '',
                       height: 150,
                       width: double.infinity,
                       fit: BoxFit.contain,
-                      imageErrorBuilder: (context, error, stackTrace) =>
-                          const Image(
+                      errorWidget: const Image(
                         height: 150,
                         width: double.infinity,
                         fit: BoxFit.cover,
                         image: AssetImage(AppAssets.DEFAULT_IMAGE),
                       ),
+                      placeholderImage: AppAssets.DEFAULT_IMAGE,
                     ),
                   ),
                   WishlistIconButton(
@@ -160,7 +157,7 @@ class RelatedProductComponent extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('\$${relatedProduct.productVariant?.first.mainPrice}'.tr,
+                          Text(CurrencyHelper.formatPrice(relatedProduct.productVariant?.first.mainPrice).tr,
                             style: const TextStyle(
                               fontSize: 10,
                               decoration: TextDecoration.lineThrough,
@@ -169,7 +166,7 @@ class RelatedProductComponent extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Text('\$${relatedProduct.productVariant?.first.sellPrice}'.tr,
+                          Text(CurrencyHelper.formatPrice(relatedProduct.productVariant?.first.sellPrice).tr,
                             style: const TextStyle(
                               fontSize: 10,
                               color: PRIMARY_COLOR,

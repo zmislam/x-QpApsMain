@@ -6,6 +6,7 @@ import '../../../models/profile_model.dart';
 import '../../../services/api_communication.dart';
 import '../../../services/init_service.dart';
 import '../../../services/socket_service.dart';
+import '../../../services/currency_service.dart';
 
 import '../../../components/share/share_controller.dart';
 import '../../../data/login_creadential.dart';
@@ -158,6 +159,7 @@ class TabViewController extends GetxController
     Get.lazyPut(() => PagesController(), fenix: true);
     Get.lazyPut(() => ShareController(), fenix: true);
     Get.lazyPut(() => WalletManagementService(), fenix: true);
+    Get.put(CurrencyService(), permanent: true);
 
     // @ SOCKET SERVICE LIFETIME PUT
     Get.put(SocketService(), permanent: true);

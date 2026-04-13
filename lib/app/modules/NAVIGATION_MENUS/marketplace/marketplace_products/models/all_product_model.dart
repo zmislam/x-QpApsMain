@@ -54,6 +54,9 @@ class AllProducts {
   Store? store;
   List<ProductVariant>? productVariant;
   ProductReview? productReview;
+  bool? isSponsored;
+  String? activePromotionId;
+  String? promotionBadge;
 
   AllProducts(
       {this.id,
@@ -80,7 +83,10 @@ class AllProducts {
       this.updatedAt,
       this.store,
       this.productVariant,
-      this.productReview});
+      this.productReview,
+      this.isSponsored,
+      this.activePromotionId,
+      this.promotionBadge});
 
   factory AllProducts.fromMap(Map<String, dynamic> json) => AllProducts(
         id: json['_id'] ,
@@ -119,6 +125,9 @@ class AllProducts {
         productReview: json['product_review'] != null
             ? ProductReview.fromMap(json['product_review'])
             : null,
+        isSponsored: json['is_sponsored'] == true || json['is_promoted'] == true,
+        activePromotionId: json['_promotion_id']?.toString() ?? json['active_promotion_id']?.toString(),
+        promotionBadge: json['promotion_badge']?.toString(),
       );
 
   Map<String, dynamic> toMap() => {
@@ -147,6 +156,9 @@ class AllProducts {
         'store': store?.toMap(),
         'product_variant': productVariant?.map((e) => e.toMap()).toList(),
         'product_review': productReview?.toMap(),
+        'is_sponsored': isSponsored,
+        'active_promotion_id': activePromotionId,
+        'promotion_badge': promotionBadge,
       };
 }
 

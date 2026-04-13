@@ -1,68 +1,148 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../../../extension/num.dart';
-import '../../../../../../extension/string/string_image_path.dart';
-import '../../controllers/product_details_controller.dart';
+import '../../../../../../components/custom_cached_image_view.dart';
+import '../../../../../../config/constants/marketplace_design_tokens.dart';
 import '../../../../../../config/constants/app_assets.dart';
+import '../../../../../../extension/string/string_image_path.dart';
 import '../../../../../../routes/app_pages.dart';
+import '../../controllers/product_details_controller.dart';
 
-class StoreInfoRow extends StatelessWidget {
-  final ProductDetailsController controller;
-
-  const StoreInfoRow({super.key, required this.controller});
+class StoreInfoCard extends GetView<ProductDetailsController> {
+  const StoreInfoCard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Get.toNamed(Routes.STORE_PRODUCTS_PAGE,
-            arguments: controller.productDetailsList.value.first.store?.id);
-      },
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(left: 10),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(40.0),
-              child: Image.network(
-                (controller
-                        .productDetailsList.value.first.store?.imagePath ??
-                    '').formatedStoreUrlLive,
-                width: 50,
-                height: 50,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(40.0),
-                    child: Image.asset(
-                      AppAssets.DEFAULT_IMAGE,
-                      height: 50,
-                      width: 50,
-                      fit: BoxFit.cover,
+    return Obx(() {
+      final store = controller.product.value?.store;
+      if (store == null) return const SizedBox.shrink();
+
+      return Container(
+        margin: const EdgeInsets.symmetric(
+            horizontal: MarketplaceDesignTokens.spacingMd),
+        padding: const EdgeInsets.all(MarketplaceDesignTokens.cardPadding),
+        decoration: MarketplaceDesignTokens.cardDecoration(context),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                // ─── Store Avatar ──────────────────
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(
+                      MarketplaceDesignTokens.avatarSize / 2),
+                  child: CustomCachedNetworkImage(
+                    imageUrl: (store.imagePath ?? '').formatedStoreUrlLive,
+                    width: MarketplaceDesignTokens.avatarSize,
+                    height: MarketplaceDesignTokens.avatarSize,
+                    fit: BoxFit.cover,
+                    placeholderImage: AppAssets.DEFAULT_IMAGE,
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // ─── Store Name + Badge ────────────
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              store.name?.capitalizeFirst ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: MarketplaceDesignTokens.textPrimary(
+                                    context),
+                              ),
+                            ),
+                          ),
+                          if (controller.product.value?.trustedSeller?.id !=
+                              null) ...[
+                            const SizedBox(width: 6),
+                            Icon(
+                              Icons.verified,
+                              size: 18,
+                              color: MarketplaceDesignTokens.sellerBadge,
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (store.categoryName != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          store.categoryName!,
+                          style: MarketplaceDesignTokens.cardSubtext(context),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // ─── Action Buttons ────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Get.toNamed(Routes.STORE_PRODUCTS_PAGE,
+                          arguments: store.id);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: MarketplaceDesignTokens.primary,
+                      side: const BorderSide(
+                          color: MarketplaceDesignTokens.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                            MarketplaceDesignTokens.radiusSm),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
-                  );
-                },
-              ),
+                    child: Text(
+                      'Visit Store'.tr,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: controller.toggleStoreFollow,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: controller.isFollowingStore.value
+                          ? MarketplaceDesignTokens.textSecondary(context)
+                              .withValues(alpha: 0.2)
+                          : MarketplaceDesignTokens.primary,
+                      foregroundColor: controller.isFollowingStore.value
+                          ? MarketplaceDesignTokens.textPrimary(context)
+                          : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                            MarketplaceDesignTokens.radiusSm),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      controller.isFollowingStore.value
+                          ? 'Following'.tr
+                          : 'Follow'.tr,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 8.0),
-            child: Text(
-              ' ${controller.productDetailsList.value.first.store?.name?.capitalizeFirst ?? ''}',
-              textAlign: TextAlign.start,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-          ),
-          10.w,
-       (controller.productDetailsList.value.first.trustedSeller?.id !=null)  ? Image.asset(
-            AppAssets.TRUSTED_ICON,
-            height: 20,
-            width: 20,
-          ):const SizedBox(),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    });
   }
 }

@@ -2,6 +2,18 @@ import 'package:get/get.dart';
 
 import '../modules/NAVIGATION_MENUS/account_switch_page/bindings/account_switch_page_binding.dart';
 import '../modules/NAVIGATION_MENUS/account_switch_page/views/account_switch_page_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/promotion_detail/bindings/promotion_detail_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/promotion_detail/views/promotion_detail_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/seller_orders/bindings/seller_order_detail_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/seller_orders/views/seller_order_detail_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/marketplace_notifications/bindings/marketplace_notifications_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/marketplace_notifications/views/marketplace_notifications_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/marketplace_inbox/bindings/marketplace_inbox_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/marketplace_inbox/views/marketplace_inbox_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/marketplace_inbox/bindings/marketplace_conversation_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/marketplace_inbox/views/marketplace_conversation_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_announcements/bindings/seller_announcements_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_announcements/views/seller_announcements_view.dart';
 import '../modules/advance_search/bindings/advance_search_binding.dart';
 import '../modules/advance_search/views/advance_search_view.dart';
 import '../modules/birthdays/bindings/birthdays_binding.dart';
@@ -34,6 +46,22 @@ import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_refund_and_return/bindings
 import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_refund_and_return/buyer_refund_and_return_details/bindings/buyer_refund_details_binding.dart';
 import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_refund_and_return/buyer_refund_and_return_details/views/buyer_return_refund_details.dart';
 import '../modules/NAVIGATION_MENUS/buyer_panel/buyer_refund_and_return/views/buyer_return_refund_form_view.dart';
+// New Buyer Panel (Marketplace Redesign)
+import '../modules/NAVIGATION_MENUS/marketplace/buyer_panel/views/buyer_panel_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/buyer_panel/bindings/buyer_panel_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/buyer_panel/buyer_orders/views/buyer_order_detail_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/buyer_panel/buyer_orders/bindings/buyer_order_detail_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/buyer_panel/buyer_refunds/views/refund_detail_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/buyer_panel/buyer_refunds/bindings/refund_detail_binding.dart';
+// New Seller Panel (Marketplace Redesign)
+import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/views/seller_panel_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/bindings/seller_panel_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/add_product/views/add_product_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/add_product/bindings/add_product_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/edit_product/views/edit_product_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/edit_product/bindings/edit_product_binding.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/store_reviews/views/store_reviews_view.dart';
+import '../modules/NAVIGATION_MENUS/marketplace/store_reviews/bindings/store_reviews_binding.dart';
 import '../modules/NAVIGATION_MENUS/explore/bindings/explore_binding.dart';
 import '../modules/NAVIGATION_MENUS/explore/view/explore_view.dart';
 import '../modules/NAVIGATION_MENUS/friend/bindings/friend_binding.dart';
@@ -946,11 +974,50 @@ class AppPages {
       page: () => const ReturnRefundDetailsView(),
       binding: BuyerReturnRefundDetailsBinding(),
     ),
+    //==========================New Buyer Panel (Marketplace Redesign)==========//
+    GetPage(
+      name: _Paths.MARKETPLACE_BUYER_PANEL,
+      page: () => const BuyerPanelView(),
+      binding: BuyerPanelBinding(),
+    ),
+    GetPage(
+      name: _Paths.MARKETPLACE_ORDER_DETAIL,
+      page: () => const BuyerOrderDetailView(),
+      binding: BuyerOrderDetailBinding(),
+    ),
+    GetPage(
+      name: _Paths.MARKETPLACE_REFUND_DETAIL,
+      page: () => const RefundDetailView(),
+      binding: RefundDetailBinding(),
+    ),
+    //==========================New Seller Panel (Marketplace Redesign)==========//
+    GetPage(
+      name: _Paths.MARKETPLACE_SELLER_PANEL,
+      page: () => const SellerPanelView(),
+      binding: SellerPanelBinding(),
+    ),
+    GetPage(
+      name: _Paths.MARKETPLACE_ADD_PRODUCT,
+      page: () => const AddProductView(),
+      binding: AddProductBinding(),
+    ),
+    GetPage(
+      name: _Paths.MARKETPLACE_EDIT_PRODUCT,
+      page: () => const EditProductView(),
+      binding: EditProductBinding(),
+    ),
+    GetPage(
+      name: _Paths.STORE_REVIEWS,
+      page: () => const StoreReviewsView(),
+      binding: StoreReviewsBinding(),
+    ),
     //==========================Market Place Pages===================//
     GetPage(
       name: _Paths.PRODUCT_DETAILS,
       page: () => const ProductDetailsView(),
       binding: ProductDetailsBinding(),
+      transition: Transition.cupertino,
+      transitionDuration: const Duration(milliseconds: 250),
     ),
     GetPage(
       name: _Paths.CART_PAGE,
@@ -966,6 +1033,8 @@ class AppPages {
       name: _Paths.STORE_PRODUCTS_PAGE,
       page: () => const StoreProductsView(),
       binding: StoreProductsBinding(),
+      transition: Transition.cupertino,
+      transitionDuration: const Duration(milliseconds: 250),
     ),
     GetPage(
       name: _Paths.STORY_SETTINGS,
@@ -1138,6 +1207,36 @@ class AppPages {
       name: _Paths.CREATE_EVENT,
       page: () => const CreateEventView(),
       binding: CreateEventBinding(),
+    ),
+    GetPage(
+      name: _Paths.PROMOTION_DETAIL,
+      page: () => const PromotionDetailView(),
+      binding: PromotionDetailBinding(),
+    ),
+    GetPage(
+      name: _Paths.MARKETPLACE_SELLER_ORDER_DETAIL,
+      page: () => const SellerOrderDetailView(),
+      binding: SellerOrderDetailBinding(),
+    ),
+    GetPage(
+      name: _Paths.MARKETPLACE_NOTIFICATIONS,
+      page: () => const MarketplaceNotificationsView(),
+      binding: MarketplaceNotificationsBinding(),
+    ),
+    GetPage(
+      name: _Paths.MARKETPLACE_INBOX,
+      page: () => const MarketplaceInboxView(),
+      binding: MarketplaceInboxBinding(),
+    ),
+    GetPage(
+      name: _Paths.MARKETPLACE_CONVERSATION,
+      page: () => const MarketplaceConversationView(),
+      binding: MarketplaceConversationBinding(),
+    ),
+    GetPage(
+      name: _Paths.SELLER_ANNOUNCEMENTS,
+      page: () => const SellerAnnouncementsView(),
+      binding: SellerAnnouncementsBinding(),
     ),
   ];
 }

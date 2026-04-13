@@ -5,8 +5,12 @@ import '../../../config/constants/qp_icons_icons.dart';
 import '../../../extension/string/string_image_path.dart';
 
 import '../../../config/constants/color.dart';
+import '../../../config/constants/marketplace_design_tokens.dart';
 import '../../../data/login_creadential.dart';
 import '../../../routes/app_pages.dart';
+import '../../../services/currency_service.dart';
+import '../../NAVIGATION_MENUS/marketplace/components/currency_selector_sheet.dart';
+import '../../NAVIGATION_MENUS/marketplace/marketplace_products/controllers/marketplace_controller.dart';
 import '../../NAVIGATION_MENUS/friend/views/friend_view.dart';
 import '../../NAVIGATION_MENUS/home/views/home_view.dart';
 import '../../NAVIGATION_MENUS/marketplace/marketplace_products/views/marketplace_view.dart';
@@ -51,6 +55,13 @@ class TabView extends GetView<TabViewController> {
     final mapping = _navMapping(isPage);
     final idx = mapping.indexOf(tabIndex);
     return idx >= 0 ? idx : 0;
+  }
+
+  /// Check if the current tab is the Marketplace tab
+  bool _isMarketplaceTab(TabViewController ctrl) {
+    final isPage = ctrl.loginCredential.getProfileSwitch();
+    final marketplaceIndex = isPage ? 3 : 4;
+    return ctrl.tabIndex.value == marketplaceIndex;
   }
 
   // ─── Build ──────────────────────────────────────────────────────────────
@@ -176,7 +187,7 @@ class TabView extends GetView<TabViewController> {
           ),
         ],
       ),
-      // ── Right-side: [+] Language Search Messenger ────────────────────
+      // ── Right-side: [+] Language Search [Currency Cart — marketplace only] ──
       actions: [
         // ── Create button ([+] in rounded square) ──────────────────────
         GestureDetector(
@@ -211,6 +222,83 @@ class TabView extends GetView<TabViewController> {
             child: CustomPaint(painter: _FbSearchIconPainter(color: iconColor)),
           ),
         ),
+        // ── Marketplace-only: Currency + Cart ──────────────────────────
+        if (_isMarketplaceTab(controller)) ...[
+          const SizedBox(width: 10),
+          // Currency badge
+          Semantics(
+            button: true,
+            label: 'Change currency',
+            child: GestureDetector(
+              onTap: () => CurrencySelectorSheet.show(),
+              child: Obx(() {
+                final code = CurrencyService.instance.selectedCurrency.value;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: MarketplaceDesignTokens.primary.withValues(alpha: 0.4),
+                    ),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    code,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: MarketplaceDesignTokens.primary,
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Cart icon with badge
+          Semantics(
+            button: true,
+            label: 'Shopping cart',
+            child: GestureDetector(
+              onTap: () => Get.toNamed(Routes.CART),
+              child: SizedBox(
+                width: 26,
+                height: 26,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(Icons.shopping_cart_outlined, size: 22, color: iconColor),
+                    Obx(() {
+                      final mc = Get.find<MarketplaceController>();
+                      final count = mc.cartCount.value;
+                      if (count == 0) return const SizedBox.shrink();
+                      return Positioned(
+                        right: -5,
+                        top: -3,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: MarketplaceDesignTokens.priceDiscount,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 14),
+                          child: Text(
+                            count > 99 ? '99+' : '$count',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(width: 14),
       ],
     );

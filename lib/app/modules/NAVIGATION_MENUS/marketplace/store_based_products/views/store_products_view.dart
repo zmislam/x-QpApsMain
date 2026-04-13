@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../../extension/num.dart';
+import '../../../../../components/custom_cached_image_view.dart';
 import '../../../../../components/shimmer_loaders/group_shimmer_loader.dart';
-import '../../../../../config/constants/app_assets.dart';
-import '../../../../../extension/date_time_extension.dart';
-import '../models/store_products_model.dart';
+import '../../../../../config/constants/api_constant.dart';
+import '../../../../../config/constants/marketplace_design_tokens.dart';
 import '../../../../../routes/app_pages.dart';
-import '../../../../../config/constants/color.dart';
+import '../models/store_products_model.dart';
 import '../controllers/store_products_controller.dart';
 import '../widgets/store_details_main_view_widgets/store_product_image_section.dart';
 import '../widgets/store_details_main_view_widgets/store_product_price_section.dart';
@@ -18,260 +17,462 @@ class StoreProductsView extends GetView<StoreProductsController> {
   @override
   Widget build(BuildContext context) {
     controller.getStoreBaseProduct(storeId: controller.pId.value);
-    return SafeArea(
-        child: Scaffold(
-            // backgroundColor: Colors.white,
-            appBar: AppBar(
-              centerTitle: true,
-              // backgroundColor: Colors.white,
-              bottom: const PreferredSize(
-                preferredSize: Size.fromHeight(1.0),
-                child: Divider(
-                  color: Colors.grey,
-                  thickness: 2,
-                ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Obx(
+          () => Text(
+            controller.storeDetails.value?.name?.capitalizeFirst ?? 'Store',
+            style: MarketplaceDesignTokens.heading(context),
+          ),
+        ),
+        centerTitle: false,
+        elevation: 0,
+        backgroundColor: MarketplaceDesignTokens.cardBg(context),
+      ),
+      body: Obx(() {
+        if (controller.storeDetails.value == null) {
+          return const Center(child: GroupShimmerLoader());
+        }
+        final store = controller.storeDetails.value!;
+        return CustomScrollView(
+          slivers: [
+            // ── Store Header ──
+            SliverToBoxAdapter(child: _StoreHeader(store: store)),
+
+            // ── Store Policies ──
+            if (_hasPolicies(store))
+              SliverToBoxAdapter(
+                child: _StorePoliciesSection(store: store),
               ),
-              leading: IconButton(
-                  onPressed: () {
-                    Get.back();
-                  },
-                  icon: const Icon(
-                    Icons.arrow_back_ios,
-                    color: Colors.black,
-                  )),
-              title: Obx(
-                () => Text(
-                  controller.storeDetails.value?.name?.capitalizeFirst ?? '',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: Colors.black, fontWeight: FontWeight.bold),
+
+            // ── Product Count Bar ──
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    MarketplaceDesignTokens.cardPadding,
+                    MarketplaceDesignTokens.spacingSm,
+                    MarketplaceDesignTokens.cardPadding,
+                    MarketplaceDesignTokens.spacingSm),
+                child: Text(
+                  '${store.totalProductCount ?? store.products?.length ?? 0} Products',
+                  style: MarketplaceDesignTokens.sectionTitle(context),
                 ),
               ),
             ),
-            body: Obx(() {
-              if (controller.storeDetails.value == null) {
-                return const Center(child: GroupShimmerLoader());
-              } else {
-                return SingleChildScrollView(
-                  // physics: const ScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Obx(() =>
-                      SingleChildScrollView(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                          child: GridView.builder(
-                            physics: const NeverScrollableScrollPhysics(),
-                            shrinkWrap: true,
-                            itemCount:
-                                controller.storeDetails.value?.products?.length,
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                    mainAxisExtent: 400,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 10,
-                                    crossAxisCount: 2),
-                            itemBuilder: (BuildContext context, int index) {
-                              StoreProductsDetails? storeProductsDetails =
-                                  controller
-                                      .storeDetails.value?.products?[index];
 
-                              return InkWell(
-                                onTap: () {
-                                  Get.toNamed(Routes.PRODUCT_DETAILS,
-                                      arguments: storeProductsDetails?.id);
-                                  // controller
-                                  //     .getProductDetails(
-                                  //         productId: storeProductsDetails?.id);
-                                },
-                                child: Container(
-                                  height: Get.height,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(15),
-                                    border: Border.all(
-                                        color:
-                                            Colors.grey.withValues(alpha: 0.5)),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // Product Image
-                                        StoreProductImageSection(
-                                          controller: controller,
-                                          storeProductsDetails:
-                                              storeProductsDetails,
-                                        ),
-                                        5.h,
-
-                                        // Product Name
-                                        Text(
-                                          storeProductsDetails?.productName ??
-                                              '',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 5),
-
-                                        // Rating and Reviews
-                                        StoreProductRatingWidget(
-                                            storeProductsDetails:
-                                                storeProductsDetails),
-                                        const SizedBox(height: 3),
-
-                                        // Specifications
-                                        SizedBox(
-                                          height: 60,
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              for (int i = 0;
-                                                  i <
-                                                      (storeProductsDetails
-                                                              ?.specification
-                                                              ?.length ??
-                                                          0);
-                                                  i++)
-                                                if (i < 3)
-                                                  Text('\u2022 ${storeProductsDetails?.specification![i].label}: ${storeProductsDetails?.specification![i].value}'.tr,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                        fontSize: 12),
-                                                  ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-
-                                        // Pricing
-                                        storeProductsDetails?.productVariants !=
-                                                    null &&
-                                                storeProductsDetails!
-                                                    .productVariants!.isNotEmpty
-                                            ? StoreProductPriceWidget(
-                                                storeProductsDetails:
-                                                    storeProductsDetails)
-                                            : const SizedBox(height: 20),
-
-                                        // Add to Cart Button
-                                        const Spacer(),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: storeProductsDetails
-                                                              ?.productVariants !=
-                                                          null &&
-                                                      storeProductsDetails
-                                                              ?.totalStock !=
-                                                          0
-                                                  ? PRIMARY_COLOR
-                                                  : Colors.grey,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(5),
-                                              ),
-                                            ),
-                                            onPressed: () {
-                                              if (storeProductsDetails
-                                                      ?.totalStock !=
-                                                  0) {
-                                                controller
-                                                    .productDetailsController
-                                                    .marketPlaceController
-                                                    .addToCartPost(
-                                                  productId:
-                                                      storeProductsDetails?.id,
-                                                  storeId: controller
-                                                      .storeDetails.value?.id,
-                                                  productVariantId:
-                                                      storeProductsDetails
-                                                          ?.productVariants
-                                                          ?.first
-                                                          .id,
-                                                  quantity: 1,
-                                                );
-                                              }
-                                            },
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                storeProductsDetails
-                                                            ?.totalStock !=
-                                                        0
-                                                    ? Image.asset(
-                                                        AppAssets
-                                                            .CART_NAVBAR_ICON,
-                                                        height: 20,
-                                                        width: 20,
-                                                        color: Colors.white,
-                                                      )
-                                                    : const SizedBox.shrink(),
-                                                const SizedBox(
-                                                  width: 10,
-                                                ),
-                                                Text(
-                                                  storeProductsDetails
-                                                              ?.totalStock ==
-                                                          0
-                                                      ? 'Out of Stock'
-                                                      : 'Add to Cart',
-                                                  style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 12),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      )
-                      // ),
-                      // ),
-                    ],
+            // ── Product Grid ──
+            (store.products?.isEmpty ?? true)
+                ? SliverFillRemaining(
+                    child: Center(
+                      child: Text('No products yet',
+                          style: MarketplaceDesignTokens.cardSubtext(context)),
+                    ),
+                  )
+                : SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: MarketplaceDesignTokens.cardPadding),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisExtent: 290,
+                        crossAxisSpacing: MarketplaceDesignTokens.gridSpacing,
+                        mainAxisSpacing: MarketplaceDesignTokens.gridSpacing,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final product = store.products![index];
+                          return _ProductCard(
+                            product: product,
+                            controller: controller,
+                          );
+                        },
+                        childCount: store.products!.length,
+                      ),
+                    ),
                   ),
-                );
-              }
-            })));
+
+            // Bottom spacing
+            const SliverToBoxAdapter(
+              child: SizedBox(height: MarketplaceDesignTokens.spacingLg),
+            ),
+          ],
+        );
+      }),
+    );
   }
 
-  String productUploadTimeText(String dateTime) {
-    DateTime postDateTime = DateTime.parse(dateTime).toLocal();
-    DateTime currentDatetime = DateTime.now();
-    int millisecondsDifference = currentDatetime.millisecondsSinceEpoch -
-        postDateTime.millisecondsSinceEpoch;
-    int minutesDifference =
-        (millisecondsDifference / Duration.millisecondsPerMinute).truncate();
+  bool _hasPolicies(StoreDetailsModel? store) {
+    if (store == null) return false;
+    return (store.shipping?.isNotEmpty ?? false) ||
+        (store.delivery?.isNotEmpty ?? false) ||
+        (store.returns?.isNotEmpty ?? false);
+  }
+}
 
-    if (minutesDifference < 1) {
-      return 'a few sec ago';
-    } else if (minutesDifference < 30) {
-      return '$minutesDifference minutes ago';
-    } else if (DateUtils.isSameDay(postDateTime, currentDatetime)) {
-      return 'Today at ${postTimeFormat.format(postDateTime)}';
-    } else {
-      return productDateTimeFormat.format(postDateTime);
-    }
+// ━━━━━━━━━━━━━━━━━━ Store Header ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
+class _StoreHeader extends GetView<StoreProductsController> {
+  final StoreDetailsModel store;
+  const _StoreHeader({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = store.imagePath != null && store.imagePath!.isNotEmpty
+        ? '${ApiConstant.SERVER_IP_PORT}/uploads/${store.imagePath}'
+        : null;
+
+    return Container(
+      margin: const EdgeInsets.all(MarketplaceDesignTokens.cardPadding),
+      padding: const EdgeInsets.all(MarketplaceDesignTokens.cardPadding),
+      decoration: MarketplaceDesignTokens.cardDecoration(context),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Store Image
+          ClipRRect(
+            borderRadius:
+                BorderRadius.circular(MarketplaceDesignTokens.radiusMd),
+            child: SizedBox(
+              width: 72,
+              height: 72,
+              child: imageUrl != null
+                  ? CustomCachedNetworkImage(imageUrl: imageUrl)
+                  : Container(
+                      color:
+                          MarketplaceDesignTokens.primary.withValues(alpha: 0.1),
+                      child: const Icon(Icons.storefront,
+                          color: MarketplaceDesignTokens.primary, size: 32),
+                    ),
+            ),
+          ),
+          const SizedBox(width: MarketplaceDesignTokens.spacingMd),
+
+          // Store Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  store.name?.capitalizeFirst ?? 'Store',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: MarketplaceDesignTokens.textPrimary(context),
+                  ),
+                ),
+                if (store.categoryName?.isNotEmpty ?? false) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    store.categoryName!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: MarketplaceDesignTokens.textSecondary(context),
+                    ),
+                  ),
+                ],
+                if (store.description?.isNotEmpty ?? false) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    store.description!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: MarketplaceDesignTokens.bodyTextSmall(context),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    // Follow Button
+                    Obx(() => _FollowButton(
+                          isFollowing: controller.isFollowingStore.value,
+                          onTap: controller.toggleFollowStore,
+                        )),
+                    const SizedBox(width: 10),
+                    // Reviews Link
+                    InkWell(
+                      onTap: () => Get.toNamed(Routes.STORE_REVIEWS,
+                          arguments: store.id),
+                      borderRadius: BorderRadius.circular(
+                          MarketplaceDesignTokens.radiusSm),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                              color: Theme.of(context)
+                                  .dividerColor
+                                  .withValues(alpha: 0.3)),
+                          borderRadius: BorderRadius.circular(
+                              MarketplaceDesignTokens.radiusSm),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star_outline,
+                                size: 16,
+                                color: MarketplaceDesignTokens.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Reviews',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: MarketplaceDesignTokens.textPrimary(
+                                    context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FollowButton extends StatelessWidget {
+  final bool isFollowing;
+  final VoidCallback onTap;
+  const _FollowButton({required this.isFollowing, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius:
+          BorderRadius.circular(MarketplaceDesignTokens.radiusSm),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isFollowing
+              ? MarketplaceDesignTokens.primary.withValues(alpha: 0.1)
+              : MarketplaceDesignTokens.primary,
+          borderRadius:
+              BorderRadius.circular(MarketplaceDesignTokens.radiusSm),
+        ),
+        child: Text(
+          isFollowing ? 'Following' : 'Follow',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isFollowing
+                ? MarketplaceDesignTokens.primary
+                : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━ Product Card ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
+class _ProductCard extends StatelessWidget {
+  final StoreProductsDetails product;
+  final StoreProductsController controller;
+  const _ProductCard({required this.product, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final inStock = (product.totalStock ?? 0) > 0;
+
+    return GestureDetector(
+      onTap: () =>
+          Get.toNamed(Routes.PRODUCT_DETAILS, arguments: product.id),
+      child: Container(
+        decoration: MarketplaceDesignTokens.cardDecoration(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(MarketplaceDesignTokens.cardRadius)),
+              child: SizedBox(
+                height: 130,
+                width: double.infinity,
+                child: Stack(
+                  children: [
+                    StoreProductImageSection(
+                      controller: controller,
+                      storeProductsDetails: product,
+                    ),
+                    if (!inStock)
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: MarketplaceDesignTokens.outOfStock,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('Out of Stock',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Info
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(
+                    MarketplaceDesignTokens.spacingSm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Name
+                    Text(
+                      product.productName ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: MarketplaceDesignTokens.productName(context),
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Rating
+                    StoreProductRatingWidget(
+                        storeProductsDetails: product),
+                    const SizedBox(height: 4),
+
+                    const Spacer(),
+
+                    // Price
+                    if (product.productVariants != null &&
+                        product.productVariants!.isNotEmpty)
+                      StoreProductPriceWidget(
+                          storeProductsDetails: product),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Collapsible section showing store shipping, delivery, & return policies.
+class _StorePoliciesSection extends StatelessWidget {
+  final StoreDetailsModel store;
+  const _StorePoliciesSection({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          MarketplaceDesignTokens.cardPadding, 0,
+          MarketplaceDesignTokens.cardPadding, 4),
+      child: ExpansionTile(
+        initiallyExpanded: false,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(MarketplaceDesignTokens.radiusMd),
+          side: BorderSide(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.3)),
+        ),
+        collapsedShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(MarketplaceDesignTokens.radiusMd),
+          side: BorderSide(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.3)),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.policy_outlined,
+                size: 18,
+                color: MarketplaceDesignTokens.textSecondary(context)),
+            const SizedBox(width: 8),
+            Text('Store Policies',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: MarketplaceDesignTokens.textPrimary(context))),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (store.shipping?.isNotEmpty ?? false)
+                  _PolicyItem(
+                    icon: Icons.local_shipping_outlined,
+                    title: 'Shipping Policy',
+                    text: store.shipping!,
+                  ),
+                if (store.delivery?.isNotEmpty ?? false)
+                  _PolicyItem(
+                    icon: Icons.delivery_dining_outlined,
+                    title: 'Delivery Policy',
+                    text: store.delivery!,
+                  ),
+                if (store.returns?.isNotEmpty ?? false)
+                  _PolicyItem(
+                    icon: Icons.assignment_return_outlined,
+                    title: 'Return Policy',
+                    text: store.returns!,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PolicyItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String text;
+  const _PolicyItem({
+    required this.icon,
+    required this.title,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16,
+              color: MarketplaceDesignTokens.textSecondary(context)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color:
+                            MarketplaceDesignTokens.textPrimary(context))),
+                const SizedBox(height: 2),
+                Text(text,
+                    style: MarketplaceDesignTokens.bodyTextSmall(context)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

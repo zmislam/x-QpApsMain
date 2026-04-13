@@ -142,6 +142,23 @@ abstract class Routes {
   static const BUYER_RETURN_REFUND_FORM = _Paths.BUYER_RETURN_REFUND_FORM;
   static const BUYER_RETURN_REFUND_DETAILS = _Paths.BUYER_RETURN_REFUND_DETAILS;
 
+  ///////////////////New Buyer Panel (Marketplace Redesign)///////////////////
+  static const MARKETPLACE_BUYER_PANEL = _Paths.MARKETPLACE_BUYER_PANEL;
+  static const MARKETPLACE_ORDER_DETAIL = _Paths.MARKETPLACE_ORDER_DETAIL;
+  static const MARKETPLACE_REFUND_DETAIL = _Paths.MARKETPLACE_REFUND_DETAIL;
+
+  ///////////////////New Seller Panel (Marketplace Redesign)///////////////////
+  static const MARKETPLACE_SELLER_PANEL = _Paths.MARKETPLACE_SELLER_PANEL;
+  static const MARKETPLACE_ADD_PRODUCT = _Paths.MARKETPLACE_ADD_PRODUCT;
+  static const MARKETPLACE_EDIT_PRODUCT = _Paths.MARKETPLACE_EDIT_PRODUCT;
+  static const STORE_REVIEWS = _Paths.STORE_REVIEWS;
+  static const PROMOTION_DETAIL = _Paths.PROMOTION_DETAIL;
+  static const MARKETPLACE_SELLER_ORDER_DETAIL = _Paths.MARKETPLACE_SELLER_ORDER_DETAIL;
+  static const MARKETPLACE_NOTIFICATIONS = _Paths.MARKETPLACE_NOTIFICATIONS;
+  static const MARKETPLACE_INBOX = _Paths.MARKETPLACE_INBOX;
+  static const MARKETPLACE_CONVERSATION = _Paths.MARKETPLACE_CONVERSATION;
+  static const SELLER_ANNOUNCEMENTS = _Paths.SELLER_ANNOUNCEMENTS;
+
   ///////////////////MArket Place Routes///////////////////
 
   static const PRODUCT_DETAILS = _Paths.PRODUCT_DETAILS;
@@ -341,6 +358,23 @@ abstract class _Paths {
   static const BUYER_RETURN_REFUND_LIST = '/buyer-return-refund-list';
   static const BUYER_RETURN_REFUND_FORM = '/buyer-return-refund-form';
   static const BUYER_RETURN_REFUND_DETAILS = '/buyer-return-refund-details';
+
+  //New Buyer Panel (Marketplace Redesign)//////////////////
+  static const MARKETPLACE_BUYER_PANEL = '/marketplace-buyer-panel';
+  static const MARKETPLACE_ORDER_DETAIL = '/marketplace-order-detail';
+  static const MARKETPLACE_REFUND_DETAIL = '/marketplace-refund-detail';
+
+  //New Seller Panel (Marketplace Redesign)//////////////////
+  static const MARKETPLACE_SELLER_PANEL = '/marketplace-seller-panel';
+  static const MARKETPLACE_ADD_PRODUCT = '/marketplace-add-product';
+  static const MARKETPLACE_EDIT_PRODUCT = '/marketplace-edit-product';
+  static const STORE_REVIEWS = '/store-reviews';
+  static const PROMOTION_DETAIL = '/promotion-detail';
+  static const MARKETPLACE_SELLER_ORDER_DETAIL = '/marketplace-seller-order-detail';
+  static const MARKETPLACE_NOTIFICATIONS = '/marketplace-notifications';
+  static const MARKETPLACE_INBOX = '/marketplace-inbox';
+  static const MARKETPLACE_CONVERSATION = '/marketplace-conversation';
+  static const SELLER_ANNOUNCEMENTS = '/seller-announcements';
 
   //Market Palce Panel//////////////////
   static const PRODUCT_DETAILS = '/product-details';

@@ -42,3 +42,13 @@ void showErrorSnackkbar({String? titile, required String message}) {
     colorText: Colors.white,
   );
 }
+
+/// Convenience wrapper for calling snackbar helpers via class syntax.
+class AppSnackbar {
+  static void showSuccess(String message) =>
+      showSuccessSnackkbar(message: message);
+  static void showError(String message) =>
+      showErrorSnackkbar(message: message);
+  static void showWarning(String message) =>
+      showWarningSnackkbar(message: message);
+}

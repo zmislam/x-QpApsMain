@@ -781,6 +781,81 @@ class ApiCommunication {
     }
   }
 
+  Future<ApiResponse> doPutRequest({
+    required String apiEndPoint,
+    Map<String, dynamic>? requestData,
+    String? errorMessage,
+    bool enableLoading = false,
+    String responseDataKey = ApiConstant.DATA_RESPONSE,
+  }) async {
+    dio.Response? response;
+    String requestUrl = '$baseUrl$apiEndPoint';
+    late String responseErrorMessage;
+
+    if (await isConnectedToInternet()) {
+      if (enableLoading) showLoader();
+      try {
+        response = await _dio.put(
+          requestUrl,
+          data: requestData,
+          options: dio.Options(headers: header),
+        );
+        if (enableLoading) dismissLoader();
+      } on DioException catch (error) {
+        if (enableLoading) dismissLoader();
+        if (error.response?.statusCode == 401) {
+          _loginCredential.clearLoginCredentialAndMoveToLogin();
+        }
+        try {
+          Map<String, dynamic> messageMap =
+              error.response?.data as Map<String, dynamic>;
+          responseErrorMessage = messageMap['message'] ??
+              messageMap['errors']?.toString() ??
+              'Api Error';
+        } catch (e) {
+          responseErrorMessage = 'Api Error';
+        }
+        return ApiResponse(isSuccessful: false, message: responseErrorMessage);
+      } on SocketException catch (error) {
+        if (enableLoading) dismissLoader();
+        responseErrorMessage = error.message;
+        return ApiResponse(isSuccessful: false, message: responseErrorMessage);
+      } catch (error) {
+        if (enableLoading) dismissLoader();
+        responseErrorMessage = error.toString();
+        return ApiResponse(
+          isSuccessful: false,
+          message: responseErrorMessage,
+        );
+      }
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> responseData = response.data;
+        return ApiResponse(
+          isSuccessful: true,
+          statusCode: responseData[ApiConstant.STATUS_CODE_KEY],
+          message: responseData['message'],
+          data: responseDataKey != ApiConstant.FULL_RESPONSE
+              ? responseData[responseDataKey]
+              : responseData,
+        );
+      } else {
+        return ApiResponse(
+          isSuccessful: false,
+          statusCode: response.statusCode,
+        );
+      }
+    } else {
+      errorMessage = 'You are not connected with mobile/wifi network';
+      showWarningSnackkbar(message: errorMessage);
+      return ApiResponse(
+        isSuccessful: false,
+        statusCode: 503,
+        message: errorMessage,
+      );
+    }
+  }
+
   Future<ApiResponse> doDeleteRequest({
     required String apiEndPoint,
     Map<String, dynamic>? requestData,

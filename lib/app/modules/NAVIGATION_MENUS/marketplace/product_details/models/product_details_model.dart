@@ -30,6 +30,7 @@ class ProductDetails {
   bool? hasVariant;
   bool? wishProduct;
   TrustedSeller? trustedSeller;
+  ProductLocation? location;
   ProductDetails({
     this.id,
     this.productName,
@@ -61,7 +62,8 @@ class ProductDetails {
     this.sold,
     this.hasVariant,
     this.wishProduct,
-    this.trustedSeller ,
+    this.trustedSeller,
+    this.location,
   });
 
   factory ProductDetails.fromMap(Map<String, dynamic>? json) {
@@ -119,6 +121,9 @@ class ProductDetails {
       trustedSeller: json['trusted_seller'] != null
           ? TrustedSeller.fromMap(json['trusted_seller'] as Map<String, dynamic>?)
           : null,
+      location: json['location'] != null
+          ? ProductLocation.fromMap(json['location'] as Map<String, dynamic>?)
+          : null,
     );
   }
 
@@ -155,7 +160,55 @@ class ProductDetails {
       'hasVariant': hasVariant,
       'wishProduct': wishProduct,
       'trusted_seller': trustedSeller?.toMap(),
+      'location': location?.toMap(),
     };
+  }
+}
+
+class ProductLocation {
+  double? lat;
+  double? lng;
+  String? city;
+  String? country;
+  double? radius;
+
+  ProductLocation({
+    this.lat,
+    this.lng,
+    this.city,
+    this.country,
+    this.radius,
+  });
+
+  factory ProductLocation.fromMap(Map<String, dynamic>? json) {
+    if (json == null) return ProductLocation();
+    return ProductLocation(
+      lat: (json['lat'] as num?)?.toDouble(),
+      lng: (json['lng'] as num?)?.toDouble(),
+      city: json['city'] as String?,
+      country: json['country'] as String?,
+      radius: (json['radius'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'lat': lat,
+      'lng': lng,
+      'city': city,
+      'country': country,
+      'radius': radius,
+    };
+  }
+
+  bool get hasCoordinates => lat != null && lng != null;
+  bool get hasAddress => city != null || country != null;
+
+  String get displayAddress {
+    final parts = <String>[];
+    if (city != null && city!.isNotEmpty) parts.add(city!);
+    if (country != null && country!.isNotEmpty) parts.add(country!);
+    return parts.join(', ');
   }
 }
 

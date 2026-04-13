@@ -108,4 +108,190 @@ class CartRepository {
     );
     return apiResponse;
   }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  GEO-CASCADING ADDRESS APIs                                            ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> getCountries() async {
+    ApiResponse apiResponse = await _apiCommunication.doGetRequest(
+      responseDataKey: ApiConstant.DATA_RESPONSE,
+      apiEndPoint: 'market-place/order/get-country-name',
+    );
+    return apiResponse;
+  }
+
+  Future<ApiResponse> getStates(String countryName) async {
+    ApiResponse apiResponse = await _apiCommunication.doGetRequest(
+      responseDataKey: ApiConstant.DATA_RESPONSE,
+      apiEndPoint: 'market-place/order/get-country-states-name/$countryName',
+    );
+    return apiResponse;
+  }
+
+  Future<ApiResponse> getCities(String countryName, String stateName) async {
+    ApiResponse apiResponse = await _apiCommunication.doGetRequest(
+      responseDataKey: ApiConstant.DATA_RESPONSE,
+      apiEndPoint: 'market-place/order/get-country-cities-name/$countryName/$stateName',
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  STRIPE CHECKOUT                                                        ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> createStripeCheckoutIntent({
+    required Map<String, dynamic> requestData,
+  }) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'market-place/order/create-stripe-checkout-intent',
+      enableLoading: true,
+      requestData: requestData,
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  CONFIRM STRIPE PAYMENT (MOBILE)                                        ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> confirmStripePaymentMobile({
+    required Map<String, dynamic> requestData,
+  }) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'market-place/order/confirm-stripe-payment-mobile',
+      enableLoading: true,
+      requestData: requestData,
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  GASLESS CHECKOUT QPEU                                                  ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> gaslessCheckoutQPEU({
+    required Map<String, dynamic> requestData,
+  }) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'market-place/order/gasless-checkout-qpeu',
+      enableLoading: true,
+      requestData: requestData,
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  GASLESS CHECKOUT QPG                                                   ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> gaslessCheckoutQPG({
+    required Map<String, dynamic> requestData,
+  }) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'market-place/order/gasless-checkout-qpg',
+      enableLoading: true,
+      requestData: requestData,
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  CHECKOUT WITH EARNINGS                                                 ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> checkoutWithEarning({
+    required Map<String, dynamic> requestData,
+  }) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'market-place/order/checkout-with-earning',
+      enableLoading: true,
+      requestData: requestData,
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  SAVE ADDRESS                                                           ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> saveAddress({
+    required Map<String, dynamic> requestData,
+  }) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'market-place/order/save-address',
+      requestData: requestData,
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  DELETE ADDRESS                                                         ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> deleteAddress(String addressId) async {
+    ApiResponse apiResponse = await _apiCommunication.doDeleteRequest(
+      apiEndPoint: 'market-place/order/delete-address/$addressId',
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  BILLING ADDRESS LIST                                                   ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> getBillingAddressList() async {
+    ApiResponse apiResponse = await _apiCommunication.doGetRequest(
+      responseDataKey: ApiConstant.DATA_RESPONSE,
+      apiEndPoint: 'market-place/order/billing-address-list',
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  GET ADMIN WALLET ADDRESS (for gasless checkout spender)                ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> getAdminWalletAddress() async {
+    ApiResponse apiResponse = await _apiCommunication.doGetRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'profile/admin-wallet-address',
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  EARNING BALANCE — GET AVAILABLE BALANCE                                ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> getEarningPaymentBalance() async {
+    ApiResponse apiResponse = await _apiCommunication.doGetRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'earning/payment-balance',
+    );
+    return apiResponse;
+  }
+
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃  EARNING BALANCE — PAY WITH BALANCE (step 1: deduct)                    ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  Future<ApiResponse> payWithEarningBalance({
+    required Map<String, dynamic> requestData,
+  }) async {
+    ApiResponse apiResponse = await _apiCommunication.doPostRequest(
+      responseDataKey: ApiConstant.FULL_RESPONSE,
+      apiEndPoint: 'earning/pay-with-balance',
+      enableLoading: true,
+      requestData: requestData,
+    );
+    return apiResponse;
+  }
 }

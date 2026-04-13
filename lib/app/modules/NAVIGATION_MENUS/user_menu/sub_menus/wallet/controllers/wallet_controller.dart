@@ -55,7 +55,7 @@ class WalletController extends GetxController {
   TextEditingController cardExpiryController = TextEditingController();
   TextEditingController postCodeController = TextEditingController();
 
-  // Stripe secret key is handled server-side - do not store in client code
+  // Stripe key is managed server-side — do not hardcode here
   final secrectKey = '';
 
   createPaymentIntent() async {

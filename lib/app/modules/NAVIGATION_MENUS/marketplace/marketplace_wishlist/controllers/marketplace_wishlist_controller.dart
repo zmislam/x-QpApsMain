@@ -12,6 +12,45 @@ class MarketplaceWishlistController extends GetxController {
       Get.find<MarketplaceController>();
   RxBool isLoadingWishlist = true.obs;
   Rx<List<WishlistItem>> wishedProductList = Rx([]);
+  RxString searchQuery = ''.obs;
+  RxString sortBy = 'newest'.obs; // newest, oldest, price_low, price_high, name
+
+  List<WishlistItem> get filteredWishlist {
+    List<WishlistItem> list = wishedProductList.value;
+    if (searchQuery.value.isNotEmpty) {
+      final q = searchQuery.value.toLowerCase();
+      list = list.where((item) {
+        final name = item.product?.productName?.toLowerCase() ?? '';
+        final store = item.store?.name?.toLowerCase() ?? '';
+        return name.contains(q) || store.contains(q);
+      }).toList();
+    }
+    switch (sortBy.value) {
+      case 'oldest':
+        list.sort((a, b) =>
+            (a.createdAt ?? '').compareTo(b.createdAt ?? ''));
+        break;
+      case 'price_low':
+        list.sort((a, b) =>
+            (a.productVariant?.sellPrice ?? 0)
+                .compareTo(b.productVariant?.sellPrice ?? 0));
+        break;
+      case 'price_high':
+        list.sort((a, b) =>
+            (b.productVariant?.sellPrice ?? 0)
+                .compareTo(a.productVariant?.sellPrice ?? 0));
+        break;
+      case 'name':
+        list.sort((a, b) =>
+            (a.product?.productName ?? '')
+                .compareTo(b.product?.productName ?? ''));
+        break;
+      default: // newest
+        list.sort((a, b) =>
+            (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+    }
+    return list;
+  }
 
   // *┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
   // *┃  GET ALL WISHLIST PRODUCTS                                            ┃

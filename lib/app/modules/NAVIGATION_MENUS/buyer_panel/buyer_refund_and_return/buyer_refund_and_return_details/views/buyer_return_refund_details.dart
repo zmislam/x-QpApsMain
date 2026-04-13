@@ -25,7 +25,7 @@ class ReturnRefundDetailsView
               Icons.arrow_back_ios_new_outlined,
             ),
             onPressed: () {
-              Get.toNamed(Routes.BUYER_RETURN_REFUND_LIST);
+              Get.offNamed(Routes.MARKETPLACE_BUYER_PANEL, arguments: {'tab': 3});
             },
           ),
           title: Text('Returns & Refund Details'.tr,

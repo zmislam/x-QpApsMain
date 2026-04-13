@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../../extension/string/string_image_path.dart';
+import '../../../../../../components/custom_cached_image_view.dart';
 import '../../../../../../config/constants/app_assets.dart';
 import '../../../components/wishlist_icon_button.dart';
 import '../../controllers/store_products_controller.dart';
@@ -16,23 +17,20 @@ class StoreProductImageSection extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: FadeInImage(
-            placeholder: const AssetImage(AppAssets.DEFAULT_IMAGE),
-            image: storeProductsDetails?.media != null
-                ? NetworkImage(
-                    (
-                        storeProductsDetails?.media?.first ?? '').formatedProductUrlLive,
-                  )
-                : const AssetImage(AppAssets.DEFAULT_IMAGE) as ImageProvider,
+          child: CustomCachedNetworkImage(
+            imageUrl: storeProductsDetails?.media != null
+                ? (storeProductsDetails?.media?.first ?? '').formatedProductUrlLive
+                : '',
             height: 150,
             width: double.infinity,
             fit: BoxFit.contain,
-            imageErrorBuilder: (context, error, stackTrace) => const Image(
+            errorWidget: const Image(
               height: 150,
               width: double.infinity,
               fit: BoxFit.cover,
               image: AssetImage(AppAssets.DEFAULT_IMAGE),
             ),
+            placeholderImage: AppAssets.DEFAULT_IMAGE,
           ),
         ),
         WishlistIconButton(

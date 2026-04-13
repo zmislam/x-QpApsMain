@@ -2,6 +2,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../extension/string/string_image_path.dart';
+import '../../../../components/custom_cached_image_view.dart';
 import '../../../../config/constants/app_assets.dart';
 import '../../../../config/constants/color.dart';
 
@@ -58,17 +59,16 @@ class ProductListCarouselSlider extends StatelessWidget {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10.0),
-                        child: Image.network(
-                          (imageUrl).formatedProductUrlLive,
+                        child: CustomCachedNetworkImage(
+                          imageUrl: (imageUrl).formatedProductUrlLive,
                           fit: BoxFit.contain,
                           width: double.infinity,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Image.asset(
-                              AppAssets.DEFAULT_IMAGE,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                            );
-                          },
+                          errorWidget: Image.asset(
+                            AppAssets.DEFAULT_IMAGE,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
+                          placeholderImage: AppAssets.DEFAULT_IMAGE,
                         ),
                       ),
                     );

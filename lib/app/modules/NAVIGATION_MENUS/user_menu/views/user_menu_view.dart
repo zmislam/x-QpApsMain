@@ -342,13 +342,13 @@ class UserMenuView extends GetView<UserMenuController> {
           icon: Icons.shopping_bag_rounded,
           iconColor: const Color(0xFF43A047),
           label: 'Buyer Panel',
-          onTap: () => Get.toNamed(Routes.BUYER_DASHBOARD),
+          onTap: () => Get.toNamed(Routes.MARKETPLACE_BUYER_PANEL),
         ),
         _MenuGridItem(
           icon: Icons.sell_rounded,
           iconColor: const Color(0xFFE65100),
           label: 'Seller Panel',
-          onTap: () => Get.toNamed(Routes.SELLER_DASHBOARD),
+          onTap: () => Get.toNamed(Routes.MARKETPLACE_SELLER_PANEL),
         ),
         _MenuGridItem(
           icon: Icons.account_balance_wallet_rounded,
@@ -449,13 +449,13 @@ class UserMenuView extends GetView<UserMenuController> {
         icon: Icons.shopping_bag_rounded,
         iconColor: const Color(0xFF43A047),
         label: 'Buyer Panel',
-        onTap: () => Get.toNamed(Routes.BUYER_DASHBOARD),
+        onTap: () => Get.toNamed(Routes.MARKETPLACE_BUYER_PANEL),
       ),
       _MenuGridItem(
         icon: Icons.sell_rounded,
         iconColor: const Color(0xFFE65100),
         label: 'Seller Panel',
-        onTap: () => Get.toNamed(Routes.SELLER_DASHBOARD),
+        onTap: () => Get.toNamed(Routes.MARKETPLACE_SELLER_PANEL),
       ),
       _MenuGridItem(
         icon: Icons.account_balance_wallet_rounded,

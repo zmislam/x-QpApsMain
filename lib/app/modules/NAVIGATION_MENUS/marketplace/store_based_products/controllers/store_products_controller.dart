@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../../../../repository/market_place_repository.dart';
 
 import '../../../../../services/api_communication.dart';
+import '../../../../../utils/snackbar.dart';
 import '../../marketplace_products/controllers/marketplace_controller.dart';
 import '../../product_details/controllers/product_details_controller.dart';
 import '../../product_details/models/product_details_model.dart';
@@ -20,6 +21,7 @@ class StoreProductsController extends GetxController {
   final MarketplaceController marketplaceController =
       Get.find<MarketplaceController>();
   RxBool isLoadingMarketplaceProduct = true.obs;
+  RxBool isFollowingStore = false.obs;
 
   RxString pId = ''.obs;
   final selectedProductVariantId = ''.obs;
@@ -86,6 +88,24 @@ class StoreProductsController extends GetxController {
           'Stock Quantity:::::::::..........${productDetailsList.value.first.productVariant?.first.stock}');
     } else {
       debugPrint('Api Error..........${apiResponse.message}');
+    }
+  }
+
+  // ══════════════════════════ Toggle Store Follow ══════════════════════════ //
+  Future<void> toggleFollowStore() async {
+    final storeId = storeDetails.value?.id ?? pId.value;
+    if (storeId.isEmpty) return;
+    isFollowingStore.toggle();
+    final apiResponse =
+        await marketPlaceRepository.toggleStoreFollow(storeId: storeId);
+    if (apiResponse.isSuccessful) {
+      showSuccessSnackkbar(
+          message: isFollowingStore.value
+              ? 'Store followed'
+              : 'Store unfollowed');
+    } else {
+      isFollowingStore.toggle(); // revert
+      showErrorSnackkbar(message: apiResponse.message ?? 'Failed');
     }
   }
 

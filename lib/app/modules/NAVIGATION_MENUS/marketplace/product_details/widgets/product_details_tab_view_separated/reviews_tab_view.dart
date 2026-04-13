@@ -1,224 +1,278 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:get/get.dart';
+import '../../../../../../config/constants/marketplace_design_tokens.dart';
+import '../../../../../../config/constants/app_assets.dart';
 import '../../../../../../extension/date_time_extension.dart';
 import '../../../../../../extension/string/string_image_path.dart';
-import '../../../../../../config/constants/app_assets.dart';
 import '../../controllers/product_details_controller.dart';
 import '../../models/product_review_model.dart';
-import 'package:get/get.dart';
 
-class ProductReviewsTabView extends StatelessWidget {
-  final ProductDetailsController controller;
-  const ProductReviewsTabView({super.key, required this.controller});
+class ProductReviewsTabContent extends GetView<ProductDetailsController> {
+  const ProductReviewsTabContent({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 10, top: 10),
-      child: controller.productReviewDetailsList.value.isNotEmpty
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Obx(() {
+      final reviews = controller.productReviewDetailsList.value;
+      final reviewData = controller.reviewData.value;
+
+      if (reviews.isEmpty) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Center(
+            child: Text(
+              'No reviews yet'.tr,
+              style: MarketplaceDesignTokens.cardSubtext(context),
+            ),
+          ),
+        );
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ─── Rating Summary ──────────────────
+          if (reviewData != null) ...[
+            const SizedBox(height: MarketplaceDesignTokens.spacingSm),
+            Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Column(
                   children: [
-                    Text('Reviews'.tr,
+                    Text(
+                      (reviewData.averageRating ?? 0).toStringAsFixed(1),
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        fontSize: 36,
+                        fontWeight: FontWeight.w700,
+                        color: MarketplaceDesignTokens.textPrimary(context),
                       ),
                     ),
-                    Text('View All'.tr,
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
+                    RatingBar.builder(
+                      initialRating: (reviewData.averageRating ?? 0).toDouble(),
+                      ignoreGestures: true,
+                      minRating: 0,
+                      itemCount: 5,
+                      itemSize: 16,
+                      itemBuilder: (_, __) => const Icon(Icons.star_rounded,
+                          color: MarketplaceDesignTokens.ratingStarFill),
+                      onRatingUpdate: (_) {},
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${reviews.length} ${reviews.length == 1 ? 'review' : 'reviews'}',
+                      style: MarketplaceDesignTokens.cardSubtext(context),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 200,
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: controller.productReviewDetailsList.value.length,
-                    itemBuilder: (context, reviewIndex) {
-                      ProductReviewDetails review = controller
-                          .productReviewDetailsList.value[reviewIndex];
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    children: List.generate(5, (i) {
+                      final star = 5 - i;
+                      final count = _getStarCount(reviewData, star);
+                      final total = reviews.length;
+                      final pct = total > 0 ? count / total : 0.0;
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                CircleAvatar(
-                                  radius: 25,
-                                  backgroundImage: NetworkImage(
-                                    (review.reviewUser?.profilePic ?? '')
-                                        .formatedProfileUrl,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${review.reviewUser?.firstName ?? ''} ${review.reviewUser?.lastName ?? ''}',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.access_time,
-                                            size: 20, color: Colors.grey),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          (review.createdAt ?? '')
-                                              .toWordlyTimeText(),
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                const Expanded(child: SizedBox()),
-                                Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          review.rating.toString(),
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Text('rating'.tr),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 5),
-                                    RatingBar.builder(
-                                      initialRating:
-                                          review.rating?.toDouble() ?? 0.0,
-                                      ignoreGestures: true,
-                                      minRating: 1,
-                                      direction: Axis.horizontal,
-                                      allowHalfRating: true,
-                                      itemCount: 5,
-                                      itemSize: 14,
-                                      itemBuilder: (context, _) => const Icon(
-                                          Icons.star,
-                                          color: Colors.amber),
-                                      onRatingUpdate: (rating) {},
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              review.reviewTitle ?? 'No Title',
-                              style: TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              review.reviewDescription ?? 'No description',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            if (review.media != null &&
-                                review.media!.isNotEmpty)
-                              SizedBox(
-                                height: 100,
-                                child: ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: review.media!.length,
-                                  itemBuilder: (context, index) {
-                                    return GestureDetector(
-                                      onTap: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (BuildContext context) {
-                                            debugPrint(
-                                                'My Review Pic::::::::::::${(review.media![index])}'
-                                                    .formatedProductReviewUrlLive);
-                                            return Dialog(
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8.0),
-                                                child: Image.network(
-                                                  ('${(review.media![index])}'
-                                                      .formatedProductReviewUrlLive),
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error,
-                                                      stackTrace) {
-                                                    return Image.asset(
-                                                      AppAssets.DEFAULT_IMAGE,
-                                                      fit: BoxFit.cover,
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        );
-                                      },
-                                      child: Container(
-                                        margin:
-                                            const EdgeInsets.only(right: 10),
-                                        width: 100,
-                                        height: 100,
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          child: Image.network(
-                                            ('${(review.media![index])}'
-                                                .formatedProductReviewUrlLive),
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) {
-                                              return Image.asset(
-                                                AppAssets.DEFAULT_IMAGE,
-                                                fit: BoxFit.cover,
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
+                            Text('$star',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        MarketplaceDesignTokens.textSecondary(
+                                            context))),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.star_rounded,
+                                size: 12,
+                                color:
+                                    MarketplaceDesignTokens.ratingStarFill),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: pct,
+                                  backgroundColor:
+                                      MarketplaceDesignTokens.ratingStarEmpty,
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                          MarketplaceDesignTokens
+                                              .ratingStarFill),
+                                  minHeight: 6,
                                 ),
                               ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 24,
+                              child: Text(
+                                '$count',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        MarketplaceDesignTokens.textSecondary(
+                                            context)),
+                              ),
+                            ),
                           ],
                         ),
                       );
-                    },
+                    }),
                   ),
                 ),
               ],
-            )
-          : Center(
-              child: Text('No Reviews Available'.tr,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+            ),
+            Divider(
+              height: 24,
+              color: MarketplaceDesignTokens.divider(context),
+            ),
+          ],
+
+          // ─── Review List ─────────────────────
+          ...reviews.map((review) => _buildReviewItem(context, review)),
+        ],
+      );
+    });
+  }
+
+  int _getStarCount(ReviewData data, int star) {
+    switch (star) {
+      case 5:
+        return data.fiveStarRating ?? 0;
+      case 4:
+        return data.fourStarRating ?? 0;
+      case 3:
+        return data.threeStarRating ?? 0;
+      case 2:
+        return data.twoStarRating ?? 0;
+      case 1:
+        return data.oneStarRating ?? 0;
+      default:
+        return 0;
+    }
+  }
+
+  Widget _buildReviewItem(BuildContext context, ProductReviewDetails review) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundImage: NetworkImage(
+                  (review.reviewUser?.profilePic ?? '').formatedProfileUrl,
+                ),
+                onBackgroundImageError: (_, __) {},
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${review.reviewUser?.firstName ?? ''} ${review.reviewUser?.lastName ?? ''}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: MarketplaceDesignTokens.textPrimary(context),
+                      ),
+                    ),
+                    Text(
+                      (review.createdAt ?? '').toWordlyTimeText(),
+                      style: MarketplaceDesignTokens.cardSubtext(context),
+                    ),
+                  ],
                 ),
               ),
+              RatingBar.builder(
+                initialRating: review.rating?.toDouble() ?? 0.0,
+                ignoreGestures: true,
+                itemCount: 5,
+                itemSize: 14,
+                itemBuilder: (_, __) => const Icon(Icons.star_rounded,
+                    color: MarketplaceDesignTokens.ratingStarFill),
+                onRatingUpdate: (_) {},
+              ),
+            ],
+          ),
+          if (review.reviewTitle != null &&
+              review.reviewTitle!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              review.reviewTitle!,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: MarketplaceDesignTokens.textPrimary(context),
+              ),
             ),
+          ],
+          if (review.reviewDescription != null &&
+              review.reviewDescription!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              review.reviewDescription!,
+              style: TextStyle(
+                fontSize: 14,
+                color: MarketplaceDesignTokens.textSecondary(context),
+                height: 1.4,
+              ),
+            ),
+          ],
+          if (review.media != null && review.media!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 60,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: review.media!.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  return GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => Dialog(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              review.media![index]
+                                  .formatedProductReviewUrlLive,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Image.asset(
+                                  AppAssets.DEFAULT_IMAGE,
+                                  fit: BoxFit.cover),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        review.media![index].formatedProductReviewUrlLive,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Image.asset(
+                          AppAssets.DEFAULT_IMAGE,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

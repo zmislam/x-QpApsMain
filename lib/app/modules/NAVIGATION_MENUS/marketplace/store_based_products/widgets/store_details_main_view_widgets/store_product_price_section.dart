@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../../config/constants/color.dart';
+import '../../../../../../utils/currency_helper.dart';
 import '../../models/store_products_model.dart';
 
 class StoreProductPriceWidget extends StatelessWidget {
@@ -22,7 +23,7 @@ class StoreProductPriceWidget extends StatelessWidget {
           Text(
             storeProductsDetails.productVariants != null &&
                     storeProductsDetails.productVariants!.isNotEmpty
-                ? '\$${storeProductsDetails.productVariants!.first.mainPrice}'
+                ? CurrencyHelper.formatPrice(storeProductsDetails.productVariants!.first.mainPrice)
                 : '', // Provide a default value if the list is empty
             style: const TextStyle(
               fontSize: 14,
@@ -35,7 +36,7 @@ class StoreProductPriceWidget extends StatelessWidget {
           Text(
             storeProductsDetails.productVariants != null &&
                     storeProductsDetails.productVariants!.isNotEmpty
-                ? '\$${storeProductsDetails.productVariants?.first.sellPrice}'
+                ? CurrencyHelper.formatPrice(storeProductsDetails.productVariants?.first.sellPrice)
                 : '',
             style: const TextStyle(
               fontSize: 14,

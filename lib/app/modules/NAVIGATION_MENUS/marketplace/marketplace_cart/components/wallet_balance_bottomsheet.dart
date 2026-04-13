@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../../routes/app_pages.dart';
 import '../controllers/cart_controller.dart';
 import '../../../user_menu/sub_menus/wallet/controllers/wallet_controller.dart';
-import '../../../user_menu/sub_menus/wallet/views/add_qp_balance.dart';
 
 class CheckoutWalletBottomSheet extends StatelessWidget {
   final CartController controller = Get.put(CartController());
@@ -108,7 +108,7 @@ class CheckoutWalletBottomSheet extends StatelessWidget {
                     height: 40,
                     child: ElevatedButton(
                       onPressed: () {
-                        Get.to(const AddQpBalance());
+                        Get.toNamed(Routes.QP_WALLET_ADD_BALANCE);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF317773),
