@@ -158,7 +158,8 @@ class MyPagesView extends GetView<PagesController> {
                                 padding: const EdgeInsets.only(left: 6),
                                 child: PageTierBadge(
                                   tierName: tiers.first.label,
-                                  size: PageTierBadgeSize.small,
+                                  multiplier: tiers.first.multiplier,
+                                  size: 'small',
                                 ),
                               );
                             }

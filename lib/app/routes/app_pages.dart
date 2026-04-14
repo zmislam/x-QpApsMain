@@ -8,6 +8,29 @@ import '../modules/viralContent/bindings/viral_content_binding.dart';
 import '../modules/viralContent/views/trending_feed_view.dart';
 import '../modules/tipping/bindings/tipping_binding.dart';
 import '../modules/tipping/views/tip_dashboard_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/bindings/reels_v2_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/views/reels_v2_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/camera/bindings/reels_camera_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/camera/views/reels_camera_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/editor/bindings/reels_editor_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/editor/views/reels_editor_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/editor/views/reels_preview_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/publish/bindings/reels_publish_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/publish/views/reels_publish_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/drafts/bindings/reels_draft_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/drafts/views/reels_draft_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/remix/bindings/reels_remix_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/remix/views/remix_duet_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/search/bindings/reels_search_binding.dart' as v2_search;
+import '../modules/NAVIGATION_MENUS/reels_v2/search/views/reels_search_view.dart' as v2_search;
+import '../modules/NAVIGATION_MENUS/reels_v2/collection/views/collections_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/analytics/bindings/reels_analytics_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/analytics/views/reels_analytics_dashboard_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/analytics/views/reel_insight_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/settings/views/reels_settings_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/settings/bindings/reels_settings_binding.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/boost/views/reels_boost_view.dart';
+import '../modules/NAVIGATION_MENUS/reels_v2/boost/bindings/reels_boost_binding.dart';
 import '../modules/NAVIGATION_MENUS/account_switch_page/bindings/account_switch_page_binding.dart';
 import '../modules/NAVIGATION_MENUS/account_switch_page/views/account_switch_page_view.dart';
 import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/promotion_detail/bindings/promotion_detail_binding.dart';
@@ -1265,6 +1288,69 @@ class AppPages {
       name: _Paths.TIP_DASHBOARD,
       page: () => const TipDashboardView(),
       binding: TippingBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2,
+      page: () => const ReelsV2View(),
+      binding: ReelsV2Binding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_CAMERA,
+      page: () => const ReelsCameraView(),
+      binding: ReelsCameraBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_EDITOR,
+      page: () => const ReelsEditorView(),
+      binding: ReelsEditorBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_PREVIEW,
+      page: () => const ReelsPreviewView(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_PUBLISH,
+      page: () => const ReelsPublishView(),
+      binding: ReelsPublishBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_DRAFTS,
+      page: () => const ReelsDraftView(),
+      binding: ReelsDraftBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_REMIX,
+      page: () => const RemixDuetView(),
+      binding: ReelsRemixBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_SEARCH,
+      page: () => const v2_search.ReelsSearchView(),
+      binding: v2_search.ReelsSearchBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_COLLECTIONS,
+      page: () => const CollectionsView(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_ANALYTICS,
+      page: () => const ReelsAnalyticsDashboardView(),
+      binding: ReelsAnalyticsBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_ANALYTICS_INSIGHT,
+      page: () => const ReelInsightView(),
+      binding: ReelsAnalyticsBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_SETTINGS,
+      page: () => const ReelsSettingsView(),
+      binding: ReelsSettingsBinding(),
+    ),
+    GetPage(
+      name: _Paths.REELS_V2_BOOST,
+      page: () => const ReelsBoostView(),
+      binding: ReelsBoostBinding(),
     ),
   ];
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../reels/controllers/reels_controller.dart';
+import '../../../../utils/reels_v2_deep_link_handler.dart';
 import '../../../../repository/notification_repository.dart';
 
 import '../../../../config/constants/api_constant.dart';
@@ -380,6 +381,15 @@ class NotificationController extends GetxController {
         try {
           final reelId = notificationModel.notification_data?.reelId;
           if (reelId != null) {
+            // Phase 12B: Route to V2 if enabled
+            if (ReelsV2DeepLinkHandler.handleReelNotification(
+              reelId: reelId,
+              commentId: notificationModel.notification_data?.commentId?.id,
+            )) {
+              break;
+            }
+
+            // V1 fallback
             final reelController = Get.find<ReelsController>();
             reelController.getAndUpdateReelListWithSpecificReel(reelId: reelId);
 

@@ -2,7 +2,7 @@
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cached_network_svg_image/cached_network_svg_image.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/material.dart';
 
 import '../config/constants/app_assets.dart';
@@ -102,14 +102,13 @@ class PrimaryNetworkImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return imageUrl.contains('.svg')
-        ? CachedNetworkSVGImage(
+        ? SvgPicture.network(
             imageUrl,
             height: height,
             width: width,
             fit: fitImage,
-            placeholder:
+            placeholderBuilder: (_) =>
                 Image.asset(AppAssets.DEFAULT_IMAGE, fit: BoxFit.fitHeight),
-            errorWidget: const Icon(Icons.error),
           )
         : CachedNetworkImage(
             height: height,
@@ -144,14 +143,13 @@ class PrimaryCachedNetworkImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return imageUrl.contains('.svg')
-        ? CachedNetworkSVGImage(
+        ? SvgPicture.network(
             imageUrl,
             height: height,
             width: width,
             fit: fitImage,
-            placeholder:
+            placeholderBuilder: (_) =>
                 Image.asset(AppAssets.DEFAULT_IMAGE, fit: BoxFit.fitHeight),
-            errorWidget: const Icon(Icons.error),
           )
         : CachedNetworkImage(
             height: height,

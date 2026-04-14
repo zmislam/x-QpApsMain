@@ -32,7 +32,7 @@ class CreatorTierController extends GetxController {
       // Check application status first
       final appRes = await _api.getApplicationStatus();
       if (appRes.isSuccessful && appRes.data != null) {
-        application.value = CreatorApplication.fromJson(appRes.data);
+        application.value = CreatorApplication.fromJson(appRes.data as Map<String, dynamic>);
       }
 
       final appStatus = application.value?.status ?? 'not_applied';
@@ -41,7 +41,7 @@ class CreatorTierController extends GetxController {
         // Load eligibility
         final eligRes = await _api.checkEligibility();
         if (eligRes.isSuccessful && eligRes.data != null) {
-          eligibility.value = CreatorEligibility.fromJson(eligRes.data);
+          eligibility.value = CreatorEligibility.fromJson(eligRes.data as Map<String, dynamic>);
         }
       } else if (appStatus == 'approved') {
         // Load full tier data
@@ -58,14 +58,16 @@ class CreatorTierController extends GetxController {
   Future<void> _fetchTierInfo() async {
     final res = await _api.getMyTier();
     if (res.isSuccessful && res.data != null) {
-      tierInfo.value = CreatorTierInfo.fromJson(res.data);
+      tierInfo.value = CreatorTierInfo.fromJson(res.data as Map<String, dynamic>);
     }
   }
 
   Future<void> _fetchPriorityScore() async {
     final res = await _api.getPriorityScore();
     if (res.isSuccessful && res.data != null) {
-      priorityScore.value = PriorityScoreBreakdown.fromJson(res.data);
+      priorityScore.value = PriorityScoreBreakdown.fromJson(
+        res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : <String, dynamic>{},
+      );
     }
   }
 

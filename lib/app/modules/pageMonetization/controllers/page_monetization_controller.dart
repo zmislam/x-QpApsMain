@@ -4,8 +4,7 @@ import '../models/page_monetization_models.dart';
 import '../services/page_monetization_api_service.dart';
 import '../../earnDashboard/services/earning_config_service.dart';
 
-class PageMonetizationController extends GetxController
-    with GetSingleTickerProviderMixin {
+class PageMonetizationController extends GetxController {
   final PageMonetizationApiService _api = PageMonetizationApiService();
   final EarningConfigService _config = Get.find<EarningConfigService>();
 
@@ -43,7 +42,7 @@ class PageMonetizationController extends GetxController
       if (res.isSuccessful && res.data != null) {
         final list = (res.data is List) ? res.data as List : [res.data];
         pages.value = list
-            .map((p) => PageMonetizationSummary.fromJson(p))
+            .map((p) => PageMonetizationSummary.fromJson(p as Map<String, dynamic>))
             .toList();
 
         // Auto-select if arguments provided or first page
@@ -78,7 +77,7 @@ class PageMonetizationController extends GetxController
       final statusRes = await _api.getStatus(pageId);
       if (statusRes.isSuccessful && statusRes.data != null) {
         monetizationStatus.value =
-            PageMonetizationStatus.fromJson(statusRes.data);
+            PageMonetizationStatus.fromJson(statusRes.data as Map<String, dynamic>);
       }
 
       final status = monetizationStatus.value?.status ?? 'not_applied';
@@ -87,7 +86,7 @@ class PageMonetizationController extends GetxController
         // Load eligibility
         final eligRes = await _api.checkEligibility(pageId);
         if (eligRes.isSuccessful && eligRes.data != null) {
-          eligibility.value = PageEligibility.fromJson(eligRes.data);
+          eligibility.value = PageEligibility.fromJson(eligRes.data as Map<String, dynamic>);
         }
       } else if (status == 'approved' || status == 'active') {
         // Load full monetization data in parallel
@@ -107,7 +106,7 @@ class PageMonetizationController extends GetxController
   Future<void> _fetchTierInfo(String pageId) async {
     final res = await _api.getTierInfo(pageId);
     if (res.isSuccessful && res.data != null) {
-      tierInfo.value = PageTierInfo.fromJson(res.data);
+      tierInfo.value = PageTierInfo.fromJson(res.data as Map<String, dynamic>);
     }
   }
 
@@ -132,7 +131,7 @@ class PageMonetizationController extends GetxController
   Future<void> _fetchRiskProfile(String pageId) async {
     final res = await _api.getRiskProfile(pageId);
     if (res.isSuccessful && res.data != null) {
-      riskProfile.value = PageRiskProfile.fromJson(res.data);
+      riskProfile.value = PageRiskProfile.fromJson(res.data as Map<String, dynamic>);
     }
   }
 

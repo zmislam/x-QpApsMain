@@ -11,13 +11,13 @@ class ApiConstant {
   // static const SERVER_IP = 'http://217.73.238.134';
   // static const String SERVER_IP_PORT = 'http://217.73.238.134:182';
 
-// Live Server
-  static const SERVER_IP = 'https://qposs.com';
-  static const String SERVER_IP_PORT = '$SERVER_IP:82';
+  // Live Server
+  // static const SERVER_IP = 'https://qposs.com';
+  // static const String SERVER_IP_PORT = '$SERVER_IP:82';
 
   // Local Server
-  // static const SERVER_IP = 'http://192.168.0.223';
-  // static const String SERVER_IP_PORT = 'http://192.168.0.223:9000';
+  static const SERVER_IP = 'http://localhost';
+  static const String SERVER_IP_PORT = 'http://localhost:9000';
 
   // static const String BASE_URL = '$SERVER_IP_PORT/api/';
   static const String BASE_URL = '$SERVER_IP_PORT/api/';

@@ -226,6 +226,19 @@ abstract class Routes {
   static const CREATOR_DASHBOARD = _Paths.CREATOR_DASHBOARD;
   static const TRENDING = _Paths.TRENDING;
   static const TIP_DASHBOARD = _Paths.TIP_DASHBOARD;
+  static const REELS_V2 = _Paths.REELS_V2;
+  static const REELS_V2_CAMERA = _Paths.REELS_V2_CAMERA;
+  static const REELS_V2_EDITOR = _Paths.REELS_V2_EDITOR;
+  static const REELS_V2_PREVIEW = _Paths.REELS_V2_PREVIEW;
+  static const REELS_V2_PUBLISH = _Paths.REELS_V2_PUBLISH;
+  static const REELS_V2_DRAFTS = _Paths.REELS_V2_DRAFTS;
+  static const REELS_V2_REMIX = _Paths.REELS_V2_REMIX;
+  static const REELS_V2_SEARCH = _Paths.REELS_V2_SEARCH;
+  static const REELS_V2_COLLECTIONS = _Paths.REELS_V2_COLLECTIONS;
+  static const REELS_V2_ANALYTICS = _Paths.REELS_V2_ANALYTICS;
+  static const REELS_V2_ANALYTICS_INSIGHT = _Paths.REELS_V2_ANALYTICS_INSIGHT;
+  static const REELS_V2_SETTINGS = _Paths.REELS_V2_SETTINGS;
+  static const REELS_V2_BOOST = _Paths.REELS_V2_BOOST;
 }
 
 abstract class _Paths {
@@ -435,4 +448,17 @@ abstract class _Paths {
   static const CREATOR_DASHBOARD = '/creator-dashboard';
   static const TRENDING = '/trending';
   static const TIP_DASHBOARD = '/tip-dashboard';
+  static const REELS_V2 = '/reels-v2';
+  static const REELS_V2_CAMERA = '/reels-v2/camera';
+  static const REELS_V2_EDITOR = '/reels-v2/editor';
+  static const REELS_V2_PREVIEW = '/reels-v2/preview';
+  static const REELS_V2_PUBLISH = '/reels-v2/publish';
+  static const REELS_V2_DRAFTS = '/reels-v2/drafts';
+  static const REELS_V2_REMIX = '/reels-v2/remix';
+  static const REELS_V2_SEARCH = '/reels-v2/search';
+  static const REELS_V2_COLLECTIONS = '/reels-v2/collections';
+  static const REELS_V2_ANALYTICS = '/reels-v2/analytics';
+  static const REELS_V2_ANALYTICS_INSIGHT = '/reels-v2/analytics/insight';
+  static const REELS_V2_SETTINGS = '/reels-v2/settings';
+  static const REELS_V2_BOOST = '/reels-v2/boost';
 }

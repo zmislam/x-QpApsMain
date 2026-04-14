@@ -1,4 +1,4 @@
-import '../../../config/api/api_communication.dart';
+import '../../../services/api_communication.dart';
 import '../models/tipping_models.dart';
 
 class TippingApiService {
@@ -17,7 +17,7 @@ class TippingApiService {
     };
     final response = await ApiCommunication().doPostRequest(
       apiEndPoint: 'tips/send',
-      requestBody: body,
+      requestData: body,
       responseDataKey: 'data',
     );
     return response.isSuccessful;
@@ -44,7 +44,7 @@ class TippingApiService {
       responseDataKey: 'data',
     );
     if (response.isSuccessful && response.data is Map) {
-      return TipSummary.fromJson(Map<String, dynamic>.from(response.data));
+      return TipSummary.fromJson(Map<String, dynamic>.from(response.data as Map));
     }
     return null;
   }
@@ -92,7 +92,7 @@ class TippingApiService {
     };
     final response = await ApiCommunication().doPostRequest(
       apiEndPoint: 'tips/goals',
-      requestBody: body,
+      requestData: body,
       responseDataKey: 'data',
     );
     return response.isSuccessful;

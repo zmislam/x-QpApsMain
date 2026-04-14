@@ -16,7 +16,7 @@ class PageMonetizationApiService {
   Future<ApiResponse> applyForMonetization(String pageId) {
     return _api.doPostRequest(
       apiEndPoint: 'page-monetization/apply/$pageId',
-      requestBody: {},
+      requestData: {},
       responseDataKey: 'data',
     );
   }

@@ -29,7 +29,7 @@ dependencies:
   permission_handler: ^11.3.1 # Permission handler - Service
   cupertino_icons: ^1.0.2 # Cupertino icons - View
   cached_network_image: ^3.4.0 # Cache network image - View
-  cached_network_svg_image: ^1.2.0 # Cache network svg image - View
+  # cached_network_svg_image removed: incompatible with web (dart:io File issue), replaced with flutter_svg SvgPicture.network
   carousel_slider: ^5.0.0 # Carousel slider - View
   dotted_border: ^3.1.0 # Dotted border - View
   dropdown_search: ^5.0.6 # Dropdown search - View

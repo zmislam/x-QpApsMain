@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../config/constants/color.dart';
-import '../../controllers/earn_dashboard_controller.dart';
-import '../../widgets/analytics/earnings_trend_chart.dart';
-import '../../widgets/analytics/period_compare_card.dart';
-import '../../widgets/analytics/rank_tracker_card.dart';
-import '../../widgets/analytics/content_earnings_card.dart';
-import '../../widgets/analytics/score_optimizer_card.dart';
-import '../../widgets/analytics/earning_forecast_card.dart';
+import '../../../config/constants/color.dart';
+import '../controllers/earn_dashboard_controller.dart';
+import '../widgets/analytics/earnings_trend_chart.dart';
+import '../widgets/analytics/period_compare_card.dart';
+import '../widgets/analytics/rank_tracker_card.dart';
+import '../widgets/analytics/content_earnings_card.dart';
+import '../widgets/analytics/score_optimizer_card.dart';
+import '../widgets/analytics/earning_forecast_card.dart';
 
 class EarningAnalyticsView extends GetView<EarnDashboardController> {
   const EarningAnalyticsView({super.key});

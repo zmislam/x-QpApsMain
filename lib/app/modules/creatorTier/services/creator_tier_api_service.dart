@@ -24,7 +24,7 @@ class CreatorTierApiService {
   Future<ApiResponse> apply() {
     return _api.doPostRequest(
       apiEndPoint: 'creator/apply',
-      requestBody: {},
+      requestData: {},
       responseDataKey: 'data',
     );
   }

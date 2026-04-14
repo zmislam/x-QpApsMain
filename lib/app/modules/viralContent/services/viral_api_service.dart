@@ -1,4 +1,4 @@
-import '../../../config/api/api_communication.dart';
+import '../../../services/api_communication.dart';
 import '../models/viral_content_models.dart';
 
 class ViralApiService {
@@ -24,7 +24,7 @@ class ViralApiService {
     );
     if (response.isSuccessful && response.data is Map) {
       return MyViralPostsResponse.fromJson(
-          Map<String, dynamic>.from(response.data));
+          Map<String, dynamic>.from(response.data as Map));
     }
     return MyViralPostsResponse();
   }
@@ -37,7 +37,7 @@ class ViralApiService {
     );
     if (response.isSuccessful && response.data is Map) {
       return ViralPostInfo.fromJson(
-          Map<String, dynamic>.from(response.data));
+          Map<String, dynamic>.from(response.data as Map));
     }
     return null;
   }
@@ -50,7 +50,7 @@ class ViralApiService {
     );
     if (response.isSuccessful && response.data is Map) {
       return ViralScoreBreakdown.fromJson(
-          Map<String, dynamic>.from(response.data));
+          Map<String, dynamic>.from(response.data as Map));
     }
     return null;
   }

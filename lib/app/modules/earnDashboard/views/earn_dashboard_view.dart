@@ -91,8 +91,8 @@ class _DashboardTab extends GetView<EarnDashboardController> {
             Builder(builder: (_) {
               try {
                 final configService = Get.find<EarningConfigService>();
-                final antiAbuse = configService.antiAbuse;
-                if (antiAbuse != null && antiAbuse.enabled) {
+                final antiAbuseEnabled = configService.antiAbuseEnabled;
+                if (antiAbuseEnabled) {
                   return FutureBuilder<AccountStanding?>(
                     future: AntiAbuseApiService().getAccountStanding(),
                     builder: (context, snapshot) {
@@ -107,7 +107,9 @@ class _DashboardTab extends GetView<EarnDashboardController> {
                               frozenAmount: standing.frozenAmount ?? 0,
                             ),
                           if (standing.hasWarning && !standing.earningsFrozen)
-                            const AccountWarningBanner(),
+                            AccountWarningBanner(
+                              message: standing.warningMessage ?? 'Your account has a warning. Please review your activity.',
+                            ),
                           if (standing.hasWarning || standing.earningsFrozen)
                             const SizedBox(height: 12),
                         ],
