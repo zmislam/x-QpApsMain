@@ -13,6 +13,8 @@ import '../component/page_photos_component.dart';
 import '../component/page_reels_all_components/page_main_reels_component.dart';
 import '../component/page_more_component.dart';
 import '../controllers/page_profile_controller.dart';
+import '../../../../../../pageMonetization/widgets/page_tier_badge.dart';
+import '../../../../../../earnDashboard/services/earning_config_service.dart';
 
 /// Facebook-style Page Profile View (Visitor/Follower)
 class PageProfileView extends StatefulWidget {
@@ -390,13 +392,38 @@ class _PageProfileViewState extends State<PageProfileView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            pageName,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: textPrimary,
-            ),
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  pageName,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+              // Page Tier Badge (Phase 7)
+              Builder(builder: (_) {
+                try {
+                  final configService = Get.find<EarningConfigService>();
+                  if (configService.pageMonetizationEnabled) {
+                    final tiers = configService.pageTiers;
+                    if (tiers.isNotEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: PageTierBadge(
+                          tierName: tiers.first.label,
+                          size: PageTierBadgeSize.small,
+                        ),
+                      );
+                    }
+                  }
+                } catch (_) {}
+                return const SizedBox.shrink();
+              }),
+            ],
           ),
           const SizedBox(height: 4),
           Text(

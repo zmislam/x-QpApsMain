@@ -3,13 +3,22 @@ import 'package:get/get.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../config/constants/color.dart';
 import '../controllers/earn_dashboard_controller.dart';
+import '../services/earning_config_service.dart';
 import 'dart:math' as math;
 
 class ScoreWeightsCard extends GetView<EarnDashboardController> {
   const ScoreWeightsCard({super.key});
 
+  /// Resolved score weights: dashboard data > config service > hardcoded defaults
+  Map<String, double> get _resolvedWeights {
+    final dashboardSw = controller.scoreWeights.value?.scoreWeights;
+    if (dashboardSw != null && dashboardSw.isNotEmpty) return dashboardSw;
+    final cfgSw = Get.find<EarningConfigService>().scoreWeights;
+    return cfgSw.isNotEmpty ? cfgSw : {};
+  }
+
   List<_W> _buildWeights() {
-    final sw = controller.scoreWeights.value?.scoreWeights ?? {};
+    final sw = _resolvedWeights;
     final breakdown = controller.todayEstimate.value?.scoreBreakdown;
 
     final receivedWeights = [
@@ -190,7 +199,7 @@ class ScoreWeightsCard extends GetView<EarnDashboardController> {
   }
 
   Widget _buildDetailContent(ScrollController scrollController) {
-    final sw = controller.scoreWeights.value?.scoreWeights ?? {};
+    final sw = _resolvedWeights;
     final breakdown = controller.todayEstimate.value?.scoreBreakdown;
 
     final receivedWeights = [

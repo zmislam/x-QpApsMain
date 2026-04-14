@@ -130,4 +130,35 @@ class EarningApiService {
       apiEndPoint: 'post/earning-profile-overview',
     );
   }
+
+  // --- Revenue Analytics (Phase 1) ---
+  Future<ApiResponse> fetchEarningTrends({String period = '7d'}) {
+    return _api.doGetRequest(
+      apiEndPoint: 'revenue-analytics/trends',
+      queryParameters: {'period': period},
+      responseDataKey: 'data',
+    );
+  }
+
+  Future<ApiResponse> fetchContentEarnings({String period = '7d'}) {
+    return _api.doGetRequest(
+      apiEndPoint: 'revenue-analytics/content-earnings',
+      queryParameters: {'period': period},
+      responseDataKey: 'data',
+    );
+  }
+
+  Future<ApiResponse> fetchScoreOptimizer() {
+    return _api.doGetRequest(
+      apiEndPoint: 'revenue-analytics/score-optimizer',
+      responseDataKey: 'data',
+    );
+  }
+
+  Future<ApiResponse> fetchEarningForecast() {
+    return _api.doGetRequest(
+      apiEndPoint: 'revenue-analytics/forecast',
+      responseDataKey: 'data',
+    );
+  }
 }

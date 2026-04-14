@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../config/constants/color.dart';
 import '../controllers/earn_dashboard_controller.dart';
 import '../model/revenue_share_models.dart';
+import '../services/earning_config_service.dart';
 
 class PlatformStatsCard extends GetView<EarnDashboardController> {
   const PlatformStatsCard({super.key});
@@ -170,7 +171,7 @@ class PlatformStatsCard extends GetView<EarnDashboardController> {
     final monthly = stats.monthlySummary;
     final revPercent = stats.revenueSharePercentage > 0
         ? stats.revenueSharePercentage.toStringAsFixed(0)
-        : '30';
+        : Get.find<EarningConfigService>().revenueSharePercent.toStringAsFixed(0);
     final yesterdayPool = stats.recentDistributions.isNotEmpty
         ? stats.recentDistributions.first.creatorPool
         : 0.0;
@@ -272,11 +273,13 @@ class PlatformStatsCard extends GetView<EarnDashboardController> {
           ),
           child: Column(
             children: [
-              _scheduleRow('Calculation Time', 'Daily at 00:00 UTC'),
+              _scheduleRow('Calculation Time',
+                  'Daily at ${Get.find<EarningConfigService>().distributionTimeFormatted}'),
               const Divider(height: 16),
               _scheduleRow('Credit Time', 'Within 1 hour of calculation'),
               const Divider(height: 16),
-              _scheduleRow('Minimum to Earn', '1 qualifying action'),
+              _scheduleRow('Minimum to Earn',
+                  '${Get.find<EarningConfigService>().minEngagementScore.toStringAsFixed(0)} qualifying action'),
             ],
           ),
         ),

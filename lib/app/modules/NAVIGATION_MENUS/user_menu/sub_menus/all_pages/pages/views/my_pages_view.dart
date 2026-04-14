@@ -9,6 +9,8 @@ import '../../../../../../../routes/app_pages.dart';
 import '../controllers/pages_controller.dart';
 import '../model/invitation_model.dart';
 import '../model/mypage_model.dart';
+import '../../../../../../modules/earnDashboard/services/earning_config_service.dart';
+import '../../../../../../modules/pageMonetization/widgets/page_tier_badge.dart';
 
 class MyPagesView extends GetView<PagesController> {
   const MyPagesView({Key? key}) : super(key: key);
@@ -131,15 +133,40 @@ class MyPagesView extends GetView<PagesController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    page.pageName ?? '',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: FeedDesignTokens.textPrimary(context),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          page.pageName ?? '',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: FeedDesignTokens.textPrimary(context),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Page Tier Badge (Phase 7)
+                      Builder(builder: (_) {
+                        try {
+                          final cfg = Get.find<EarningConfigService>();
+                          if (cfg.pageMonetizationEnabled) {
+                            final tiers = cfg.pageTiers;
+                            if (tiers.isNotEmpty) {
+                              return Padding(
+                                padding: const EdgeInsets.only(left: 6),
+                                child: PageTierBadge(
+                                  tierName: tiers.first.label,
+                                  size: PageTierBadgeSize.small,
+                                ),
+                              );
+                            }
+                          }
+                        } catch (_) {}
+                        return const SizedBox.shrink();
+                      }),
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(

@@ -3,9 +3,15 @@ import 'package:get/get.dart';
 import 'package:shimmer/shimmer.dart';
 import '../controllers/earn_dashboard_controller.dart';
 import '../model/revenue_share_models.dart';
+import '../services/earning_config_service.dart';
 import 'withdrawal_history_bottom_sheet.dart';
 
-const double _kMinWithdrawalDollars = 50.0;
+const double _kMinWithdrawalDollarsDefault = 50.0;
+
+double get _minWithdrawalDollars {
+  // Could be extended when admin config adds a minPayoutDollars field
+  return _kMinWithdrawalDollarsDefault;
+}
 
 class WalletBalanceCard extends GetView<EarnDashboardController> {
   const WalletBalanceCard({super.key});
@@ -77,7 +83,7 @@ class WalletBalanceCard extends GetView<EarnDashboardController> {
                   color: Colors.white),
             ),
             const SizedBox(height: 4),
-            Text('Min. withdrawal: \$$_kMinWithdrawalDollars',
+            Text('Min. withdrawal: \$${_minWithdrawalDollars.toStringAsFixed(0)}',
                 style: TextStyle(
                     fontSize: 11,
                     color: Colors.white.withValues(alpha: 0.45))),
@@ -122,6 +128,26 @@ class WalletBalanceCard extends GetView<EarnDashboardController> {
                 ),
               ],
             ),
+
+            // === Phase 8 Enhancements ===
+
+            // 1. Progress bar to minimum withdrawal threshold
+            const SizedBox(height: 16),
+            _buildThresholdProgress(walletBalance),
+
+            // 2. Withdrawal readiness checklist
+            const SizedBox(height: 14),
+            _buildReadinessChecklist(wallet),
+
+            // 3. Recent withdrawals with expandable status
+            if (wallet != null && wallet.recentWithdrawals.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _buildRecentWithdrawals(wallet.recentWithdrawals),
+            ],
+
+            // 4. Recent daily earnings (last 5 days)
+            const SizedBox(height: 14),
+            _buildRecentDailyEarnings(),
           ],
         ),
       );
@@ -146,7 +172,7 @@ class WalletBalanceCard extends GetView<EarnDashboardController> {
       onTap = controller.connectStripe;
       bgColor = Colors.amber.shade700;
     } else if (!wallet.canWithdraw) {
-      label = 'Need \$$_kMinWithdrawalDollars';
+      label = 'Need \$${_minWithdrawalDollars.toStringAsFixed(0)}';
       onTap = null;
       bgColor = Colors.grey.shade600;
     } else if (!wallet.isWithdrawalReady) {
@@ -216,6 +242,271 @@ class WalletBalanceCard extends GetView<EarnDashboardController> {
     );
   }
 
+  // ── Phase 8: Threshold Progress Bar ──
+  Widget _buildThresholdProgress(double balance) {
+    final minThreshold = _minWithdrawalDollars;
+    final progress = minThreshold > 0
+        ? (balance / minThreshold).clamp(0.0, 1.0)
+        : 1.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Withdrawal Progress',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withOpacity(0.7))),
+            Text(
+              progress >= 1.0
+                  ? 'Ready!'
+                  : '\$${balance.toStringAsFixed(2)} / \$${minThreshold.toStringAsFixed(0)}',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: progress >= 1.0
+                      ? Colors.greenAccent
+                      : Colors.white.withOpacity(0.6)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: Colors.white.withOpacity(0.1),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              progress >= 1.0 ? Colors.greenAccent : Colors.blueAccent,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Phase 8: Withdrawal Readiness Checklist ──
+  Widget _buildReadinessChecklist(WalletSummaryModel? wallet) {
+    final balance =
+        controller.dailyEarningsSummary.value?.totalEarned ?? 0.0;
+    final minThreshold = _minWithdrawalDollars;
+
+    final items = <_CheckItem>[
+      _CheckItem(
+        'Balance ≥ \$${minThreshold.toStringAsFixed(0)}',
+        balance >= minThreshold,
+      ),
+      _CheckItem(
+        'Stripe account connected',
+        wallet?.hasStripeAccount ?? false,
+      ),
+      _CheckItem(
+        'Identity verified',
+        wallet?.isStripeActive ?? false,
+      ),
+      _CheckItem(
+        'No pending withdrawal',
+        (wallet?.pendingWithdrawalsCount ?? 0) == 0,
+      ),
+      _CheckItem(
+        '24hr cooldown passed',
+        !(wallet?.isInCooldown ?? true),
+      ),
+    ];
+
+    final passCount = items.where((i) => i.passed).length;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.checklist,
+                  size: 16, color: Colors.white.withOpacity(0.7)),
+              const SizedBox(width: 6),
+              Text('Readiness ($passCount/${items.length})',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withOpacity(0.7))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...items.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      item.passed
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      size: 14,
+                      color: item.passed
+                          ? Colors.greenAccent
+                          : Colors.white.withOpacity(0.3),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(item.label,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: item.passed
+                                ? Colors.white.withOpacity(0.8)
+                                : Colors.white.withOpacity(0.4))),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  // ── Phase 8: Recent Withdrawals ──
+  Widget _buildRecentWithdrawals(List<WithdrawalEntry> withdrawals) {
+    final recent = withdrawals.take(3).toList();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Recent Withdrawals',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withOpacity(0.7))),
+          const SizedBox(height: 8),
+          ...recent.map((w) {
+            Color statusColor;
+            IconData statusIcon;
+            switch (w.status.toLowerCase()) {
+              case 'completed':
+                statusColor = Colors.greenAccent;
+                statusIcon = Icons.check_circle;
+                break;
+              case 'failed':
+                statusColor = Colors.redAccent;
+                statusIcon = Icons.cancel;
+                break;
+              case 'processing':
+                statusColor = Colors.blueAccent;
+                statusIcon = Icons.sync;
+                break;
+              default: // pending
+                statusColor = Colors.amber;
+                statusIcon = Icons.access_time;
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Icon(statusIcon, size: 14, color: statusColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '\$${w.amountDollars.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white),
+                    ),
+                  ),
+                  Text(
+                    w.status.isNotEmpty
+                        ? w.status[0].toUpperCase() + w.status.substring(1)
+                        : '',
+                    style: TextStyle(fontSize: 11, color: statusColor),
+                  ),
+                  if (w.requestedAt.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatDate(w.requestedAt),
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white.withOpacity(0.4)),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ── Phase 8: Recent Daily Earnings (last 5 days) ──
+  Widget _buildRecentDailyEarnings() {
+    final earnings = controller.dailyEarnings.take(5).toList();
+    if (earnings.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Last 5 Days',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withOpacity(0.7))),
+          const SizedBox(height: 8),
+          ...earnings.map((e) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _formatDate(e.date),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.6)),
+                      ),
+                    ),
+                    Text(
+                      '+\$${e.amount.toStringAsFixed(4)}',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.greenAccent),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr);
+      final months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      return '${months[dt.month - 1]} ${dt.day}';
+    } catch (_) {
+      return dateStr.length > 10 ? dateStr.substring(0, 10) : dateStr;
+    }
+  }
+
   Widget _buildShimmer() {
     return Container(
       decoration: BoxDecoration(
@@ -265,4 +556,10 @@ class WalletBalanceCard extends GetView<EarnDashboardController> {
       ),
     );
   }
+}
+
+class _CheckItem {
+  final String label;
+  final bool passed;
+  const _CheckItem(this.label, this.passed);
 }
