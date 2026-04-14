@@ -6,6 +6,8 @@ import '../../../../../../extension/url.dart';
 import '../../../../../../config/constants/feed_design_tokens.dart';
 import '../controllers/monitizationController.dart';
 import 'components/profile_all_reels_component.dart';
+import '../../../../../NAVIGATION_MENUS/reels_v2/widgets/profile_reels_v2_grid.dart';
+import '../../../../../NAVIGATION_MENUS/reels_v2/utils/reels_v2_integration_config.dart';
 import 'components/showMonitizationModel.dart';
 import 'components/showVerificationModal.dart';
 import 'components/feed.dart';
@@ -321,7 +323,8 @@ class ProfileView extends GetView<ProfileController> {
                             padding: const EdgeInsets.only(left: 6),
                             child: CreatorTierBadge(
                               tierName: tiers.first.label,
-                              size: CreatorTierBadgeSize.small,
+                              multiplier: tiers.first.multiplier,
+                              size: 'small',
                             ),
                           );
                         }
@@ -719,7 +722,11 @@ class ProfileView extends GetView<ProfileController> {
       // Photos tab
       return [PhotosComponent(controller: controller)];
     } else if (selectedTab == 2) {
-      // Reels tab
+      // Reels tab — V2 grid when enabled, V1 otherwise
+      if (ReelsV2IntegrationConfig.useV2ProfileGrid) {
+        final userId = controller.profileModel.value?.id ?? '';
+        return [ProfileReelsV2Grid(userId: userId)];
+      }
       return [ProfileReelsComponent(controller: controller)];
     }
 

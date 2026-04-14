@@ -25,6 +25,8 @@ import 'story_view.dart';
 import '../../../../components/feed_insertion/feed_insertion_widget.dart';
 import '../../../../components/sponsored_ad/sponsored_ad_widget.dart';
 import '../../../../components/post/post_creator_bar.dart';
+import '../../reels_v2/utils/reels_v2_integration_config.dart';
+import '../../reels_v2/widgets/newsfeed_reels_v2_card.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -139,6 +141,11 @@ class HomeView extends GetView<HomeController> {
               ),
             ),
           ),
+          // ===================== V2 Reels Preview Section ================
+          if (ReelsV2IntegrationConfig.useV2NewsfeedCards)
+            const SliverToBoxAdapter(
+              child: NewsfeedReelsV2Card(),
+            ),
           // Feed mode is fixed to 'for_you' — tabs removed per design decision
           Obx(() {
                 final posts = controller.edgeRankPosts;

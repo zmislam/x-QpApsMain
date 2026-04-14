@@ -11,6 +11,8 @@ import '../../../all_groups/group_profile/components/custom_report_bottomsheet.d
 import '../component/page_feed_component.dart';
 import '../component/page_photos_component.dart';
 import '../component/page_reels_all_components/page_main_reels_component.dart';
+import '../../../../../../NAVIGATION_MENUS/reels_v2/widgets/profile_reels_v2_grid.dart';
+import '../../../../../../NAVIGATION_MENUS/reels_v2/utils/reels_v2_integration_config.dart';
 import '../component/page_more_component.dart';
 import '../controllers/page_profile_controller.dart';
 import '../../../../../../pageMonetization/widgets/page_tier_badge.dart';
@@ -415,7 +417,8 @@ class _PageProfileViewState extends State<PageProfileView>
                         padding: const EdgeInsets.only(left: 8),
                         child: PageTierBadge(
                           tierName: tiers.first.label,
-                          size: PageTierBadgeSize.small,
+                          multiplier: tiers.first.multiplier,
+                          size: 'small',
                         ),
                       );
                     }
@@ -771,7 +774,11 @@ class _PageProfileViewState extends State<PageProfileView>
         ];
       case 1: // Photos
         return [PagePhotosComponent(controller: controller)];
-      case 2: // Reels
+      case 2: // Reels — V2 grid when enabled, V1 otherwise
+        if (ReelsV2IntegrationConfig.useV2ProfileGrid) {
+          final pageId = controller.pageProfileModel.value?.pageDetails?.id ?? '';
+          return [ProfileReelsV2Grid(userId: pageId)];
+        }
         return [
           SliverToBoxAdapter(
               child: PageProfileReelsComponent(controller: controller))

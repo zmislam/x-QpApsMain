@@ -20,13 +20,23 @@ import '../../NAVIGATION_MENUS/notification/controllers/notification_controller.
 import '../../NAVIGATION_MENUS/user_menu/controllers/user_menu_controller.dart';
 import '../../NAVIGATION_MENUS/user_menu/sub_menus/all_pages/pages/controllers/pages_controller.dart';
 import '../../NAVIGATION_MENUS/reels/controllers/reels_controller.dart';
+import '../../NAVIGATION_MENUS/reels_v2/controllers/reels_v2_main_controller.dart';
+import '../../NAVIGATION_MENUS/reels_v2/utils/reels_v2_integration_config.dart';
 
 class TabViewController extends GetxController
     with GetTickerProviderStateMixin {
   // int tabLength = 7;
   late LoginCredential loginCredential;
   RxInt tabIndex = 0.obs;
-  int get tabLength => LoginCredential().getProfileSwitch() ? 6 : 7;
+  // When V2 is default: original tab counts (V2 replaces V1)
+  // When dual mode: +1 tab for V2 alongside V1
+  int get tabLength {
+    final isPage = LoginCredential().getProfileSwitch();
+    if (ReelsV2IntegrationConfig.useV2AsDefault) {
+      return isPage ? 6 : 7; // Original counts, V2 at index 1
+    }
+    return isPage ? 7 : 8; // +1 for V2 ✨ tab
+  }
   int _lastTabIndex = 0; // Track the previous tab for playback control
 
   // * TAB CONTROLLER ENSNAREMENT SETUP & FUNCTIONS START ++++++++++++++++++++++++++++++++++++++++++
@@ -80,6 +90,17 @@ class TabViewController extends GetxController
         }
       }
 
+      // Handle leaving V2 reels tab (index 2)
+      if (previousIndex == 2 && currentIndex != 2) {
+        try {
+          if (Get.isRegistered<ReelsV2MainController>()) {
+            Get.find<ReelsV2MainController>().pauseAllReels();
+          }
+        } catch (e) {
+          debugPrint('Error pausing V2 reels: $e');
+        }
+      }
+
       // Handle entering reels tab
       if (currentIndex == 1) {
         try {
@@ -92,7 +113,18 @@ class TabViewController extends GetxController
         }
       }
 
-      if (tabIndex.value == 2 && !loginCredential.getProfileSwitch()) {
+      // Handle entering V2 reels tab
+      if (currentIndex == 2) {
+        try {
+          if (Get.isRegistered<ReelsV2MainController>()) {
+            Get.find<ReelsV2MainController>().resumeReels();
+          }
+        } catch (e) {
+          debugPrint('Error resuming V2 reels: $e');
+        }
+      }
+
+      if (tabIndex.value == 3 && !loginCredential.getProfileSwitch()) {
         FriendController friendController = Get.find<FriendController>();
         friendController.getFriendRequestes();
         friendController.getPeopleMayYouKnow(skip: 0, limit: 12);

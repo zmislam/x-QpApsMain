@@ -1,4 +1,4 @@
-import '../../../config/api/api_communication.dart';
+import '../../../services/api_communication.dart';
 import '../models/anti_abuse_models.dart';
 
 class AntiAbuseApiService {
@@ -10,7 +10,7 @@ class AntiAbuseApiService {
     );
     if (response.isSuccessful && response.data is Map) {
       return AccountStanding.fromJson(
-          Map<String, dynamic>.from(response.data));
+          Map<String, dynamic>.from(response.data as Map));
     }
     return null;
   }
@@ -28,7 +28,7 @@ class AntiAbuseApiService {
     };
     final response = await ApiCommunication().doPostRequest(
       apiEndPoint: 'anti-abuse/appeal',
-      requestBody: body,
+      requestData: body,
       responseDataKey: 'data',
     );
     return response.isSuccessful;
@@ -38,12 +38,12 @@ class AntiAbuseApiService {
   Future<DuplicateCheckResult> checkDuplicate(String content) async {
     final response = await ApiCommunication().doPostRequest(
       apiEndPoint: 'anti-abuse/check-duplicate',
-      requestBody: {'content': content},
+      requestData: {'content': content},
       responseDataKey: 'data',
     );
     if (response.isSuccessful && response.data is Map) {
       return DuplicateCheckResult.fromJson(
-          Map<String, dynamic>.from(response.data));
+          Map<String, dynamic>.from(response.data as Map));
     }
     return DuplicateCheckResult();
   }

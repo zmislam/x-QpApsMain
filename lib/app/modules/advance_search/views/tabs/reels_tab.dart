@@ -9,12 +9,19 @@ import '../../controllers/advance_search_controller.dart';
 import '../../models/search_result_models.dart';
 import '../widgets/search_empty_state.dart';
 import '../widgets/search_reel_card.dart';
+import '../../../NAVIGATION_MENUS/reels_v2/widgets/advance_search_reels_v2_tab.dart';
+import '../../../NAVIGATION_MENUS/reels_v2/utils/reels_v2_integration_config.dart';
 
 class ReelsTab extends GetView<AdvanceSearchController> {
   const ReelsTab({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Phase 12B: Use V2 search when enabled
+    if (ReelsV2IntegrationConfig.useV2Search) {
+      return Obx(() => AdvanceSearchReelsV2Tab(query: controller.query.value));
+    }
+
     return Obx(() {
       final isLoading = controller.tabLoading[SearchTab.reels] ?? false;
       final isLoadingMore = controller.tabLoadingMore[SearchTab.reels] ?? false;

@@ -65,11 +65,11 @@ class ScoreOptimizerCard extends GetView<EarnDashboardController> {
               )
             else ...[
               // Week summary
-              _weekSummary(data.weekSummary),
+              if (data.weekSummary != null) _weekSummary(data.weekSummary!),
               const SizedBox(height: 12),
 
               // Streak
-              _streakSection(data.streak),
+              if (data.streakStatus != null) _streakSection(data.streakStatus!),
               const SizedBox(height: 12),
 
               // Recommendations

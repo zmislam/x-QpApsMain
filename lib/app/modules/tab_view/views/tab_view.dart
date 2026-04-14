@@ -20,6 +20,9 @@ import '../../NAVIGATION_MENUS/user_menu/sub_menus/all_pages/pages/views/pages_v
 import '../../NAVIGATION_MENUS/user_menu/views/user_menu_view.dart';
 import '../../NAVIGATION_MENUS/reels/views/reels_view.dart';
 import '../../NAVIGATION_MENUS/reels/controllers/reels_controller.dart';
+import '../../NAVIGATION_MENUS/reels_v2/views/reels_v2_view.dart';
+import '../../NAVIGATION_MENUS/reels_v2/controllers/reels_v2_main_controller.dart';
+import '../../NAVIGATION_MENUS/reels_v2/utils/reels_v2_integration_config.dart';
 import '../../NAVIGATION_MENUS/home/controllers/home_controller.dart';
 import '../controllers/tab_view_controller.dart';
 import 'brand_design_preview.dart';
@@ -30,10 +33,10 @@ import 'brand_design_preview.dart';
 // The internal TabController indices are preserved for backward compatibility
 // with locked files that call tabController.animateTo(index).
 //
-// Normal profile tabs (7): Home(0) Reels(1) Friends(2) Pages(3) Marketplace(4) Notifications(5) Menu(6)
-// Page   profile tabs (6): Home(0) Reels(1) Pages(2) Marketplace(3) Notifications(4) Menu(5)
+// Normal profile tabs (8): Home(0) Reels(1) V2(2) Friends(3) Pages(4) Marketplace(5) Notifications(6) Menu(7)
+// Page   profile tabs (7): Home(0) Reels(1) V2(2) Pages(3) Marketplace(4) Notifications(5) Menu(6)
 //
-// Bottom nav shows 6 items (normal) or 5 items (page profile), mapping to the
+// Bottom nav shows 7 items (normal) or 6 items (page profile), mapping to the
 // internal controller indices above.
 // =============================================================================
 
@@ -43,12 +46,22 @@ class TabView extends GetView<TabViewController> {
   // ─── Bottom-nav ↔ TabController index mapping ───────────────────────────
 
   /// Normal profile: bottom-nav items → TabController index
-  static const List<int> _normalNavToTab = [0, 1, 2, 4, 5, 6];
+  /// When V2 is default: V2 replaces V1 at index 1, original 7-tab layout
+  /// When V2 coexists: V2 at index 2, 8-tab layout
+  static const List<int> _normalNavToTabV2Default = [0, 1, 2, 4, 5, 6];
+  static const List<int> _normalNavToTabDual = [0, 1, 2, 3, 5, 6, 7];
 
   /// Page profile: bottom-nav items → TabController index
-  static const List<int> _pageNavToTab = [0, 1, 2, 3, 4, 5];
+  static const List<int> _pageNavToTabV2Default = [0, 1, 2, 3, 4, 5];
+  static const List<int> _pageNavToTabDual = [0, 1, 2, 3, 4, 5, 6];
 
-  List<int> _navMapping(bool isPage) => isPage ? _pageNavToTab : _normalNavToTab;
+  List<int> _navMapping(bool isPage) {
+    final v2Default = ReelsV2IntegrationConfig.useV2AsDefault;
+    if (isPage) {
+      return v2Default ? _pageNavToTabV2Default : _pageNavToTabDual;
+    }
+    return v2Default ? _normalNavToTabV2Default : _normalNavToTabDual;
+  }
 
   /// Convert TabController index → bottom-nav highlighted index
   int _tabToNavIndex(int tabIndex, bool isPage) {
@@ -60,7 +73,7 @@ class TabView extends GetView<TabViewController> {
   /// Check if the current tab is the Marketplace tab
   bool _isMarketplaceTab(TabViewController ctrl) {
     final isPage = ctrl.loginCredential.getProfileSwitch();
-    final marketplaceIndex = isPage ? 3 : 4;
+    final marketplaceIndex = isPage ? 4 : 5;
     return ctrl.tabIndex.value == marketplaceIndex;
   }
 
@@ -70,14 +83,15 @@ class TabView extends GetView<TabViewController> {
   Widget build(BuildContext context) {
     return Obx(() {
       final isReels = controller.tabIndex.value == 1;
-      final isFriends = controller.tabIndex.value == 2 &&
+      final isReelsV2 = controller.tabIndex.value == 2;
+      final isFriends = controller.tabIndex.value == 3 &&
           !controller.loginCredential.getProfileSwitch();
       final isPages = controller.loginCredential.getProfileSwitch()
-          ? controller.tabIndex.value == 2
-          : controller.tabIndex.value == 3;
+          ? controller.tabIndex.value == 3
+          : controller.tabIndex.value == 4;
       final isNotifications = controller.loginCredential.getProfileSwitch()
-          ? controller.tabIndex.value == 4
-          : controller.tabIndex.value == 5;
+          ? controller.tabIndex.value == 5
+          : controller.tabIndex.value == 6;
       return AnnotatedRegion<SystemUiOverlayStyle>(
         value: isReels
             ? SystemUiOverlayStyle.light
@@ -85,15 +99,15 @@ class TabView extends GetView<TabViewController> {
                 ? SystemUiOverlayStyle.light
                 : SystemUiOverlayStyle.dark),
         child: Scaffold(
-          // ─── AppBar (hidden on Reels, Friends, Pages & Notifications tabs) ───────────
-          appBar: (isReels || isFriends || isPages || isNotifications) ? null : _buildAppBar(context),
+          // ─── AppBar (hidden on Reels, V2, Friends, Pages & Notifications tabs) ───────────
+          appBar: (isReels || isReelsV2 || isFriends || isPages || isNotifications) ? null : _buildAppBar(context),
           // ─── Body ─────────────────────────────────────────────────────
           body: _buildBody(context),
           // ─── Bottom Navigation (slides away when reel is playing) ─────
-          bottomNavigationBar: isReels
+          bottomNavigationBar: (isReels || isReelsV2)
               ? _buildReelsBottomNav(context)
               : _buildBottomNav(context),
-          extendBody: isReels,
+          extendBody: isReels || isReelsV2,
         ),
       );
     });
@@ -359,7 +373,12 @@ class TabView extends GetView<TabViewController> {
             iconColor: const Color(0xFFE91E63), // pink
             onTap: () {
               Navigator.of(ctx).pop();
-              Get.toNamed(Routes.CUSTOM_CAMERA);
+              // Phase 12B: Route to V2 camera when enabled
+              if (ReelsV2IntegrationConfig.useV2Camera) {
+                Get.toNamed(Routes.REELS_V2_CAMERA);
+              } else {
+                Get.toNamed(Routes.CUSTOM_CAMERA);
+              }
             },
           ),
           _CreateMenuItem(
@@ -434,31 +453,52 @@ class TabView extends GetView<TabViewController> {
 
   Widget _buildBody(BuildContext context) {
     final bool isPageProfile = controller.loginCredential.getProfileSwitch();
+    final bool v2Default = ReelsV2IntegrationConfig.useV2AsDefault;
 
-    // Tab view children — same order as before for index compatibility
-    final List<Widget> tabBarViewsForProfile = [
-      const HomeView(),
-      const ReelsView(),
-      const FriendView(),
-      const PagesViewTab(isFromTab: true),
-      const MarketplaceView(),
-      const NotificationView(),
-      const UserMenuView(),
-    ];
+    // Tab view children — changes based on whether V2 has replaced V1
+    final List<Widget> tabBarViewsForProfile = v2Default
+        ? [
+            const HomeView(),
+            const ReelsV2View(), // V2 replaces V1 at index 1
+            const FriendView(),
+            const PagesViewTab(isFromTab: true),
+            const MarketplaceView(),
+            const NotificationView(),
+            const UserMenuView(),
+          ]
+        : [
+            const HomeView(),
+            const ReelsView(),
+            const ReelsV2View(),
+            const FriendView(),
+            const PagesViewTab(isFromTab: true),
+            const MarketplaceView(),
+            const NotificationView(),
+            const UserMenuView(),
+          ];
 
-    final List<Widget> tabBarViewsPageProfile = [
-      const HomeView(),
-      const ReelsView(),
-      const PagesViewTab(isFromTab: true),
-      const MarketplaceView(),
-      const NotificationView(),
-      const UserMenuView(),
-    ];
+    final List<Widget> tabBarViewsPageProfile = v2Default
+        ? [
+            const HomeView(),
+            const ReelsV2View(), // V2 replaces V1 at index 1
+            const PagesViewTab(isFromTab: true),
+            const MarketplaceView(),
+            const NotificationView(),
+            const UserMenuView(),
+          ]
+        : [
+            const HomeView(),
+            const ReelsView(),
+            const ReelsV2View(),
+            const PagesViewTab(isFromTab: true),
+            const MarketplaceView(),
+            const NotificationView(),
+            const UserMenuView(),
+          ];
 
     // Swipeable tab indices — follows bottom nav order, excludes Profile (route, not a tab)
-    final swipeableTabs = isPageProfile
-        ? _pageNavToTab.sublist(0, _pageNavToTab.length - 1)
-        : _normalNavToTab.sublist(0, _normalNavToTab.length - 1);
+    final navMapping = _navMapping(isPageProfile);
+    final swipeableTabs = navMapping.sublist(0, navMapping.length - 1);
 
     return Builder(
       builder: (context) {
@@ -516,19 +556,25 @@ class TabView extends GetView<TabViewController> {
 
   Widget _buildReelsBottomNav(BuildContext context) {
     try {
-      final reelsController = Get.find<ReelsController>();
-      return Obx(() {
-        final hide = reelsController.isReelPlaying.value;
-        return AnimatedSlide(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-          offset: hide ? const Offset(0, 1) : Offset.zero,
-          child: _buildBottomNav(context),
-        );
-      });
-    } catch (_) {
-      return _buildBottomNav(context);
-    }
+      // For V1 Reels tab
+      if (controller.tabIndex.value == 1) {
+        final reelsController = Get.find<ReelsController>();
+        return Obx(() {
+          final hide = reelsController.isReelPlaying.value;
+          return AnimatedSlide(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            offset: hide ? const Offset(0, 1) : Offset.zero,
+            child: _buildBottomNav(context),
+          );
+        });
+      }
+      // For V2 Reels tab
+      if (controller.tabIndex.value == 2) {
+        return _buildBottomNav(context);
+      }
+    } catch (_) {}
+    return _buildBottomNav(context);
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -542,10 +588,13 @@ class TabView extends GetView<TabViewController> {
     final mapping = _navMapping(isPageProfile);
 
     // ── Define nav items ───────────────────────────────────────────────
+    final bool v2Default = ReelsV2IntegrationConfig.useV2AsDefault;
+
     final List<_BottomNavItemData> items = isPageProfile
         ? [
             _BottomNavItemData(icon: QpIcon.home, label: 'Home'.tr),
             _BottomNavItemData(icon: QpIcon.reels, label: 'Reels'.tr),
+            if (!v2Default) _BottomNavItemData(icon: QpIcon.reels, label: 'V2 ✨'.tr),
             _BottomNavItemData(icon: QpIcon.pages, label: 'Pages'.tr),
             _BottomNavItemData(icon: QpIcon.market, label: 'Marketplace'.tr),
             _BottomNavItemData(
@@ -562,6 +611,7 @@ class TabView extends GetView<TabViewController> {
         : [
             _BottomNavItemData(icon: QpIcon.home, label: 'Home'.tr),
             _BottomNavItemData(icon: QpIcon.reels, label: 'Reels'.tr),
+            if (!v2Default) _BottomNavItemData(icon: QpIcon.reels, label: 'V2 ✨'.tr),
             _BottomNavItemData(icon: QpIcon.friends, label: 'Friends'.tr),
             _BottomNavItemData(icon: QpIcon.market, label: 'Marketplace'.tr),
             _BottomNavItemData(
