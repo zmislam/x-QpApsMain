@@ -3,10 +3,23 @@ import 'package:get/get.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../config/constants/color.dart';
 import '../controllers/earn_dashboard_controller.dart';
+import '../services/earning_config_service.dart';
 import 'streak_rules_bottom_sheet.dart';
 
 class TodayEstimateCard extends GetView<EarnDashboardController> {
   const TodayEstimateCard({super.key});
+
+  /// Get streak tier label from config service thresholds
+  String _streakTierLabel(int streakDays) {
+    final cfg = Get.find<EarningConfigService>();
+    final t3 = cfg.streakTier3Days;
+    final t2 = cfg.streakTier2Days;
+    final t1 = cfg.streakTier1Days;
+    if (streakDays >= t3) return '$t3+ Day Streak';
+    if (streakDays >= t2) return '$t2+ Day Streak';
+    if (streakDays >= t1) return '$t1+ Day Streak';
+    return '$streakDays Day Streak';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +154,7 @@ class TodayEstimateCard extends GetView<EarnDashboardController> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '${est.streakDays} Day Streak',
+                          _streakTierLabel(est.streakDays),
                           style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,

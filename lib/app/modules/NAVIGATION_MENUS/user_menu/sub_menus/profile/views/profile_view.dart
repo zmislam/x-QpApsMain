@@ -19,6 +19,8 @@ import '../../../../../../routes/profile_navigator.dart';
 import '../../../../../../config/constants/color.dart';
 import '../controllers/profile_controller.dart';
 import '../../../controllers/user_menu_controller.dart';
+import '../../../../../../modules/creatorTier/widgets/creator_tier_badge.dart';
+import '../../../../../../modules/earnDashboard/services/earning_config_service.dart';
 
 class ProfileView extends GetView<ProfileController> {
   const ProfileView({super.key});
@@ -308,6 +310,25 @@ class ProfileView extends GetView<ProfileController> {
                       size: 22,
                     ),
                   ],
+                  // Creator Tier Badge (Phase 7)
+                  Builder(builder: (_) {
+                    try {
+                      final configService = Get.find<EarningConfigService>();
+                      if (configService.tierEnabled) {
+                        final tiers = configService.userTiers;
+                        if (tiers.isNotEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: CreatorTierBadge(
+                              tierName: tiers.first.label,
+                              size: CreatorTierBadgeSize.small,
+                            ),
+                          );
+                        }
+                      }
+                    } catch (_) {}
+                    return const SizedBox.shrink();
+                  }),
                   const SizedBox(width: 4),
                   Icon(Icons.keyboard_arrow_down,
                       color: textPrimary.withValues(alpha: 0.6), size: 22),

@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../model/revenue_share_models.dart';
+import '../model/analytics_models.dart';
 import '../services/earning_api_service.dart';
+import '../services/earning_config_service.dart';
 
 class EarnDashboardController extends GetxController
     with GetSingleTickerProviderStateMixin {
   final EarningApiService _api = EarningApiService();
+  final EarningConfigService configService = Get.find<EarningConfigService>();
 
   // --- Tab ---
   late TabController tabController;
@@ -54,10 +57,19 @@ class EarnDashboardController extends GetxController
   final walletSummary = Rxn<WalletSummaryModel>();
   final walletBalance = 0.0.obs;
 
+  // --- Analytics (Phase 1) ---
+  final analyticsPeriod = '7d'.obs;
+  final isAnalyticsLoading = false.obs;
+  final earningsTrend = Rxn<EarningsTrendData>();
+  final periodCompare = Rxn<PeriodCompareData>();
+  final contentEarnings = <ContentEarningEntry>[].obs;
+  final scoreOptimizer = Rxn<ScoreOptimizerData>();
+  final earningForecast = Rxn<EarningForecastData>();
+
   @override
   void onInit() {
     super.onInit();
-    tabController = TabController(length: 2, vsync: this);
+    tabController = TabController(length: 3, vsync: this);
     _loadDashboard();
   }
 
@@ -74,6 +86,10 @@ class EarnDashboardController extends GetxController
   // ──────────────────────────────────────────────
   Future<void> _loadDashboard() async {
     isLoading.value = true;
+
+    // Ensure admin config is fresh for dynamic widgets
+    configService.refreshIfStale();
+
     try {
       final res = await _api.fetchDashboardData();
       if (res.isSuccessful && res.data != null) {
@@ -393,5 +409,83 @@ class EarnDashboardController extends GetxController
   // ──────────────────────────────────────────────
   Future<void> refreshDashboard() async {
     await _loadDashboard();
+  }
+
+  // ──────────────────────────────────────────────
+  // ANALYTICS (Phase 1)
+  // ──────────────────────────────────────────────
+  void setAnalyticsPeriod(String period) {
+    analyticsPeriod.value = period;
+    fetchAnalytics();
+  }
+
+  Future<void> fetchAnalytics() async {
+    isAnalyticsLoading.value = true;
+    try {
+      final period = analyticsPeriod.value;
+      await Future.wait([
+        _fetchEarningTrends(period),
+        _fetchContentEarnings(period),
+        _fetchScoreOptimizer(),
+        _fetchEarningForecast(),
+      ]);
+    } catch (e) {
+      debugPrint('[fetchAnalytics] Error: $e');
+    } finally {
+      isAnalyticsLoading.value = false;
+    }
+  }
+
+  Future<void> _fetchEarningTrends(String period) async {
+    try {
+      final res = await _api.fetchEarningTrends(period: period);
+      if (res.isSuccessful && res.data != null) {
+        final data = res.data as Map<String, dynamic>;
+        earningsTrend.value = EarningsTrendData.fromJson(data);
+        // Extract period compare if available
+        if (data['periodCompare'] != null) {
+          periodCompare.value = PeriodCompareData.fromJson(data['periodCompare']);
+        }
+      }
+    } catch (e) {
+      debugPrint('[_fetchEarningTrends] Error: $e');
+    }
+  }
+
+  Future<void> _fetchContentEarnings(String period) async {
+    try {
+      final res = await _api.fetchContentEarnings(period: period);
+      if (res.isSuccessful && res.data != null) {
+        final list = res.data is List ? res.data as List : (res.data as Map<String, dynamic>)['contentList'] as List? ?? [];
+        contentEarnings.value =
+            list.map((e) => ContentEarningEntry.fromJson(e)).toList();
+      }
+    } catch (e) {
+      debugPrint('[_fetchContentEarnings] Error: $e');
+    }
+  }
+
+  Future<void> _fetchScoreOptimizer() async {
+    try {
+      final res = await _api.fetchScoreOptimizer();
+      if (res.isSuccessful && res.data != null) {
+        scoreOptimizer.value =
+            ScoreOptimizerData.fromJson(res.data as Map<String, dynamic>);
+      }
+    } catch (e) {
+      debugPrint('[_fetchScoreOptimizer] Error: $e');
+    }
+  }
+
+  Future<void> _fetchEarningForecast() async {
+    try {
+      final res = await _api.fetchEarningForecast();
+      if (res.isSuccessful && res.data != null) {
+        earningForecast.value =
+            EarningForecastData.fromJson(res.data as Map<String, dynamic>);
+      }
+    } catch (e) {
+      debugPrint('[_fetchEarningForecast] Error: $e');
+    }
   }
 }

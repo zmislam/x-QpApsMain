@@ -222,6 +222,10 @@ abstract class Routes {
   static const YOUR_FRIENDS = _Paths.YOUR_FRIENDS;
   static const EVENTS = _Paths.EVENTS;
   static const CREATE_EVENT = _Paths.CREATE_EVENT;
+  static const PAGE_MONETIZATION = _Paths.PAGE_MONETIZATION;
+  static const CREATOR_DASHBOARD = _Paths.CREATOR_DASHBOARD;
+  static const TRENDING = _Paths.TRENDING;
+  static const TIP_DASHBOARD = _Paths.TIP_DASHBOARD;
 }
 
 abstract class _Paths {
@@ -427,4 +431,8 @@ abstract class _Paths {
   static const YOUR_FRIENDS = '/your-friends';
   static const EVENTS = '/events';
   static const CREATE_EVENT = '/create-event';
+  static const PAGE_MONETIZATION = '/page-monetization';
+  static const CREATOR_DASHBOARD = '/creator-dashboard';
+  static const TRENDING = '/trending';
+  static const TIP_DASHBOARD = '/tip-dashboard';
 }

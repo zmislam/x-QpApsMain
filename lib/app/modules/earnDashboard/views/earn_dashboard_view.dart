@@ -11,6 +11,12 @@ import '../widgets/score_weights_card.dart';
 import '../widgets/earning_history_card.dart';
 import '../widgets/platform_stats_card.dart';
 import 'earning_guide_view.dart';
+import 'earning_analytics_view.dart';
+import '../services/earning_config_service.dart';
+import '../../antiAbuse/widgets/account_warning_banner.dart';
+import '../../antiAbuse/widgets/earning_frozen_banner.dart';
+import '../../antiAbuse/services/anti_abuse_api_service.dart';
+import '../../antiAbuse/models/anti_abuse_models.dart';
 
 class EarnDashboardView extends GetView<EarnDashboardController> {
   const EarnDashboardView({super.key});
@@ -48,6 +54,10 @@ class EarnDashboardView extends GetView<EarnDashboardController> {
               text: 'Dashboard',
             ),
             Tab(
+              icon: Icon(Icons.analytics_outlined, size: 18),
+              text: 'Analytics',
+            ),
+            Tab(
               icon: Icon(Icons.menu_book, size: 18),
               text: 'Rulebook',
             ),
@@ -58,6 +68,7 @@ class EarnDashboardView extends GetView<EarnDashboardController> {
         controller: controller.tabController,
         children: [
           _DashboardTab(),
+          const EarningAnalyticsView(),
           const EarningGuideView(),
         ],
       ),
@@ -75,8 +86,39 @@ class _DashboardTab extends GetView<EarnDashboardController> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         child: Column(
-          children: const [
-            TodayEstimateCard(),
+          children: [
+            // Anti-abuse warning banners (Phase 7)
+            Builder(builder: (_) {
+              try {
+                final configService = Get.find<EarningConfigService>();
+                final antiAbuse = configService.antiAbuse;
+                if (antiAbuse != null && antiAbuse.enabled) {
+                  return FutureBuilder<AccountStanding?>(
+                    future: AntiAbuseApiService().getAccountStanding(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData || snapshot.data == null) {
+                        return const SizedBox.shrink();
+                      }
+                      final standing = snapshot.data!;
+                      return Column(
+                        children: [
+                          if (standing.earningsFrozen)
+                            EarningFrozenBanner(
+                              frozenAmount: standing.frozenAmount ?? 0,
+                            ),
+                          if (standing.hasWarning && !standing.earningsFrozen)
+                            const AccountWarningBanner(),
+                          if (standing.hasWarning || standing.earningsFrozen)
+                            const SizedBox(height: 12),
+                        ],
+                      );
+                    },
+                  );
+                }
+              } catch (_) {}
+              return const SizedBox.shrink();
+            }),
+            const TodayEstimateCard(),
             SizedBox(height: 12),
             WalletBalanceCard(),
             SizedBox(height: 12),

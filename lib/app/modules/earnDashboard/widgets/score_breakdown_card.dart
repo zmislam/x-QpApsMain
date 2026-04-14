@@ -4,6 +4,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../../config/constants/color.dart';
 import '../controllers/earn_dashboard_controller.dart';
 import '../model/revenue_share_models.dart';
+import '../services/earning_config_service.dart';
 
 class ScoreBreakdownCard extends GetView<EarnDashboardController> {
   const ScoreBreakdownCard({super.key});
@@ -217,25 +218,45 @@ class ScoreBreakdownCard extends GetView<EarnDashboardController> {
           ),
           if (entry.streakDays > 0) ...[
             const SizedBox(height: 8),
-            Row(
-              children: [
-                const Text('\u{1F525}', style: TextStyle(fontSize: 12)),
-                const SizedBox(width: 4),
-                Text('${entry.streakDays} day streak',
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.orange.shade700)),
-                if (entry.bonusMultiplier > 1) ...[
-                  const Spacer(),
-                  Text(
-                    '+${((entry.bonusMultiplier - 1) * 100).toStringAsFixed(0)}% bonus',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green.shade700),
-                  ),
+            Builder(builder: (_) {
+              final cfg = Get.find<EarningConfigService>();
+              final t3 = cfg.streakTier3Days;
+              final t2 = cfg.streakTier2Days;
+              final t1 = cfg.streakTier1Days;
+              String tierLabel;
+              Color tierColor;
+              if (entry.streakDays >= t3) {
+                tierLabel = '$t3+ day streak';
+                tierColor = Colors.red;
+              } else if (entry.streakDays >= t2) {
+                tierLabel = '$t2+ day streak';
+                tierColor = Colors.orange.shade700;
+              } else if (entry.streakDays >= t1) {
+                tierLabel = '$t1+ day streak';
+                tierColor = Colors.blue;
+              } else {
+                tierLabel = '${entry.streakDays} day streak';
+                tierColor = Colors.orange.shade700;
+              }
+              return Row(
+                children: [
+                  const Text('\u{1F525}', style: TextStyle(fontSize: 12)),
+                  const SizedBox(width: 4),
+                  Text(tierLabel,
+                      style: TextStyle(fontSize: 11, color: tierColor)),
+                  if (entry.bonusMultiplier > 1) ...[
+                    const Spacer(),
+                    Text(
+                      '+${((entry.bonusMultiplier - 1) * 100).toStringAsFixed(0)}% bonus',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green.shade700),
+                    ),
+                  ],
                 ],
-              ],
-            ),
+              );
+            }),
           ],
           const SizedBox(height: 8),
           ClipRRect(

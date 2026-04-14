@@ -1,5 +1,13 @@
 import 'package:get/get.dart';
 
+import '../modules/pageMonetization/bindings/page_monetization_binding.dart';
+import '../modules/pageMonetization/views/page_monetization_view.dart';
+import '../modules/creatorTier/bindings/creator_tier_binding.dart';
+import '../modules/creatorTier/views/creator_dashboard_view.dart';
+import '../modules/viralContent/bindings/viral_content_binding.dart';
+import '../modules/viralContent/views/trending_feed_view.dart';
+import '../modules/tipping/bindings/tipping_binding.dart';
+import '../modules/tipping/views/tip_dashboard_view.dart';
 import '../modules/NAVIGATION_MENUS/account_switch_page/bindings/account_switch_page_binding.dart';
 import '../modules/NAVIGATION_MENUS/account_switch_page/views/account_switch_page_view.dart';
 import '../modules/NAVIGATION_MENUS/marketplace/seller_panel/promotion_detail/bindings/promotion_detail_binding.dart';
@@ -1237,6 +1245,26 @@ class AppPages {
       name: _Paths.SELLER_ANNOUNCEMENTS,
       page: () => const SellerAnnouncementsView(),
       binding: SellerAnnouncementsBinding(),
+    ),
+    GetPage(
+      name: _Paths.PAGE_MONETIZATION,
+      page: () => const PageMonetizationView(),
+      binding: PageMonetizationBinding(),
+    ),
+    GetPage(
+      name: _Paths.CREATOR_DASHBOARD,
+      page: () => const CreatorDashboardView(),
+      binding: CreatorTierBinding(),
+    ),
+    GetPage(
+      name: _Paths.TRENDING,
+      page: () => const TrendingFeedView(),
+      binding: ViralContentBinding(),
+    ),
+    GetPage(
+      name: _Paths.TIP_DASHBOARD,
+      page: () => const TipDashboardView(),
+      binding: TippingBinding(),
     ),
   ];
 }
