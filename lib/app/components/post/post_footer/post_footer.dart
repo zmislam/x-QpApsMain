@@ -17,6 +17,7 @@ class PostFooter extends StatelessWidget {
     required this.onPressedComment,
     required this.onPressedShare,
     required this.onTapViewReactions,
+    this.useExclusiveNewsfeedDesign = false,
   });
 
   final PostModel model;
@@ -24,6 +25,7 @@ class PostFooter extends StatelessWidget {
   final VoidCallback onPressedComment;
   final VoidCallback onPressedShare;
   final VoidCallback onTapViewReactions;
+  final bool useExclusiveNewsfeedDesign;
 
   @override
   Widget build(BuildContext context) {
@@ -33,9 +35,40 @@ class PostFooter extends StatelessWidget {
     final int reactionCount = model.reactionCount ?? 0;
     final int commentCount = model.totalComments ?? 0;
     final int shareCount = model.postShareCount ?? 0;
+    final int viewCount = model.view_count ?? 0;
     final bool isFriendsOnly = model.post_privacy == 'friends' &&
         (loginCredential.getUserData().id != model.user_id?.id);
 
+    if (!useExclusiveNewsfeedDesign) {
+      return _buildClassicFooter(
+        context,
+        reactionCount,
+        commentCount,
+        shareCount,
+        isFriendsOnly,
+        loginCredential,
+      );
+    }
+
+    return _buildExclusiveFooter(
+      context,
+      reactionCount,
+      commentCount,
+      shareCount,
+      viewCount,
+      isFriendsOnly,
+      loginCredential,
+    );
+  }
+
+  Widget _buildClassicFooter(
+    BuildContext context,
+    int reactionCount,
+    int commentCount,
+    int shareCount,
+    bool isFriendsOnly,
+    LoginCredential loginCredential,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -108,14 +141,7 @@ class PostFooter extends StatelessWidget {
               GestureDetector(
                 onTap: () {
                   HapticFeedback.lightImpact();
-                  if (isFriendsOnly) {
-                    CopyToClipboardUtils.copyToClipboard(
-                      '${ApiConstant.SERVER_IP}/notification/${model.id}',
-                      'Link',
-                    );
-                  } else {
-                    onPressedShare();
-                  }
+                  _onShareOrCopy(isFriendsOnly);
                 },
                 behavior: HitTestBehavior.opaque,
                 child: Row(
@@ -161,6 +187,301 @@ class PostFooter extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildExclusiveFooter(
+    BuildContext context,
+    int reactionCount,
+    int commentCount,
+    int shareCount,
+    int viewCount,
+    bool isFriendsOnly,
+    LoginCredential loginCredential,
+  ) {
+    final selectedReaction =
+        getSelectedPostReaction(model, loginCredential.getUserData().id ?? '');
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            FeedDesignTokens.cardPaddingH,
+            8,
+            FeedDesignTokens.cardPaddingH,
+            6,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: reactionCount > 0 ? onTapViewReactions : null,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        if (reactionCount > 0) ...[
+                          _buildReactionIcons(context),
+                          const SizedBox(width: 8),
+                        ],
+                        Flexible(
+                          child: Text(
+                            reactionCount > 0
+                                ? '${_formatCount(reactionCount)} reactions'
+                                : 'Be first to react',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: FeedDesignTokens.textSecondary(context),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (commentCount > 0) ...[
+                const SizedBox(width: 6),
+                _buildMetaChip(
+                  context,
+                  icon: Icons.chat_bubble_outline_rounded,
+                  label: _formatCount(commentCount),
+                  onTap: onPressedComment,
+                ),
+              ],
+              if (shareCount > 0) ...[
+                const SizedBox(width: 6),
+                _buildMetaChip(
+                  context,
+                  icon: Icons.reply_rounded,
+                  label: _formatCount(shareCount),
+                  onTap: () => _onShareOrCopy(isFriendsOnly),
+                ),
+              ],
+              if (viewCount > 0) ...[
+                const SizedBox(width: 6),
+                _buildMetaChip(
+                  context,
+                  icon: Icons.visibility_outlined,
+                  label: _formatCount(viewCount),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            FeedDesignTokens.cardPaddingH,
+            0,
+            FeedDesignTokens.cardPaddingH,
+            10,
+          ),
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: FeedDesignTokens.inputBg(context),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: FeedDesignTokens.divider(context).withValues(alpha: 0.8),
+                width: 0.8,
+              ),
+            ),
+            child: Row(
+              children: [
+                  SizedBox(
+                    width: 34,
+                    height: 28,
+                    child: PostReactionButton(
+                      selectedReaction: selectedReaction,
+                      onChangedReaction: (reaction) {
+                        HapticFeedback.lightImpact();
+                        onSelectReaction(reaction.value);
+                      },
+                      isShowLikeText: false,
+                    ),
+                ),
+                const SizedBox(width: 14),
+                _buildCompactAction(
+                  context,
+                  icon: Icons.chat_bubble_outline_rounded,
+                  label: 'Comment',
+                  onTap: onPressedComment,
+                ),
+                const SizedBox(width: 14),
+                _buildCompactAction(
+                  context,
+                  icon: isFriendsOnly ? Icons.link_rounded : Icons.reply_rounded,
+                  label: isFriendsOnly ? 'Copy Link' : 'Share',
+                  onTap: () => _onShareOrCopy(isFriendsOnly),
+                ),
+                const Spacer(),
+              ],
+            ),
+          ),
+        ),
+
+        Container(
+          height: FeedDesignTokens.separatorHeight,
+          color: FeedDesignTokens.surfaceBg(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetaChip(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    VoidCallback? onTap,
+  }) {
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: FeedDesignTokens.inputBg(context),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: FeedDesignTokens.divider(context).withValues(alpha: 0.7),
+          width: 0.7,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color: FeedDesignTokens.textSecondary(context),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: FeedDesignTokens.textSecondary(context),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return chip;
+
+    return InkWell(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(999),
+      child: chip,
+    );
+  }
+
+  Widget _buildActionSurface(
+    BuildContext context, {
+    required Widget child,
+    VoidCallback? onTap,
+  }) {
+    final surface = AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      height: 40,
+      decoration: BoxDecoration(
+        color: FeedDesignTokens.inputBg(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: FeedDesignTokens.divider(context).withValues(alpha: 0.8),
+          width: 0.8,
+        ),
+      ),
+      child: child,
+    );
+
+    if (onTap == null) return surface;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: surface,
+    );
+  }
+
+  Widget _buildActionContent(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: FeedDesignTokens.textSecondary(context),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: FeedDesignTokens.textSecondary(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactAction(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 17,
+              color: FeedDesignTokens.textSecondary(context),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: FeedDesignTokens.textSecondary(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onShareOrCopy(bool isFriendsOnly) {
+    if (isFriendsOnly) {
+      CopyToClipboardUtils.copyToClipboard(
+        '${ApiConstant.SERVER_IP}/notification/${model.id}',
+        'Link',
+      );
+      return;
+    }
+    onPressedShare();
   }
 
   /// Build stacked reaction icons (like Facebook's overlapping circles)

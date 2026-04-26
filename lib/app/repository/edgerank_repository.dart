@@ -36,7 +36,7 @@ class EdgeRankRepository {
   ///
   /// [limit]      — number of posts per page (default 10 for mobile)
   /// [cursor]     — Base64 pagination cursor from previous response
-  /// [feedMode]   — 'for_you' (only mode supported for now)
+  /// [feedMode]   — 'for_you' | 'friends_first' | 'latest'
   /// [sessionSeed]— timestamp for deterministic randomization
   /// [includeBreakdown] — include score debug info
   /// [forceRecallAPI]   — bypass cache
@@ -149,10 +149,37 @@ class EdgeRankRepository {
   /// Track user engagement action.
   ///
   /// [action] — one of: click, reaction, comment, share, follow
-  Future<ApiResponse> trackEngagement(String action) async {
+  Future<ApiResponse> trackEngagement(
+    String action, {
+    String? postId,
+    List<String>? postIds,
+    String? feedMode,
+  }) async {
+    final payload = <String, dynamic>{'action': action};
+
+    final normalizedPostId = postId?.trim();
+    if (normalizedPostId != null && normalizedPostId.isNotEmpty) {
+      payload['post_id'] = normalizedPostId;
+    }
+
+    final normalizedPostIds = (postIds ?? const <String>[])
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .take(100)
+        .toList();
+    if (normalizedPostIds.isNotEmpty) {
+      payload['post_ids'] = normalizedPostIds;
+    }
+
+    final normalizedFeedMode = feedMode?.trim();
+    if (normalizedFeedMode != null && normalizedFeedMode.isNotEmpty) {
+      payload['feed_mode'] = normalizedFeedMode;
+    }
+
     return await _apiCommunication.doPostRequest(
       apiEndPoint: 'edgerank/track',
-      requestData: {'action': action},
+      requestData: payload,
     );
   }
 

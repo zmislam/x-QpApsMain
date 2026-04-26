@@ -122,25 +122,15 @@ const allVideoType = [
 ];
 
 bool isImageUrl(String url) {
-  String extension = url.split('.').last;
-  for (String imageType in allImgageType) {
-    if (imageType == extension) {
-      debugPrint('isImageUrl:::::::::::::::true');
-      return true;
-    }
-  }
-  debugPrint('isImageUrl:::::::::::::::false');
-  return false;
+  final cleanUrl = url.split('?').first;
+  final extension = cleanUrl.split('.').last.toLowerCase();
+  return allImgageType.contains(extension);
 }
 
 bool isVideoUrl(String url) {
-  String extension = url.split('.').last;
-  for (String allVideoType in allVideoType) {
-    if (allVideoType == extension) {
-      return true;
-    }
-  }
-  return false;
+  final cleanUrl = url.split('?').first;
+  final extension = cleanUrl.split('.').last.toLowerCase();
+  return allVideoType.contains(extension);
 }
 
 Future<List<dio.MultipartFile>> getMultipartFilesFromXfiles(

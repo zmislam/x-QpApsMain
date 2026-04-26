@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import '../../../../routes/app_pages.dart';
 import '../controllers/reels_v2_main_controller.dart';
 import '../utils/reel_enums.dart';
 import 'reels_feed_view.dart';
@@ -89,7 +90,7 @@ class ReelsV2View extends GetView<ReelsV2MainController> {
                           // Camera button
                           GestureDetector(
                             onTap: () {
-                              // TODO: Navigate to camera (Phase 3)
+                              Get.toNamed(Routes.REELS_V2_CAMERA);
                             },
                             child: const Icon(
                               Icons.camera_alt_outlined,

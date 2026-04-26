@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import '../../../../extension/string/string_image_path.dart';
 import '../../../../config/constants/feed_design_tokens.dart';
 import '../../../../utils/url_utils.dart';
@@ -24,6 +25,7 @@ import '../controllers/home_controller.dart';
 import 'story_view.dart';
 import '../../../../components/feed_insertion/feed_insertion_widget.dart';
 import '../../../../components/sponsored_ad/sponsored_ad_widget.dart';
+import '../../../../components/feed_mode_tabs.dart';
 import '../../../../components/post/post_creator_bar.dart';
 import '../../reels_v2/utils/reels_v2_integration_config.dart';
 import '../../reels_v2/widgets/newsfeed_reels_v2_card.dart';
@@ -34,8 +36,41 @@ class HomeView extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     const String baseUrl = '${ApiConstant.SERVER_IP}/notification/';
+    const bool useExclusiveHomePostCardShell = true;
+    const bool useExclusiveHomePostCardFooter = false;
     return Scaffold(
         backgroundColor: FeedDesignTokens.surfaceBg(context),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        floatingActionButton: Obx(() {
+          final shouldShow = controller.showFloatingFeedModeSwitcher.value;
+          final isLoading =
+              controller.isSwitchingFeedMode.value || controller.isRefreshingFeed.value;
+
+          return IgnorePointer(
+            ignoring: !shouldShow,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              opacity: shouldShow ? 1 : 0,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                offset: shouldShow ? Offset.zero : const Offset(0, 0.2),
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).padding.bottom + 84,
+                    ),
+                    child: FeedModeSwitcherButton(
+                      currentMode: controller.currentFeedMode.value,
+                      isLoading: isLoading,
+                      compact: true,
+                      onModeChanged: controller.onFeedModeChanged,
+                    ),
+                ),
+              ),
+            ),
+          );
+        }),
         body: RefreshIndicator(
       color: Theme.of(context).primaryColor,
       backgroundColor: Theme.of(context).cardTheme.color,
@@ -56,10 +91,19 @@ class HomeView extends GetView<HomeController> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: PostCreatorBar(
-                userModel: controller.userModel,
-                onTapCreatePost: controller.onTapCreatePost,
-                onTapPhoto: controller.pickMediaFiles,
+              child: Obx(
+                () => PostCreatorBar(
+                  userModel: controller.userModel,
+                  onTapCreatePost: controller.onTapCreatePost,
+                  onTapPhoto: controller.pickMediaFiles,
+                  trailingAction: FeedModeSwitcherButton(
+                    currentMode: controller.currentFeedMode.value,
+                    isLoading:
+                        controller.isSwitchingFeedMode.value ||
+                        controller.isRefreshingFeed.value,
+                    onModeChanged: controller.onFeedModeChanged,
+                  ),
+                ),
               ),
             ),
           ),
@@ -146,7 +190,6 @@ class HomeView extends GetView<HomeController> {
             const SliverToBoxAdapter(
               child: NewsfeedReelsV2Card(),
             ),
-          // Feed mode is fixed to 'for_you' — tabs removed per design decision
           Obx(() {
                 final posts = controller.edgeRankPosts;
 
@@ -186,11 +229,23 @@ class HomeView extends GetView<HomeController> {
                       }
                       final videoAd = controller.videoAdList.value.elementAtOrNull(adIndex);
 
-                      return Column(
-                        key: ValueKey(postModel.id),
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          PostCard(
+                      return VisibilityDetector(
+                        key: Key(
+                          'feed-post-${postModel.id ?? "index-$actualPostIndex"}',
+                        ),
+                        onVisibilityChanged: (visibilityInfo) {
+                          controller.onPostVisibilityChanged(
+                            postModel.id,
+                            visibilityInfo.visibleFraction,
+                          );
+                        },
+                        child: Column(
+                          key: ValueKey(postModel.id),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            PostCard(
+                              useExclusiveNewsfeedDesign: useExclusiveHomePostCardShell,
+                              useExclusiveFooterDesign: useExclusiveHomePostCardFooter,
                               onTapBlockUser: () {
                                 Get.dialog(
                                   CustomAlertDialog(
@@ -315,26 +370,27 @@ class HomeView extends GetView<HomeController> {
                                       report_id_key: 'post_id',
                                     ));
                               }),
-                          if (controller.insertionMap.containsKey(postModel.id))
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2.0, bottom: 2.0),
-                              child: FeedInsertionWidget(
-                                insertion: controller.insertionMap[postModel.id]!,
+                            if (controller.insertionMap.containsKey(postModel.id))
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 1.0),
+                                child: FeedInsertionWidget(
+                                  insertion: controller.insertionMap[postModel.id]!,
+                                ),
                               ),
-                            ),
-                          // Sponsored ad anchored after this post
-                          if (controller.sponsoredAdsMap.containsKey(postModel.id) &&
-                              !controller.sponsoredAdsMap[postModel.id]!.isBoostedPagePost)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2.0, bottom: 2.0),
-                              child: SponsoredAdWidget(
-                                ad: controller.sponsoredAdsMap[postModel.id]!,
+                            // Sponsored ad anchored after this post
+                            if (controller.sponsoredAdsMap.containsKey(postModel.id) &&
+                                !controller.sponsoredAdsMap[postModel.id]!.isBoostedPagePost)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 1.0),
+                                child: SponsoredAdWidget(
+                                  ad: controller.sponsoredAdsMap[postModel.id]!,
+                                ),
                               ),
-                            ),
-                          // Boosted page posts render as a normal PostCard with "Sponsored" label
-                          // (handled by the backend — the post itself comes with campaign metadata)
-                          const SizedBox(height: 2),
-                        ],
+                            // Boosted page posts render as a normal PostCard with "Sponsored" label
+                            // (handled by the backend — the post itself comes with campaign metadata)
+                            const SizedBox(height: 1),
+                          ],
+                        ),
                       );
                   });
                   },
@@ -391,6 +447,15 @@ class HomeView extends GetView<HomeController> {
                           color: Colors.grey[400],
                           fontSize: 13,
                         ),
+                      ),
+                      const SizedBox(height: 14),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          await controller.refreshEdgeRankFeed();
+                          controller.scrollToTop();
+                        },
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: Text('Refresh Feed'.tr),
                       ),
                     ],
                   ),

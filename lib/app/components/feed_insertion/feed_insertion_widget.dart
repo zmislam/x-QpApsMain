@@ -1,12 +1,13 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../config/constants/feed_design_tokens.dart';
 import '../../models/feed_insertion_model.dart';
+import '../../models/sponsored_ad_model.dart';
 import '../../repository/edgerank_repository.dart';
 import 'friend_suggestion_card.dart';
 import 'group_suggestion_card.dart';
 import 'page_suggestion_card.dart';
 import 'reel_suggestion_card.dart';
+import '../sponsored_ad/sponsored_ad_widget.dart';
 import 'sponsored_post_card.dart';
 import 'story_suggestion_card.dart';
 
@@ -123,7 +124,21 @@ class _FeedInsertionWidgetState extends State<FeedInsertionWidget> {
 
     switch (widget.insertion.type) {
       case 'sponsored':
-        return SponsoredPostCard(data: data);
+        final adModel = SponsoredAdModel(
+          position: widget.insertion.position,
+          type: widget.insertion.type,
+          data: data,
+          isBoostedPagePost: data['is_boosted_page_post'] == true,
+          anchorPostId: widget.insertion.anchorPostId,
+        );
+
+        // Keep a legacy fallback for malformed payloads.
+        final adId = adModel.adId;
+        if (adId == null || adId.trim().isEmpty) {
+          return SponsoredPostCard(data: data);
+        }
+
+        return SponsoredAdWidget(ad: adModel);
       case 'friend_suggestion':
         return FriendSuggestionCard(data: data);
       case 'group_suggestion':

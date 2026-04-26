@@ -12,7 +12,6 @@ import '../../../../../../../data/post_local_data.dart';
 import '../../../../../../../models/api_response.dart';
 import '../../../../../../../models/location_model.dart';
 import '../../../../../../../services/api_communication.dart';
-import '../../../../../../../utils/logger/logger.dart';
 import '../../../../../../../utils/snackbar.dart';
 import '../../page_profile/model/page_profile_model.dart';
 import '../model/allpages_model.dart';
@@ -137,7 +136,7 @@ class PagesController extends GetxController {
     if (apiResponse.isSuccessful) {
       //@ Using total page count in page count for page ignition
       pageCount.value = apiResponse.pageCount ?? 0;
-      Log.e('My Pages Count: ${pageCount.value}');
+      debugPrint('My Pages Count: ${pageCount.value}');
       List<MyPagesModel> newPages = (apiResponse.data as List<MyPagesModel>);
       myPagesList.value.addAll(newPages);
       myPagesList.refresh();

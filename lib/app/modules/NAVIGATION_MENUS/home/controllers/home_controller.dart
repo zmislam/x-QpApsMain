@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:quantum_possibilities_flutter/app/extension/string/string.dart';
 import '../../../../models/profile_model.dart';
@@ -14,6 +15,7 @@ import '../../../../services/versionCheckerService.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../config/constants/app_storage.dart';
 import '../../../../config/constants/color.dart';
 import '../../../../data/login_creadential.dart';
 import '../../../../data/post_local_data.dart';
@@ -109,6 +111,21 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
 
   Rx<List<PeopleMayYouKnowModel>> peopleMayYouKnowList = Rx([]);
   Rx<List<AllPagesModel>> suggestedPageList = Rx([]);
+
+  static const Set<String> _supportedFeedModes = <String>{
+    'for_you',
+    'friends_first',
+    'latest',
+  };
+
+  final GetStorage _storage = GetStorage();
+  final RxBool isSwitchingFeedMode = false.obs;
+  final RxBool showFloatingFeedModeSwitcher = false.obs;
+
+  final Set<String> _viewedPostIds = <String>{};
+  final Set<String> _pendingViewedPostIds = <String>{};
+  final Map<String, Timer> _pendingViewTimers = <String, Timer>{};
+  Timer? _viewBatchFlushTimer;
 
   Future<void> getPeopleMayYouKnow() async {
     final apiResponse = await userRelationshipRepository
@@ -970,7 +987,7 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
       responseDataKey: 'userInfo',
     );
     if (apiResponse.isSuccessful) {
-      debugPrint('Response success ${apiResponse.data as Map<String, dynamic>}');
+      debugPrint('Response success');
       profileModel.value =
           ProfileModel .fromMap(apiResponse.data as Map<String, dynamic>);
       isLoading.value = false;
@@ -1033,6 +1050,102 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
 
   //=========================================== For Scrolling List View
 
+  String _normalizeFeedMode(dynamic mode) {
+    final normalized = (mode ?? '').toString().trim().toLowerCase();
+    if (_supportedFeedModes.contains(normalized)) {
+      return normalized;
+    }
+    return 'for_you';
+  }
+
+  void _restoreFeedModePreference() {
+    final savedMode = _storage.read(AppStorage.NEWSFEED_FEED_MODE_KEY);
+    currentFeedMode.value = _normalizeFeedMode(savedMode);
+  }
+
+  void _persistFeedModePreference(String mode) {
+    _storage.write(AppStorage.NEWSFEED_FEED_MODE_KEY, mode);
+  }
+
+  Future<void> onFeedModeChanged(String mode) async {
+    final normalizedMode = _normalizeFeedMode(mode);
+    if (normalizedMode == currentFeedMode.value) return;
+    if (isSwitchingFeedMode.value) return;
+
+    await _flushViewedPostBatch();
+    _resetPendingViewState();
+
+    isSwitchingFeedMode.value = true;
+    isLoadingNewsFeed.value = true;
+    _persistFeedModePreference(normalizedMode);
+
+    try {
+      await switchFeedMode(normalizedMode);
+      generateRandomIndicesForPosts();
+      scrollToTop();
+    } catch (e) {
+      debugPrint('[EdgeRank] Feed mode switch failed: $e');
+    } finally {
+      isSwitchingFeedMode.value = false;
+      isLoadingNewsFeed.value = false;
+    }
+  }
+
+  void onPostVisibilityChanged(String? postId, double visibleFraction) {
+    final id = (postId ?? '').trim();
+    if (id.isEmpty) return;
+    if (_viewedPostIds.contains(id)) return;
+
+    final qualifies = visibleFraction >= 0.6;
+    final existingTimer = _pendingViewTimers[id];
+
+    if (qualifies) {
+      if (existingTimer != null) return;
+      _pendingViewTimers[id] = Timer(const Duration(milliseconds: 900), () {
+        _pendingViewTimers.remove(id);
+        _queueQualifiedView(id);
+      });
+      return;
+    }
+
+    if (existingTimer != null) {
+      existingTimer.cancel();
+      _pendingViewTimers.remove(id);
+    }
+  }
+
+  void _queueQualifiedView(String postId) {
+    if (_viewedPostIds.contains(postId)) return;
+
+    _viewedPostIds.add(postId);
+    _pendingViewedPostIds.add(postId);
+
+    _viewBatchFlushTimer ??=
+        Timer(const Duration(milliseconds: 1200), () {
+      _viewBatchFlushTimer = null;
+      unawaited(_flushViewedPostBatch());
+    });
+  }
+
+  Future<void> _flushViewedPostBatch() async {
+    if (_pendingViewedPostIds.isEmpty) return;
+
+    final postIds = _pendingViewedPostIds.toList(growable: false);
+    _pendingViewedPostIds.clear();
+
+    await trackFeedEngagement('view', postIds: postIds);
+  }
+
+  void _resetPendingViewState() {
+    for (final timer in _pendingViewTimers.values) {
+      timer.cancel();
+    }
+    _pendingViewTimers.clear();
+    _viewBatchFlushTimer?.cancel();
+    _viewBatchFlushTimer = null;
+    _pendingViewedPostIds.clear();
+  }
+
   /// Smoothly scrolls the home feed to the very top.
   void scrollToTop() {
     if (postScrollController.hasClients) {
@@ -1046,10 +1159,20 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
 
   bool _isLoadingMore = false;
   Timer? _scrollThrottle;
+  static const double _floatingSwitcherShowOffset = 280;
+
+  void _updateFloatingSwitcherVisibility() {
+    if (!postScrollController.hasClients) return;
+    final shouldShow = postScrollController.offset > _floatingSwitcherShowOffset;
+    if (showFloatingFeedModeSwitcher.value != shouldShow) {
+      showFloatingFeedModeSwitcher.value = shouldShow;
+    }
+  }
 
   void _scrollListener() {
     _scrollThrottle?.cancel();
     _scrollThrottle = Timer(const Duration(milliseconds: 100), () {
+      _updateFloatingSwitcherVisibility();
       if (_isLoadingMore) return;
       if (feedExhausted.value) return;
       if (!hasMorePosts.value) return;
@@ -1157,7 +1280,10 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
     descriptionController = TextEditingController();
     reportDescription = TextEditingController();
 
-    // Fetch EdgeRank "For You" feed (must complete first for UI)
+    // Restore saved mode before first fetch so backend mode is aligned.
+    _restoreFeedModePreference();
+
+    // Fetch EdgeRank feed (must complete first for UI)
     await fetchEdgeRankFeed(isInitial: true);
     isLoadingNewsFeed.value = false;
     generateRandomIndicesForPosts();
@@ -1176,6 +1302,7 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
   @override
   void onReady() {
     postScrollController.addListener(_scrollListener);
+    _updateFloatingSwitcherVisibility();
     // Check app version once (not on every widget rebuild)
     VersionCheckerService().checkAppVersion();
     super.onReady();
@@ -1184,6 +1311,8 @@ class HomeController extends GetxController with EdgeRankFeedMixin {
   @override
   void onClose() {
     _apiCommunication.endConnection();
+    unawaited(_flushViewedPostBatch());
+    _resetPendingViewState();
     // Remove scroll listener before disposing controller
     postScrollController.removeListener(_scrollListener);
     postScrollController.dispose();

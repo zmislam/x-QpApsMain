@@ -8,6 +8,30 @@ import 'package:flutter/material.dart';
 import '../config/constants/app_assets.dart';
 import '../config/constants/color.dart';
 
+bool _isLikelyRemoteImageUrl(String imageUrl) {
+  final normalized = imageUrl.trim();
+  if (normalized.isEmpty) {
+    return false;
+  }
+
+  final uri = Uri.tryParse(normalized);
+  if (uri == null) {
+    return false;
+  }
+
+  final isHttp = uri.scheme == 'http' || uri.scheme == 'https';
+  if (!isHttp || uri.host.isEmpty) {
+    return false;
+  }
+
+  // Directory-like image URLs (e.g. /uploads/group/) are invalid for image codecs.
+  if (uri.path.isEmpty || uri.path.endsWith('/')) {
+    return false;
+  }
+
+  return true;
+}
+
 class AppbarImageIcon extends StatelessWidget {
   const AppbarImageIcon({
     super.key,
@@ -70,9 +94,24 @@ class NetworkCircleAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedUrl = imageUrl.trim();
+    if (!_isLikelyRemoteImageUrl(normalizedUrl)) {
+      return ClipOval(
+        child: SizedBox(
+          width: radius * 2,
+          height: radius * 2,
+          child: errorImage ??
+              Image.asset(
+                'assets/image/profile_pic_placeholder.png',
+                fit: BoxFit.cover,
+              ),
+        ),
+      );
+    }
+
     return ClipOval(
       child: CachedNetworkImage(
-        imageUrl: imageUrl,
+        imageUrl: normalizedUrl,
         width: radius * 2,
         height: radius * 2,
         fit: BoxFit.cover,
@@ -101,9 +140,19 @@ class PrimaryNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return imageUrl.contains('.svg')
+    final normalizedUrl = imageUrl.trim();
+    if (!_isLikelyRemoteImageUrl(normalizedUrl)) {
+      return Image.asset(
+        AppAssets.DEFAULT_IMAGE,
+        height: height,
+        width: width,
+        fit: fitImage,
+      );
+    }
+
+    return normalizedUrl.contains('.svg')
         ? SvgPicture.network(
-            imageUrl,
+            normalizedUrl,
             height: height,
             width: width,
             fit: fitImage,
@@ -114,7 +163,7 @@ class PrimaryNetworkImage extends StatelessWidget {
             height: height,
             width: width,
             fit: fitImage,
-            imageUrl: imageUrl,
+            imageUrl: normalizedUrl,
             fadeInDuration: const Duration(milliseconds: 150),
             fadeOutDuration: const Duration(milliseconds: 150),
             placeholder: (context, url) => const SizedBox.shrink(),
@@ -142,9 +191,19 @@ class PrimaryCachedNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return imageUrl.contains('.svg')
+    final normalizedUrl = imageUrl.trim();
+    if (!_isLikelyRemoteImageUrl(normalizedUrl)) {
+      return Image.asset(
+        AppAssets.DEFAULT_IMAGE,
+        height: height,
+        width: width,
+        fit: fitImage,
+      );
+    }
+
+    return normalizedUrl.contains('.svg')
         ? SvgPicture.network(
-            imageUrl,
+            normalizedUrl,
             height: height,
             width: width,
             fit: fitImage,
@@ -155,7 +214,7 @@ class PrimaryCachedNetworkImage extends StatelessWidget {
             height: height,
             width: width,
             fit: fitImage,
-            imageUrl: imageUrl,
+            imageUrl: normalizedUrl,
             progressIndicatorBuilder: (context, url, downloadProgress) =>
                 Center(
               child: SizedBox(
@@ -247,6 +306,19 @@ class RoundCornerNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedUrl = imageUrl.trim();
+    if (!_isLikelyRemoteImageUrl(normalizedUrl)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8.0),
+        child: Image.asset(
+          errorImage ?? AppAssets.DEFAULT_PROFILE_IMAGE,
+          height: height,
+          width: width,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(8.0),
       child: CachedNetworkImage(
@@ -255,7 +327,7 @@ class RoundCornerNetworkImage extends StatelessWidget {
         memCacheHeight: (height * 3).toInt(),
         memCacheWidth: (width * 3).toInt(),
         fit: BoxFit.cover,
-        imageUrl: imageUrl,
+        imageUrl: normalizedUrl,
         placeholder: (context, url) => Image.asset(
           AppAssets.DEFAULT_PROFILE_IMAGE,
           height: height,

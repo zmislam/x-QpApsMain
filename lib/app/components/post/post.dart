@@ -11,7 +11,6 @@ import 'post_header/page_post_header.dart';
 import 'post_header/post_header.dart';
 import 'post_header/share_reel_header.dart';
 import 'post_header/shared_post_header.dart';
-import 'why_shown.dart';
 import '../../data/login_creadential.dart';
 import '../../modules/NAVIGATION_MENUS/home/controllers/home_controller.dart';
 import '../../modules/NAVIGATION_MENUS/user_menu/sub_menus/profile/controllers/profile_controller.dart';
@@ -46,6 +45,8 @@ class PostCard extends StatelessWidget {
       this.actionButtonText,
       this.campaignDescription,
       this.campaignCallToAction,
+      this.useExclusiveNewsfeedDesign = false,
+      this.useExclusiveFooterDesign = false,
       this.index});
 
   final PostModel model;
@@ -72,69 +73,164 @@ class PostCard extends StatelessWidget {
   final String? campaignName;
   final String? campaignDescription;
   final VoidCallback? campaignCallToAction;
+  final bool useExclusiveNewsfeedDesign;
+  final bool useExclusiveFooterDesign;
 
-  // ignore: prefer_typing_uninitialized_variables
-  final index;
-
-  bool get _hasWhyShown => model.whyShown != null && model.whyShown!.isNotEmpty;
+  final int? index;
 
   @override
   Widget build(BuildContext context) {
     if (model.user_id == null) return const SizedBox.shrink();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isExclusive = useExclusiveNewsfeedDesign;
+    final isExclusiveFooter = isExclusive && useExclusiveFooterDesign;
+    final BorderRadius cardRadius = BorderRadius.circular(isExclusive ? 20 : 12);
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isExclusive) _buildTopAccentBar(context),
+        // ─── Header (varies by post type) ───
+        _buildHeader(context),
+
+        // ─── Body ───
+        _buildBody(),
+
+        // ─── Footer ───
+        PostFooter(
+          model: model,
+          onSelectReaction: onSelectReaction,
+          onPressedComment: onPressedComment,
+          onPressedShare: onPressedShare,
+          onTapViewReactions: onTapViewReactions,
+          useExclusiveNewsfeedDesign: isExclusiveFooter,
+        ),
+      ],
+    );
 
     return RepaintBoundary(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 0),
-        decoration: BoxDecoration(
-          color: FeedDesignTokens.cardBg(context),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: isDark
-                  ? Colors.black.withOpacity(0.3)
-                  : Colors.black.withOpacity(0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+        margin: isExclusive
+            ? const EdgeInsets.fromLTRB(4, 3, 4, 4)
+            : const EdgeInsets.symmetric(horizontal: 0),
+        decoration: _buildCardDecoration(context, isDark, isExclusive, cardRadius),
         clipBehavior: Clip.hardEdge,
-        child: Stack(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ─── WhyShown badge (EdgeRank context) ───
-                if (_hasWhyShown)
-                  WhyShownWidget(
-                    text: model.whyShown!,
-                    model: model,
-                    onTapMenu: () => _showPostActionsSheet(context),
-                    onTapClose: onTapHidePost,
-                  ),
+        child: isExclusive
+            ? Stack(
+                children: [
+                  Positioned.fill(child: _buildExclusiveBackground(context)),
+                  content,
+                ],
+              )
+            : content,
+      ),
+    );
+  }
 
-                // ─── Header (varies by post type) ───
-                _buildHeader(context),
+  BoxDecoration _buildCardDecoration(
+    BuildContext context,
+    bool isDark,
+    bool isExclusive,
+    BorderRadius borderRadius,
+  ) {
+    if (!isExclusive) {
+      return BoxDecoration(
+        color: FeedDesignTokens.cardBg(context),
+        borderRadius: borderRadius,
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      );
+    }
 
-                // ─── Body ───
-                _buildBody(),
+    return BoxDecoration(
+      borderRadius: borderRadius,
+      border: Border.all(
+        color: FeedDesignTokens.brand(context).withValues(alpha: isDark ? 0.25 : 0.16),
+        width: 1,
+      ),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          FeedDesignTokens.cardBg(context),
+          FeedDesignTokens.cardBg(context),
+          FeedDesignTokens.inputBg(context).withValues(alpha: isDark ? 0.35 : 0.72),
+        ],
+        stops: const [0, 0.62, 1],
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: FeedDesignTokens.brand(context).withValues(alpha: isDark ? 0.14 : 0.08),
+          blurRadius: 18,
+          spreadRadius: 0,
+          offset: const Offset(0, 8),
+        ),
+        BoxShadow(
+          color: isDark
+              ? Colors.black.withValues(alpha: 0.42)
+              : Colors.black.withValues(alpha: 0.08),
+          blurRadius: 12,
+          spreadRadius: 0,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+  }
 
-                // ─── Footer ───
-                PostFooter(
-                  model: model,
-                  onSelectReaction: onSelectReaction,
-                  onPressedComment: onPressedComment,
-                  onPressedShare: onPressedShare,
-                  onTapViewReactions: onTapViewReactions,
-                ),
-              ],
-            ),
-            // X button moved into individual header widgets
+  Widget _buildTopAccentBar(BuildContext context) {
+    return Container(
+      height: 4,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            FeedDesignTokens.brand(context),
+            const Color(0xFF2AB7CA),
+            const Color(0xFF4DAA57),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildExclusiveBackground(BuildContext context) {
+    final accent = FeedDesignTokens.brand(context);
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            right: -36,
+            top: -44,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -52,
+            bottom: -58,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.04),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -227,7 +323,7 @@ class PostCard extends StatelessWidget {
         onTapPinPost: onTapPinPost ?? () {},
         onTapHidePost: onTapHidePost,
         onTapRemoveBookMarkPost: () {
-          onTapRemoveBookMardPost!();
+          onTapRemoveBookMardPost?.call();
         },
         viewType: viewType ?? '',
       );
@@ -248,7 +344,7 @@ class PostCard extends StatelessWidget {
 
   /// Normal post header
   Widget _buildNormalHeader(BuildContext context) {
-    if (model.groupId!.groupName!.length > 1) {
+    if (model.groupId.groupName!.length > 1) {
       return GroupPostHeader(
         onTapBlockUser: onTapBlockUser,
         model: model,
@@ -258,10 +354,9 @@ class PostCard extends StatelessWidget {
         onTapHidePost: onTapHidePost ?? () {},
         onTapCopyPost: onTapCopyPost ?? () {},
         viewType: viewType ?? '',
-        hideActionIcons: _hasWhyShown,
       );
     }
-    if (model.page_id!.pageName!.length > 1) {
+    if (model.page_id.pageName!.length > 1) {
       return PagePostHeader(
         model: model,
         onTapEditPost: onTapEditPost ?? () {},
@@ -274,10 +369,9 @@ class PostCard extends StatelessWidget {
         onTapPinPost: onTapPinPost ?? () {},
         onTapHidePost: onTapHidePost,
         onTapRemoveBookMarkPost: () {
-          onTapRemoveBookMardPost!();
+          onTapRemoveBookMardPost?.call();
         },
         viewType: viewType ?? '',
-        hideActionIcons: _hasWhyShown,
       );
     }
     return PostHeader(
@@ -291,7 +385,6 @@ class PostCard extends StatelessWidget {
       onTapPinPost: onTapPinPost ?? () {},
       onTapRemoveBookMarkPost: onTapRemoveBookMardPost ?? () {},
       viewType: viewType ?? '',
-      hideActionIcons: _hasWhyShown,
     );
   }
 

@@ -31,12 +31,18 @@ class FriendModel {
         profilePic: profilePic ?? this.profilePic,
       );
 
-  factory FriendModel.fromJson(Map<String, dynamic> json) => FriendModel(
-        id: json['_id'],
-        friend: Friend.fromJson(json['friend']),
-        fullName: json['full_name'],
-        profilePic: json['profile_pic'],
-      );
+  factory FriendModel.fromJson(Map<String, dynamic> json) {
+    final rawFriend = json['friend'];
+    final Map<String, dynamic>? friendJson =
+        rawFriend is Map ? Map<String, dynamic>.from(rawFriend) : null;
+
+    return FriendModel(
+      id: json['_id']?.toString(),
+      friend: friendJson != null ? Friend.fromJson(friendJson) : null,
+      fullName: json['full_name']?.toString(),
+      profilePic: json['profile_pic']?.toString(),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         '_id': id,
@@ -104,12 +110,12 @@ class Friend {
       );
 
   factory Friend.fromJson(Map<String, dynamic> json) => Friend(
-        id: json['_id'],
-        firstName: json['first_name'],
-        lastName: json['last_name'],
-        username: json['username'],
-        email: json['email'],
-        profilePic: json['profile_pic'],
+        id: json['_id']?.toString(),
+        firstName: json['first_name']?.toString(),
+        lastName: json['last_name']?.toString(),
+        username: json['username']?.toString(),
+        email: json['email']?.toString(),
+        profilePic: json['profile_pic']?.toString(),
       );
 
   Map<String, dynamic> toJson() => {

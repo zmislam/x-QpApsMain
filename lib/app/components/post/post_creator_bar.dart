@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:quantum_possibilities_flutter/app/components/image.dart';
-import 'package:quantum_possibilities_flutter/app/config/constants/app_assets.dart';
 import 'package:quantum_possibilities_flutter/app/config/constants/feed_design_tokens.dart';
 import 'package:quantum_possibilities_flutter/app/extension/string/string_image_path.dart';
 import 'package:quantum_possibilities_flutter/app/models/user.dart';
@@ -12,11 +11,13 @@ class PostCreatorBar extends StatelessWidget {
     required this.userModel,
     required this.onTapCreatePost,
     required this.onTapPhoto,
+    this.trailingAction,
   });
 
   final UserModel userModel;
   final VoidCallback onTapCreatePost;
   final VoidCallback onTapPhoto;
+  final Widget? trailingAction;
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +104,10 @@ class PostCreatorBar extends StatelessWidget {
                 ),
               ),
             ),
+            if (trailingAction != null) ...[
+              const SizedBox(width: 8),
+              trailingAction!,
+            ],
           ],
         ),
       ),

@@ -3,96 +3,186 @@ import 'package:get/get.dart';
 
 import '../config/constants/feed_design_tokens.dart';
 
-/// Facebook-style feed mode tab bar: For You · Friends · Latest.
+/// Single-button feed mode switcher.
 ///
-/// Displays a compact horizontal pill-style selector at the top of the feed.
-/// Calls [onModeChanged] with 'for_you', 'friends_first', or 'latest'.
-class FeedModeTabs extends StatelessWidget {
-  const FeedModeTabs({
+/// Tapping opens a popup with all available feed modes.
+class FeedModeSwitcherButton extends StatelessWidget {
+  const FeedModeSwitcherButton({
     super.key,
     required this.currentMode,
     required this.onModeChanged,
+    this.isLoading = false,
+    this.compact = false,
   });
 
   final String currentMode;
   final ValueChanged<String> onModeChanged;
+  final bool isLoading;
+  final bool compact;
 
-  static const _modes = [
-    {'key': 'for_you', 'label': 'For You'},
-    {'key': 'friends_first', 'label': 'Friends'},
-    {'key': 'latest', 'label': 'Latest'},
+  static const List<_FeedModeOption> _modes = [
+    _FeedModeOption(
+      key: 'for_you',
+      label: 'For You',
+      icon: Icons.auto_awesome_rounded,
+    ),
+    _FeedModeOption(
+      key: 'friends_first',
+      label: 'Friends',
+      icon: Icons.people_alt_rounded,
+    ),
+    _FeedModeOption(
+      key: 'latest',
+      label: 'Latest',
+      icon: Icons.schedule_rounded,
+    ),
   ];
+
+  _FeedModeOption _resolveCurrentMode() {
+    for (final mode in _modes) {
+      if (mode.key == currentMode) {
+        return mode;
+      }
+    }
+    return _modes.first;
+  }
+
+  Color _modeAccent(BuildContext context, String modeKey) {
+    switch (modeKey) {
+      case 'friends_first':
+        return const Color(0xFF2E9E61);
+      case 'latest':
+        return const Color(0xFFF2994A);
+      case 'for_you':
+      default:
+        return FeedDesignTokens.brand(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeMode = _resolveCurrentMode();
+    final modeAccent = _modeAccent(context, activeMode.key);
 
-    return Container(
-      color: FeedDesignTokens.cardBg(context),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: _modes.map((mode) {
-          final isSelected = currentMode == mode['key'];
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _FeedModeChip(
-              label: (mode['label'] as String).tr,
-              isSelected: isSelected,
-              isDark: isDark,
-              onTap: () => onModeChanged(mode['key']!),
+    final backgroundColor = compact
+        ? modeAccent.withValues(alpha: 0.96)
+        : FeedDesignTokens.cardBg(context);
+
+    final borderColor = compact
+        ? Colors.white.withValues(alpha: 0.35)
+        : modeAccent.withValues(alpha: 0.25);
+
+    return PopupMenuButton<String>(
+      enabled: !isLoading,
+      tooltip: 'Switch feed mode'.tr,
+      onSelected: onModeChanged,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      itemBuilder: (context) {
+        return _modes.map((mode) {
+          final isSelected = mode.key == currentMode;
+          final optionAccent = _modeAccent(context, mode.key);
+          return PopupMenuItem<String>(
+            value: mode.key,
+            enabled: !isSelected && !isLoading,
+            child: Row(
+              children: [
+                Icon(
+                  mode.icon,
+                  size: 18,
+                  color: isSelected
+                      ? optionAccent
+                      : FeedDesignTokens.textSecondary(context),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    mode.label.tr,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: FeedDesignTokens.textPrimary(context),
+                    ),
+                  ),
+                ),
+                if (isSelected)
+                  Icon(
+                    Icons.check_rounded,
+                    size: 18,
+                    color: optionAccent,
+                  ),
+              ],
             ),
           );
-        }).toList(),
+        }).toList();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        height: compact ? 34 : 36,
+        width: compact ? 34 : 36,
+        padding: EdgeInsets.zero,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(compact ? 17 : 19),
+          border: Border.all(color: borderColor, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: compact ? 0.16 : 0.06),
+              blurRadius: compact ? 10 : 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: compact
+            ? Center(
+                child: isLoading
+                    ? SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.tune_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+              )
+            : Center(
+                child: isLoading
+                    ? SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: modeAccent,
+                        ),
+                      )
+                    : Icon(
+                        Icons.tune_rounded,
+                        size: 19,
+                        color: modeAccent,
+                      ),
+              ),
       ),
     );
   }
 }
 
-class _FeedModeChip extends StatelessWidget {
-  const _FeedModeChip({
+class _FeedModeOption {
+  const _FeedModeOption({
+    required this.key,
     required this.label,
-    required this.isSelected,
-    required this.isDark,
-    required this.onTap,
+    required this.icon,
   });
 
+  final String key;
   final String label;
-  final bool isSelected;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final selectedBg = FeedDesignTokens.brand(context);
-    final unselectedBg = isDark
-        ? const Color(0xFF3A3B3C)
-        : const Color(0xFFE4E6EB);
-    final selectedTextColor = Colors.white;
-    final unselectedTextColor = FeedDesignTokens.textPrimary(context);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? selectedBg : unselectedBg,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected ? selectedTextColor : unselectedTextColor,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  final IconData icon;
 }

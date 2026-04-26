@@ -10,5 +10,6 @@ class AppStorage {
   static const String LANGUAGE_KEY = 'selected_language';
   static const String verifiedKey = 'verified_key';
   static const String REMEMBER_ME_KEY = 'remember_me';
+  static const String NEWSFEED_FEED_MODE_KEY = 'newsfeed_feed_mode';
 
 }

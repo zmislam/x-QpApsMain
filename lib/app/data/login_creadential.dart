@@ -57,7 +57,6 @@ class LoginCredential {
 
   bool getProfileSwitch() {
     bool? switchValue = _getStorage.read(AppStorage.PROFILE_SWITCH_KEY);
-    debugPrint('::::::Profile Switch State ::::::::::::::::$switchValue');
     return switchValue ?? false;
   }
 

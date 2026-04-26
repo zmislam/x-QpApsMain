@@ -47,7 +47,8 @@ class _GroupSuggestionCardState extends State<GroupSuggestionCard> {
               height: 4,
               margin: const EdgeInsets.only(top: 12, bottom: 8),
               decoration: BoxDecoration(
-                color: FeedDesignTokens.textSecondary(context).withOpacity(0.3),
+                color: FeedDesignTokens.textSecondary(context)
+                    .withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -62,9 +63,12 @@ class _GroupSuggestionCardState extends State<GroupSuggestionCard> {
                       color: FeedDesignTokens.textSecondary(context))),
               onTap: () {
                 Navigator.pop(context);
-                EdgeRankRepository()
-                    .dismissInsertion(insertionType: 'group_suggestion')
-                    .catchError((_) {});
+                () async {
+                  try {
+                    await EdgeRankRepository()
+                        .dismissInsertion(insertionType: 'group_suggestion');
+                  } catch (_) {}
+                }();
                 setState(() => _hidden = true);
               },
             ),
@@ -79,9 +83,12 @@ class _GroupSuggestionCardState extends State<GroupSuggestionCard> {
                       color: FeedDesignTokens.textSecondary(context))),
               onTap: () {
                 Navigator.pop(context);
-                EdgeRankRepository()
-                    .dismissInsertion(insertionType: 'group_suggestion')
-                    .catchError((_) {});
+                () async {
+                  try {
+                    await EdgeRankRepository()
+                        .dismissInsertion(insertionType: 'group_suggestion');
+                  } catch (_) {}
+                }();
                 setState(() => _hidden = true);
               },
             ),
@@ -125,114 +132,211 @@ class _GroupSuggestionCardState extends State<GroupSuggestionCard> {
   @override
   Widget build(BuildContext context) {
     if (_hidden || suggestions.isEmpty) return const SizedBox.shrink();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderRadius = BorderRadius.circular(20);
 
-    return Container(
-      color: FeedDesignTokens.cardBg(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ─── Card separator ───
-          Container(
-            height: FeedDesignTokens.separatorHeight,
-            color: FeedDesignTokens.surfaceBg(context),
-          ),
-
-          // ─── Title ───
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              FeedDesignTokens.cardPaddingH, 14,
-              FeedDesignTokens.cardPaddingH, 10,
-            ),
-            child: Row(
+    return RepaintBoundary(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(4, 2, 4, 4),
+        decoration: _buildSectionDecoration(context, isDark, borderRadius),
+        clipBehavior: Clip.hardEdge,
+        child: Stack(
+          children: [
+            Positioned.fill(child: _buildSectionBackground(context)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.groups_outlined,
-                  size: 20,
-                  color: FeedDesignTokens.brand(context),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Suggested Groups'.tr,
-                    style: TextStyle(
-                      fontSize: FeedDesignTokens.nameSize,
-                      fontWeight: FontWeight.w700,
-                      color: FeedDesignTokens.textPrimary(context),
-                    ),
+                _buildTopAccentBar(context),
+
+                // ─── Title ───
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: FeedDesignTokens.brand(context)
+                              .withValues(alpha: isDark ? 0.2 : 0.12),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Icon(
+                          Icons.groups_outlined,
+                          size: 18,
+                          color: FeedDesignTokens.brand(context),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Suggested Groups'.tr,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: FeedDesignTokens.textPrimary(context),
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Get.toNamed(Routes.GROUPS),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 6,
+                          ),
+                          child: Text(
+                            'See All'.tr,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: FeedDesignTokens.brand(context),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      InkWell(
+                        onTap: _showMoreOptions,
+                        borderRadius: BorderRadius.circular(18),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: FeedDesignTokens.inputBg(context),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.more_horiz,
+                            size: 20,
+                            color: FeedDesignTokens.textSecondary(context),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                GestureDetector(
-                  onTap: () => Get.toNamed(Routes.GROUPS),
-                  child: Text(
-                    'See All'.tr,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: FeedDesignTokens.brand(context),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                // Three-dot menu
-                InkWell(
-                  onTap: _showMoreOptions,
-                  borderRadius: BorderRadius.circular(20),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Icon(
-                      Icons.more_horiz,
-                      size: 22,
-                      color: FeedDesignTokens.textSecondary(context),
-                    ),
+
+                // ─── Horizontal card list ───
+                SizedBox(
+                  height: 206,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                    itemCount: suggestions.length,
+                    itemBuilder: (context, index) {
+                      final item = suggestions[index];
+                      final groupName = _capitalize(item['group_name'] ?? 'Group');
+                      final coverPic = item['group_cover_pic'] ?? '';
+                      final memberCount = item['member_count'] ?? 0;
+                      final friendsInGroup = item['friends_in_group'] ?? 0;
+                      final joinStatus = item['_joinStatus'] as String?;
+
+                      return _GroupCard(
+                        groupName: groupName,
+                        coverPic: coverPic,
+                        memberCount: memberCount is int ? memberCount : 0,
+                        friendsInGroup: friendsInGroup is int ? friendsInGroup : 0,
+                        joinStatus: joinStatus,
+                        onTap: () {
+                          final groupId = item['_id'] ?? '';
+                          if (groupId.isNotEmpty) {
+                            Get.toNamed(Routes.GROUP_PROFILE, arguments: {
+                              'id': groupId,
+                              'group_type': '',
+                            });
+                          }
+                        },
+                        onJoin: () => _handleJoin(index),
+                        onDismiss: () => _handleDismiss(index),
+                      );
+                    },
                   ),
                 ),
               ],
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          // ─── Horizontal card list ───
-          SizedBox(
-            height: 230,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: FeedDesignTokens.cardPaddingH,
+  BoxDecoration _buildSectionDecoration(
+    BuildContext context,
+    bool isDark,
+    BorderRadius borderRadius,
+  ) {
+    return BoxDecoration(
+      borderRadius: borderRadius,
+      border: Border.all(
+        color:
+            FeedDesignTokens.brand(context).withValues(alpha: isDark ? 0.25 : 0.14),
+        width: 1,
+      ),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          FeedDesignTokens.cardBg(context),
+          FeedDesignTokens.cardBg(context),
+          FeedDesignTokens.inputBg(context).withValues(alpha: isDark ? 0.34 : 0.72),
+        ],
+        stops: const [0, 0.6, 1],
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: FeedDesignTokens.brand(context).withValues(alpha: isDark ? 0.12 : 0.07),
+          blurRadius: 16,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopAccentBar(BuildContext context) {
+    return Container(
+      height: 4,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            FeedDesignTokens.brand(context),
+            const Color(0xFF2AB7CA),
+            const Color(0xFF4DAA57),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionBackground(BuildContext context) {
+    final accent = FeedDesignTokens.brand(context);
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            right: -36,
+            top: -44,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.08),
               ),
-              itemCount: suggestions.length,
-              itemBuilder: (context, index) {
-                final item = suggestions[index];
-                final groupName = _capitalize(item['group_name'] ?? 'Group');
-                final coverPic = item['group_cover_pic'] ?? '';
-                final memberCount = item['member_count'] ?? 0;
-                final friendsInGroup = item['friends_in_group'] ?? 0;
-                final joinStatus = item['_joinStatus'] as String?;
-
-                return _GroupCard(
-                  groupName: groupName,
-                  coverPic: coverPic,
-                  memberCount: memberCount is int ? memberCount : 0,
-                  friendsInGroup: friendsInGroup is int ? friendsInGroup : 0,
-                  joinStatus: joinStatus,
-                  onTap: () {
-                    final groupId = item['_id'] ?? '';
-                    if (groupId.isNotEmpty) {
-                      Get.toNamed(Routes.GROUP_PROFILE, arguments: {
-                        'id': groupId,
-                        'group_type': '',
-                      });
-                    }
-                  },
-                  onJoin: () => _handleJoin(index),
-                  onDismiss: () => _handleDismiss(index),
-                );
-              },
             ),
           ),
-
-          // ─── Card separator ───
-          Container(
-            height: FeedDesignTokens.separatorHeight,
-            color: FeedDesignTokens.surfaceBg(context),
+          Positioned(
+            left: -52,
+            bottom: -58,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.04),
+              ),
+            ),
           ),
         ],
       ),
@@ -268,69 +372,80 @@ class _GroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final normalizedCoverPic = coverPic.trim();
+    final hasCoverPic = normalizedCoverPic.isNotEmpty;
+    final isJoinable = joinStatus == null;
+    final statusLabel = (joinStatus ?? 'Join').tr;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 160,
-        margin: const EdgeInsets.only(right: 8),
+        width: 172,
+        margin: const EdgeInsets.only(right: 10),
         decoration: BoxDecoration(
-          color: FeedDesignTokens.cardBg(context),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: FeedDesignTokens.divider(context),
-            width: 0.5,
+            color: FeedDesignTokens.divider(context)
+                .withValues(alpha: isDark ? 0.8 : 1),
+            width: 0.8,
           ),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              FeedDesignTokens.cardBg(context),
+              FeedDesignTokens.inputBg(context)
+                  .withValues(alpha: isDark ? 0.26 : 0.52),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
+        clipBehavior: Clip.hardEdge,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ─── Cover image ───
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Container(
-                height: 100,
-                color: FeedDesignTokens.inputBg(context),
-                child: coverPic.isNotEmpty
-                    ? Image.network(
-                        coverPic.formatedGroupProfileUrl,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        errorBuilder: (_, __, ___) => Icon(
-                          Icons.groups,
-                          size: 40,
-                          color: FeedDesignTokens.textSecondary(context),
-                        ),
-                      )
-                    : Icon(
-                        Icons.groups,
-                        size: 40,
-                        color: FeedDesignTokens.textSecondary(context),
-                      ),
-              ),
+            SizedBox(
+              height: 90,
+              child: hasCoverPic
+                  ? Image.network(
+                      normalizedCoverPic.formatedGroupProfileUrl,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (_, __, ___) => _buildCoverFallback(context),
+                    )
+                  : _buildCoverFallback(context),
             ),
 
             // ─── Name + member count ───
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     groupName,
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                       color: FeedDesignTokens.textPrimary(context),
+                      height: 1.15,
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     _buildSubtitle(),
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: FeedDesignTokens.textSecondary(context),
                     ),
                     maxLines: 1,
@@ -342,47 +457,71 @@ class _GroupCard extends StatelessWidget {
 
             const Spacer(),
 
-            // ─── Action Icons Row (Join + Remove) ───
+            // ─── Action row ───
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
               child: Row(
                 children: [
-                  // Join icon button
                   Expanded(
                     child: GestureDetector(
-                      onTap: joinStatus == null ? onJoin : null,
+                      onTap: isJoinable ? onJoin : null,
                       child: Container(
-                        height: 32,
+                        height: 34,
                         decoration: BoxDecoration(
-                          color: joinStatus == null
+                          color: isJoinable
                               ? FeedDesignTokens.brand(context)
                               : FeedDesignTokens.inputBg(context),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isJoinable
+                                ? Colors.transparent
+                                : FeedDesignTokens.divider(context),
+                            width: 0.8,
+                          ),
                         ),
-                        child: Icon(
-                          joinStatus == null
-                              ? Icons.group_add_rounded
-                              : joinStatus == 'Joined'
-                                  ? Icons.check_rounded
-                                  : Icons.hourglass_top_rounded,
-                          size: 20,
-                          color: joinStatus == null
-                              ? Colors.white
-                              : FeedDesignTokens.textSecondary(context),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isJoinable
+                                  ? Icons.group_add_rounded
+                                  : joinStatus == 'Joined'
+                                      ? Icons.check_rounded
+                                      : Icons.hourglass_top_rounded,
+                              size: 18,
+                              color: isJoinable
+                                  ? Colors.white
+                                  : FeedDesignTokens.textSecondary(context),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              statusLabel,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isJoinable
+                                    ? Colors.white
+                                    : FeedDesignTokens.textSecondary(context),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 6),
-                  // Remove icon button
                   GestureDetector(
                     onTap: onDismiss,
                     child: Container(
-                      height: 32,
-                      width: 32,
+                      height: 34,
+                      width: 34,
                       decoration: BoxDecoration(
                         color: FeedDesignTokens.inputBg(context),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: FeedDesignTokens.divider(context),
+                          width: 0.8,
+                        ),
                       ),
                       child: Icon(
                         Icons.close_rounded,
@@ -395,6 +534,31 @@ class _GroupCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCoverFallback(BuildContext context) {
+    return Container(
+      color: FeedDesignTokens.inputBg(context),
+      child: Center(
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: FeedDesignTokens.cardBg(context),
+            shape: BoxShape.circle,
+          border: Border.all(
+            color: FeedDesignTokens.divider(context),
+            width: 1,
+          ),
+        ),
+          child: Icon(
+            Icons.groups_rounded,
+            size: 24,
+            color: FeedDesignTokens.textSecondary(context),
+          ),
         ),
       ),
     );

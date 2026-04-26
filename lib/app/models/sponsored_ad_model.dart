@@ -98,4 +98,28 @@ class SponsoredAdModel {
 
   /// Ad/campaign ID.
   String? get adId => data['_id'] as String?;
+
+  /// Ad set ID required by /api/campaigns-v2/beacon and /ad-impression.
+  String? get adSetId =>
+      data['ad_set_id']?.toString() ?? data['adSetId']?.toString();
+
+  /// Reservation ticket ID used for confirmed impression flow.
+  String? get reservationId =>
+      data['reservation_id']?.toString() ?? data['reservationId']?.toString();
+
+  /// Optional auction clear price in cents (used for impression billing context).
+  int? get clearPriceCents {
+    final auction = data['_auction'];
+    if (auction is Map<String, dynamic>) {
+      final raw = auction['clear_price_cents'];
+      if (raw is int) return raw;
+      if (raw is num) return raw.toInt();
+      if (raw is String) return int.tryParse(raw);
+    }
+    final raw = data['clear_price_cents'];
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
+  }
 }

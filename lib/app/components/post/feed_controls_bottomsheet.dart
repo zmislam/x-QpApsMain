@@ -34,7 +34,7 @@ class FeedControlsBottomsheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: FeedDesignTokens.textSecondary(context).withOpacity(0.3),
+              color: FeedDesignTokens.textSecondary(context).withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -44,7 +44,7 @@ class FeedControlsBottomsheet extends StatelessWidget {
             context,
             icon: Icons.remove_circle_outline,
             label: 'Show less',
-            subtitle: "See fewer posts like this",
+            subtitle: 'See fewer posts like this',
             onTap: () {
               _handleShowLess();
             },
@@ -65,7 +65,7 @@ class FeedControlsBottomsheet extends StatelessWidget {
               context,
               icon: Icons.access_time,
               label: 'Snooze ${post.user_id?.first_name} for 30 days',
-              subtitle: "Temporarily stop seeing posts",
+              subtitle: 'Temporarily stop seeing posts',
               onTap: () {
                 _handleSnooze();
               },
@@ -104,7 +104,7 @@ class FeedControlsBottomsheet extends StatelessWidget {
   void _handleShowLess() {
     try {
       final controller = Get.find<HomeController>();
-      controller.trackFeedEngagement('show_less');
+      controller.trackFeedEngagement('show_less', postId: post.id);
       controller.removePostFromFeed(post.id ?? '');
     } catch (_) {}
     Get.back();
@@ -121,7 +121,7 @@ class FeedControlsBottomsheet extends StatelessWidget {
   void _handleNotInterested() {
     try {
       final controller = Get.find<HomeController>();
-      controller.trackFeedEngagement('not_interested');
+      controller.trackFeedEngagement('not_interested', postId: post.id);
       controller.removePostFromFeed(post.id ?? '');
     } catch (_) {}
     Get.back();
@@ -139,7 +139,7 @@ class FeedControlsBottomsheet extends StatelessWidget {
     final userId = post.user_id?.id;
     try {
       final controller = Get.find<HomeController>();
-      controller.trackFeedEngagement('snooze');
+      controller.trackFeedEngagement('snooze', postId: post.id);
       // Remove all posts from this user in the current feed
       if (userId != null) {
         final postsToRemove = controller.edgeRankPosts

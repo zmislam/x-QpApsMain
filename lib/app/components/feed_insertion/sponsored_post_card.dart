@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import '../../config/constants/api_constant.dart';
 import '../../config/constants/app_assets.dart';
 import '../../config/constants/feed_design_tokens.dart';
@@ -38,9 +41,15 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
   VideoPlayerController? _videoController;
   bool _videoInitialized = false;
   bool _videoFailed = false;
+  Timer? _impressionTimer;
+  bool _impressionTracked = false;
+  static const Duration _impressionDelay = Duration(seconds: 1);
 
   // ── Derived fields ──
   late final String _campaignId;
+  late final String? _adSetId;
+  late final String? _reservationId;
+  late final int? _clearPriceCents;
   late final String _headline;
   late final String _description;
   late final String _ctaLabel;
@@ -74,6 +83,10 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
     debugPrint('[SponsoredPostCard] call_to_action: ${data['call_to_action']}');
 
     _campaignId = (data['_id'] ?? '').toString();
+    _adSetId = (data['ad_set_id'] ?? data['adSetId'])?.toString();
+    _reservationId =
+      (data['reservation_id'] ?? data['reservationId'])?.toString();
+    _clearPriceCents = _extractClearPriceCents(data);
     // Web: const campaignName = data.campaign_name || data.creative?.headline || "";
     _headline =
         (data['campaign_name'] ?? 
@@ -260,28 +273,110 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
 
   @override
   void dispose() {
+    _impressionTimer?.cancel();
     _videoController?.dispose();
     super.dispose();
   }
 
+  int? _extractClearPriceCents(Map<String, dynamic> data) {
+    final auction = data['_auction'];
+    if (auction is Map) {
+      final raw = auction['clear_price_cents'];
+      if (raw is int) return raw;
+      if (raw is num) return raw.toInt();
+      if (raw is String) return int.tryParse(raw);
+    }
+
+    final raw = data['clear_price_cents'];
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
+  }
+
+  void _onCardVisibilityChanged(VisibilityInfo info) {
+    if (_impressionTracked || _campaignId.isEmpty) return;
+
+    final qualifies = info.visibleFraction >= 0.5;
+    if (qualifies) {
+      _impressionTimer ??= Timer(_impressionDelay, () {
+        _impressionTimer = null;
+        _impressionTracked = true;
+        _trackImpression();
+      });
+      return;
+    }
+
+    _impressionTimer?.cancel();
+    _impressionTimer = null;
+  }
+
+  void _trackAdEvent({required String eventType, int? clearPriceCents}) {
+    final adSetId = _adSetId;
+    if (_campaignId.isEmpty || adSetId == null || adSetId.isEmpty) {
+      return;
+    }
+
+    final request = <String, dynamic>{
+      'ad_id': _campaignId,
+      'ad_set_id': adSetId,
+      'event_type': eventType,
+    };
+
+    if (clearPriceCents != null && clearPriceCents > 0) {
+      request['clear_price_cents'] = clearPriceCents;
+    }
+
+    () async {
+      try {
+        await _api.doPostRequest(
+          apiEndPoint: 'campaigns-v2/beacon',
+          requestData: request,
+          enableLoading: false,
+        );
+      } catch (_) {}
+    }();
+  }
+
+  void _confirmAdImpression() {
+    final adSetId = _adSetId;
+    final reservationId = _reservationId;
+    if (_campaignId.isEmpty ||
+        adSetId == null ||
+        adSetId.isEmpty ||
+        reservationId == null ||
+        reservationId.isEmpty) {
+      return;
+    }
+
+    () async {
+      try {
+        await _api.doPostRequest(
+          apiEndPoint: 'campaigns-v2/ad-impression',
+          requestData: {
+            'ad_id': _campaignId,
+            'reservation_id': reservationId,
+            'ad_set_id': adSetId,
+          },
+          enableLoading: false,
+        );
+      } catch (_) {}
+    }();
+  }
+
+  void _trackImpression() {
+    _trackAdEvent(
+      eventType: 'impression',
+      clearPriceCents: _clearPriceCents,
+    );
+    _confirmAdImpression();
+  }
+
   // ───────────────────────────────────────────────────────
-  // Campaign click tracking (mirroring web's handleClick)
+  // Campaign click tracking (web-parity V2 beacon)
   // ───────────────────────────────────────────────────────
   void _trackClick() {
-    _api
-        .doPostRequest(
-          apiEndPoint: 'campaign/save-campaign-performance',
-          requestData: {
-            'campaign_id': _campaignId,
-            'campaign_name': widget.data['campaign_name'] ?? '',
-            'campaign_location':
-                (widget.data['locations'] as List?)?.join(',') ?? '',
-            'is_impressed': false,
-            'is_reached': false,
-            'is_clicked': true,
-          },
-        )
-        .catchError((_) {});
+    _trackAdEvent(eventType: 'click');
   }
 
   // ───────────────────────────────────────────────────────
@@ -289,7 +384,6 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
   // ───────────────────────────────────────────────────────
   void _onLike() {
     setState(() => _liked = !_liked);
-    _trackClick();
   }
 
   void _onComment() {
@@ -309,13 +403,17 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
     if (!url.startsWith('http')) url = 'https://$url';
     final shareText = _headline.isNotEmpty ? '$_headline\n$url' : url;
     Share.share(shareText);
-    _trackClick();
   }
 
   void _onDismiss() {
-    EdgeRankRepository()
-        .dismissInsertion(insertionType: 'sponsored', itemId: _campaignId)
-        .catchError((_) {});
+    () async {
+      try {
+        await EdgeRankRepository().dismissInsertion(
+          insertionType: 'sponsored',
+          itemId: _campaignId,
+        );
+      } catch (_) {}
+    }();
     setState(() => _hidden = true);
   }
 
@@ -393,11 +491,14 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
   Widget build(BuildContext context) {
     if (_campaignId.isEmpty || _hidden) return const SizedBox.shrink();
 
-    return Container(
-      color: FeedDesignTokens.cardBg(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return VisibilityDetector(
+      key: Key('sponsored-insertion-$_campaignId'),
+      onVisibilityChanged: _onCardVisibilityChanged,
+      child: Container(
+        color: FeedDesignTokens.cardBg(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // ─── Separator ───
           Container(
             height: FeedDesignTokens.separatorHeight,
@@ -933,7 +1034,8 @@ class _SponsoredPostCardState extends State<SponsoredPostCard> {
             height: FeedDesignTokens.separatorHeight,
             color: FeedDesignTokens.surfaceBg(context),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

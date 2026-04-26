@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
@@ -52,6 +51,11 @@ mixin EdgeRankFeedMixin on GetxController {
   /// After [_maxConsecutiveEmptyDedup] such batches, we treat as exhausted.
   int _consecutiveEmptyDedupCount = 0;
   static const int _maxConsecutiveEmptyDedup = 5;
+
+  /// Prefetch safeguards to reduce redundant network and cache churn.
+  static const int _maxPrefetchPostsPerBatch = 8;
+  static const int _maxTrackedPrefetchUrls = 500;
+  final Set<String> _prefetchedImageUrls = <String>{};
 
   // ─── Feed Fetch ──────────────────────────────────────────
 
@@ -229,6 +233,7 @@ mixin EdgeRankFeedMixin on GetxController {
     feedExhausted.value = false;
     _feedRetryCount = 0;
     _consecutiveEmptyDedupCount = 0;
+    _prefetchedImageUrls.clear();
     sponsoredAdsMap.clear();
     await fetchEdgeRankFeed(isInitial: true, forceRecallAPI: true);
   }
@@ -245,6 +250,7 @@ mixin EdgeRankFeedMixin on GetxController {
     feedExhausted.value = false;
     _feedRetryCount = 0;
     _consecutiveEmptyDedupCount = 0;
+    _prefetchedImageUrls.clear();
     sponsoredAdsMap.clear();
     await fetchEdgeRankFeed(isInitial: true, forceRecallAPI: true);
   }
@@ -286,9 +292,18 @@ mixin EdgeRankFeedMixin on GetxController {
   // ─── Engagement Tracking ─────────────────────────────────
 
   /// Track a user engagement action for the EdgeRank algorithm.
-  void trackFeedEngagement(String action) async {
+  Future<void> trackFeedEngagement(
+    String action, {
+    String? postId,
+    List<String>? postIds,
+  }) async {
     try {
-      await _edgeRankRepo.trackEngagement(action);
+      await _edgeRankRepo.trackEngagement(
+        action,
+        postId: postId,
+        postIds: postIds,
+        feedMode: currentFeedMode.value,
+      );
     } catch (e) {
       debugPrint('Engagement tracking failed: $e');
     }
@@ -300,18 +315,13 @@ mixin EdgeRankFeedMixin on GetxController {
   /// disk & memory cache so they display instantly when scrolled into view.
   void _prefetchPostImages(List<PostModel> posts) {
     final context = Get.context;
-    if (context == null) return;
+    if (context == null || posts.isEmpty) return;
 
-    for (final post in posts) {
+    for (final post in posts.take(_maxPrefetchPostsPerBatch)) {
       // Prefetch author profile pic
-      final profilePic = post.user_id?.profile_pic;
+      final profilePic = post.user_id?.profile_pic?.formatedProfileUrl;
       if (profilePic != null && profilePic.isNotEmpty) {
-        try {
-          precacheImage(
-            CachedNetworkImageProvider(profilePic.formatedProfileUrl),
-            context,
-          );
-        } catch (_) {}
+        _prefetchNetworkImage(context, profilePic);
       }
 
       final mediaList = post.media;
@@ -325,14 +335,29 @@ mixin EdgeRankFeedMixin on GetxController {
         if (filename == null || filename.isEmpty) continue;
         if (!isImageUrl(filename)) continue;
 
-        try {
-          precacheImage(
-            CachedNetworkImageProvider(filename.formatedPostUrl),
-            context,
-          );
+        if (_prefetchNetworkImage(context, filename.formatedPostUrl)) {
           prefetched++;
-        } catch (_) {}
+        }
       }
     }
+  }
+
+  bool _prefetchNetworkImage(BuildContext context, String url) {
+    if (url.isEmpty || _prefetchedImageUrls.contains(url)) {
+      return false;
+    }
+
+    if (_prefetchedImageUrls.length >= _maxTrackedPrefetchUrls) {
+      _prefetchedImageUrls.clear();
+    }
+    _prefetchedImageUrls.add(url);
+
+    precacheImage(
+      CachedNetworkImageProvider(url),
+      context,
+      // Missing/expired media should not surface as noisy Flutter errors.
+      onError: (_, __) {},
+    );
+    return true;
   }
 }

@@ -49,6 +49,7 @@ class ReelsCameraController extends GetxController with GetTickerProviderStateMi
   // ─── Gallery ───────────────────────────────────────────
   final RxList<XFile> selectedGalleryFiles = <XFile>[].obs;
   final ImagePicker _imagePicker = ImagePicker();
+  final RxBool noCameraAvailable = false.obs;
 
   @override
   void onInit() {
@@ -71,7 +72,11 @@ class ReelsCameraController extends GetxController with GetTickerProviderStateMi
   Future<void> _initCamera() async {
     try {
       _cameras = await availableCameras();
-      if (_cameras.isEmpty) return;
+      if (_cameras.isEmpty) {
+        noCameraAvailable.value = true;
+        isInitialized.value = true;
+        return;
+      }
 
       // Default to front camera
       final frontCam = _cameras.firstWhereOrNull(

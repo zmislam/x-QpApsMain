@@ -16,17 +16,22 @@
 // Rewritten: 2026-03-14 — full engagement features matching regular post cards
 // =============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../config/constants/api_constant.dart';
 import '../../config/constants/feed_design_tokens.dart';
 import '../../models/sponsored_ad_model.dart';
 import '../../repository/ad_engagement_repository.dart';
+import '../../repository/edgerank_repository.dart';
+import '../../services/api_communication.dart';
 import '../../utils/post_utlis.dart';
 import '../reaction_button/post_reaction_button.dart';
 
@@ -44,6 +49,8 @@ class SponsoredAdWidget extends StatefulWidget {
 
 class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
   final AdEngagementRepository _repo = AdEngagementRepository();
+  final ApiCommunication _api = ApiCommunication();
+  final EdgeRankRepository _edgeRankRepo = EdgeRankRepository();
 
   // ── Engagement state ──
   Map<String, dynamic> _reactions = {}; // {like: N, love: N, ...}
@@ -67,8 +74,16 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
   // ── Busy flag ──
   bool _reactionBusy = false;
   bool _showFullText = false;
+  bool _isHidden = false;
+
+  Timer? _impressionTimer;
+  bool _impressionTracked = false;
+  static const Duration _impressionDelay = Duration(seconds: 1);
 
   String? get _adId => widget.ad.adId;
+  String? get _adSetId => widget.ad.adSetId;
+  String? get _reservationId => widget.ad.reservationId;
+  int? get _clearPriceCents => widget.ad.clearPriceCents;
 
   @override
   void initState() {
@@ -81,10 +96,113 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
 
   @override
   void dispose() {
+    _impressionTimer?.cancel();
     _commentController.dispose();
     _commentFocusNode.dispose();
+    _api.endConnection();
     _repo.dispose();
     super.dispose();
+  }
+
+  void _onCardVisibilityChanged(VisibilityInfo info) {
+    if (_impressionTracked || _adId == null) return;
+
+    final qualifies = info.visibleFraction >= 0.5;
+    if (qualifies) {
+      _impressionTimer ??= Timer(_impressionDelay, () {
+        _impressionTimer = null;
+        _impressionTracked = true;
+        _trackImpression();
+      });
+      return;
+    }
+
+    _impressionTimer?.cancel();
+    _impressionTimer = null;
+  }
+
+  void _trackAdEvent({required String eventType, int? clearPriceCents}) {
+    final adId = _adId;
+    final adSetId = _adSetId;
+    if (adId == null || adId.isEmpty || adSetId == null || adSetId.isEmpty) {
+      return;
+    }
+
+    final request = <String, dynamic>{
+      'ad_id': adId,
+      'ad_set_id': adSetId,
+      'event_type': eventType,
+    };
+
+    if (clearPriceCents != null && clearPriceCents > 0) {
+      request['clear_price_cents'] = clearPriceCents;
+    }
+
+    () async {
+      try {
+        await _api.doPostRequest(
+          apiEndPoint: 'campaigns-v2/beacon',
+          requestData: request,
+          enableLoading: false,
+        );
+      } catch (_) {}
+    }();
+  }
+
+  void _confirmAdImpression() {
+    final adId = _adId;
+    final adSetId = _adSetId;
+    final reservationId = _reservationId;
+    if (adId == null ||
+        adId.isEmpty ||
+        adSetId == null ||
+        adSetId.isEmpty ||
+        reservationId == null ||
+        reservationId.isEmpty) {
+      return;
+    }
+
+    () async {
+      try {
+        await _api.doPostRequest(
+          apiEndPoint: 'campaigns-v2/ad-impression',
+          requestData: {
+            'ad_id': adId,
+            'reservation_id': reservationId,
+            'ad_set_id': adSetId,
+          },
+          enableLoading: false,
+        );
+      } catch (_) {}
+    }();
+  }
+
+  void _trackImpression() {
+    _trackAdEvent(
+      eventType: 'impression',
+      clearPriceCents: _clearPriceCents,
+    );
+    _confirmAdImpression();
+  }
+
+  void _trackClick() {
+    _trackAdEvent(eventType: 'click');
+  }
+
+  void _onDismiss() {
+    final campaignId = _adId;
+    if (campaignId != null && campaignId.isNotEmpty) {
+      () async {
+        try {
+          await _edgeRankRepo.dismissInsertion(
+            insertionType: 'sponsored',
+            itemId: campaignId,
+          );
+        } catch (_) {}
+      }();
+    }
+    if (!mounted) return;
+    setState(() => _isHidden = true);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -240,51 +358,148 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isHidden) return const SizedBox.shrink();
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final coverUrl = widget.ad.coverMedia.isNotEmpty
         ? _formatMediaUrl(widget.ad.coverMedia.first)
         : null;
     final description = widget.ad.description ?? '';
-    
-    // Debug logging for sponsored ad data
-    debugPrint('[SponsoredAd] Ad ID: ${widget.ad.adId}');
-    debugPrint('[SponsoredAd] Raw coverMedia: ${widget.ad.coverMedia}');
-    debugPrint('[SponsoredAd] Formatted coverUrl: $coverUrl');
-    debugPrint('[SponsoredAd] isVideo: ${widget.ad.isVideo}');
-    debugPrint('[SponsoredAd] websiteUrl: ${widget.ad.websiteUrl}');
-    debugPrint('[SponsoredAd] ctaLabel: ${widget.ad.ctaLabel}');
+    final BorderRadius cardRadius = BorderRadius.circular(20);
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTopAccentBar(context),
 
+        // ── Header: AD badge + campaign name + "Sponsored" label + close ──
+        _buildHeader(context, isDark),
+
+        // ── Description ──
+        if (description.isNotEmpty)
+          _buildDescription(context, isDark, description),
+
+        // ── Cover media ──
+        if (coverUrl != null) _buildCoverMedia(coverUrl, isDark),
+
+        // ── CTA bar (website + Learn More button) ──
+        if (widget.ad.websiteUrl != null &&
+            widget.ad.websiteUrl!.isNotEmpty)
+          _buildCtaBar(context, isDark),
+
+        // ── Single-row footer (Facebook-style, matching PostFooter) ──
+        _buildSingleRowFooter(context),
+
+        // ── Inline comments section (expandable) ──
+        if (_commentsExpanded) _buildCommentsSection(context, isDark),
+      ],
+    );
+
+    return VisibilityDetector(
+      key: Key('sponsored-ad-${_adId ?? widget.ad.hashCode}'),
+      onVisibilityChanged: _onCardVisibilityChanged,
+      child: RepaintBoundary(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(4, 3, 4, 4),
+          decoration: _buildCardDecoration(context, isDark, cardRadius),
+          clipBehavior: Clip.hardEdge,
+          child: Stack(
+            children: [
+              Positioned.fill(child: _buildCardBackground(context)),
+              content,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _buildCardDecoration(
+    BuildContext context,
+    bool isDark,
+    BorderRadius borderRadius,
+  ) {
+    return BoxDecoration(
+      borderRadius: borderRadius,
+      border: Border.all(
+        color: FeedDesignTokens.brand(context)
+            .withValues(alpha: isDark ? 0.25 : 0.16),
+        width: 1,
+      ),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          FeedDesignTokens.cardBg(context),
+          FeedDesignTokens.cardBg(context),
+          FeedDesignTokens.inputBg(context)
+              .withValues(alpha: isDark ? 0.35 : 0.72),
+        ],
+        stops: const [0, 0.62, 1],
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: FeedDesignTokens.brand(context)
+              .withValues(alpha: isDark ? 0.14 : 0.08),
+          blurRadius: 18,
+          spreadRadius: 0,
+          offset: const Offset(0, 8),
+        ),
+        BoxShadow(
+          color: isDark
+              ? Colors.black.withValues(alpha: 0.42)
+              : Colors.black.withValues(alpha: 0.08),
+          blurRadius: 12,
+          spreadRadius: 0,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopAccentBar(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      color: FeedDesignTokens.cardBg(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      height: 4,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            FeedDesignTokens.brand(context),
+            const Color(0xFF2AB7CA),
+            const Color(0xFF4DAA57),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardBackground(BuildContext context) {
+    final accent = FeedDesignTokens.brand(context);
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          // ── Header: AD badge + campaign name + "Sponsored" label + close ──
-          _buildHeader(context, isDark),
-
-          // ── Description ──
-          if (description.isNotEmpty)
-            _buildDescription(context, isDark, description),
-
-          // ── Cover media ──
-          if (coverUrl != null) _buildCoverMedia(coverUrl, isDark),
-
-          // ── CTA bar (website + Learn More button) ──
-          if (widget.ad.websiteUrl != null &&
-              widget.ad.websiteUrl!.isNotEmpty)
-            _buildCtaBar(context, isDark),
-
-          // ── Single-row footer (Facebook-style, matching PostFooter) ──
-          _buildSingleRowFooter(context),
-
-          // ── Inline comments section (expandable) ──
-          if (_commentsExpanded) _buildCommentsSection(context, isDark),
-
-          // ── Post separator ──
-          Container(
-            height: FeedDesignTokens.separatorHeight,
-            color: FeedDesignTokens.surfaceBg(context),
+          Positioned(
+            right: -36,
+            top: -44,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -52,
+            bottom: -58,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.04),
+              ),
+            ),
           ),
         ],
       ),
@@ -384,9 +599,7 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
           ),
           // Close / dismiss button
           GestureDetector(
-            onTap: () {
-              // Could hook into dismissal API if needed
-            },
+            onTap: _onDismiss,
             child: Padding(
               padding: const EdgeInsets.all(4),
               child: Icon(
@@ -1066,6 +1279,7 @@ class _SponsoredAdWidgetState extends State<SponsoredAdWidget> {
   }
 
   Future<void> _launchUrl(String url) async {
+    _trackClick();
     final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);

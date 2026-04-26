@@ -82,6 +82,13 @@ class FriendController extends GetxController {
   //  GET — Friend Related Functions
   // ════════════════════════════════════════════════════════════
 
+  List<FriendModel> _parseFriendModels(List<dynamic> rawItems) {
+    return rawItems
+        .whereType<Map>()
+        .map((item) => FriendModel.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
   Future<void> getSearchPeople(String text) async {
     isLoadingNewsFeed.value = true;
 
@@ -145,15 +152,11 @@ class FriendController extends GetxController {
         if (data is Map<String, dynamic>) {
           // Parse results array
           final results = data['results'] as List? ?? [];
-          fullFriendList.value = results
-              .map((e) => FriendModel.fromJson(e as Map<String, dynamic>))
-              .toList();
+          fullFriendList.value = _parseFriendModels(results);
           totalFriendCount.value =
               data['friendCount'] as int? ?? fullFriendList.value.length;
         } else if (data is List) {
-          fullFriendList.value = data
-              .map((e) => FriendModel.fromJson(e as Map<String, dynamic>))
-              .toList();
+          fullFriendList.value = _parseFriendModels(data);
           totalFriendCount.value = fullFriendList.value.length;
         }
         fullFriendList.refresh();

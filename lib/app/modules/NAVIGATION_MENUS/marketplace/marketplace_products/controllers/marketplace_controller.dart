@@ -422,26 +422,21 @@ class MarketplaceController extends GetxController {
         RecentlyVisitedService.instance.getRecentProducts(limit: 10);
   }
 
-  /// Fire beacon impression event for a sponsored product.
-  void trackImpression(AllProducts product) {
-    final promoId = product.activePromotionId;
-    if (promoId == null || promoId.isEmpty) return;
-    marketPlaceRepository.sendBeaconEvent(
-      promotionId: promoId,
-      eventType: 'impression',
-      productId: product.id,
-    );
+  /// Web parity: impressions are already recorded server-side on sponsored fetch.
+  /// Keep this as a no-op to avoid build-triggered inflation on list rebuilds.
+  void trackImpression(AllProducts _) {
+    return;
   }
 
-  /// Fire beacon click event for a sponsored product.
+  /// Web parity: click tracking uses /promotion/track-click.
   void trackClick(AllProducts product) {
     final promoId = product.activePromotionId;
     if (promoId == null || promoId.isEmpty) return;
-    marketPlaceRepository.sendBeaconEvent(
-      promotionId: promoId,
-      eventType: 'click',
-      productId: product.id,
-    );
+    () async {
+      try {
+        await marketPlaceRepository.trackPromotionClick(promotionId: promoId);
+      } catch (_) {}
+    }();
   }
 
   Timer? _debounceTimer;

@@ -24,6 +24,10 @@ class ReelsCameraView extends GetView<ReelsCameraController> {
           );
         }
 
+        if (controller.noCameraAvailable.value) {
+          return _buildNoCameraFallback(context);
+        }
+
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -257,6 +261,58 @@ class ReelsCameraView extends GetView<ReelsCameraController> {
             },
             child: const Text('Discard', style: TextStyle(color: Colors.red)),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoCameraFallback(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => Get.back(),
+                  child: const Icon(Icons.close, color: Colors.white, size: 28),
+                ),
+                const Spacer(),
+                const Text(
+                  'Create Reel',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                const SizedBox(width: 28),
+              ],
+            ),
+          ),
+          const Spacer(),
+          const Icon(Icons.videocam_off_outlined, color: Colors.white38, size: 64),
+          const SizedBox(height: 16),
+          const Text(
+            'Camera not available',
+            style: TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Select a video from your gallery instead',
+            style: TextStyle(color: Colors.white38, fontSize: 14),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: () => controller.pickFromGallery(),
+            icon: const Icon(Icons.photo_library_outlined),
+            label: const Text('Choose from Gallery'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            ),
+          ),
+          const Spacer(),
         ],
       ),
     );
